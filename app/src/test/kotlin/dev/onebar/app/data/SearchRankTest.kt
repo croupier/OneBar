@@ -94,6 +94,15 @@ class SearchRankTest {
     }
 
     @Test
+    fun `группа like-маск не отменяет фильтр перед ней`() {
+        val clause = likeClause(listOf("%а%", "%А%", "%a%"), "display_name")
+        assertEquals(
+            """(display_name LIKE ? ESCAPE '\' OR display_name LIKE ? ESCAPE '\' OR display_name LIKE ? ESCAPE '\')""",
+            clause,
+        )
+    }
+
+    @Test
     fun `число масок для like ограничено`() {
         val patterns = likePatterns("susus")
         assertEquals(12, patterns.size)
