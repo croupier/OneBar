@@ -8,6 +8,8 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.ContactsContract
 import android.provider.ContactsContract.Data
+import android.provider.Settings
+import dev.onebar.app.R
 import dev.onebar.app.data.ContactEntry
 import dev.onebar.app.data.MessengerTile
 import java.net.URLEncoder
@@ -44,8 +46,12 @@ object SearchActions {
 
     fun copyNumber(context: Context, number: String) {
         context.getSystemService(ClipboardManager::class.java)
-            ?.setPrimaryClip(ClipData.newPlainText("Телефон", number))
+            ?.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.clipboard_phone), number))
     }
+
+    /** Экран «О приложении» системных настроек: отсюда же и удаление одним тапом. */
+    fun appInfo(context: Context, packageName: String) =
+        start(context, Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
 
     fun editContact(context: Context, entry: ContactEntry) =
         start(context, Intent(Intent.ACTION_EDIT, lookupUri(entry)))

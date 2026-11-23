@@ -7,6 +7,7 @@ import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,11 +29,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.onebar.app.R
 import dev.onebar.app.data.LaunchableApp
 
 val ROW_HEIGHT = 64.dp
@@ -153,17 +156,33 @@ val AppItemSize = 44.dp
 @Composable
 fun AppItem(
     app: LaunchableApp,
+    favorite: Boolean,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier
             .size(width = 70.dp, height = 78.dp)
-            .clickable(onClick = onClick),
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
     ) {
-        AppIcon(app.packageName)
+        Box {
+            AppIcon(app.packageName)
+            if (favorite) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_star),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(1.dp)
+                        .size(14.dp)
+                        .background(MaterialTheme.colorScheme.background, CircleShape),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
         Text(
             text = app.label,
             maxLines = 1,

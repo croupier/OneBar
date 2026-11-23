@@ -37,9 +37,11 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.onebar.app.R
+import dev.onebar.app.data.CommunicationKind
 import dev.onebar.app.data.ContactEntry
 
 @Composable
@@ -59,8 +61,8 @@ fun ContactsSection(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("Доступ к контактам не разрешён", modifier = Modifier.weight(1f))
-            Button(onClick = onRequestPermission) { Text("Разрешить") }
+            Text(stringResource(R.string.contacts_denied), modifier = Modifier.weight(1f))
+            Button(onClick = onRequestPermission) { Text(stringResource(R.string.allow)) }
         }
         return
     }
@@ -72,6 +74,7 @@ fun ContactsSection(
                 row = row,
                 smsIcon = smsIcon,
                 callIcon = callIcon,
+                favorite = !state.favoritesMode && row.entry.lookupKey in state.favContactKeys,
                 onSms = { onSms(row.entry) },
                 onCall = { onCall(row.entry) },
                 onOpen = { onOpen(row.entry) },
@@ -86,18 +89,37 @@ private fun ContactRow(
     row: ContactRowUi,
     smsIcon: Drawable?,
     callIcon: Drawable?,
+    favorite: Boolean,
     onSms: () -> Unit,
     onCall: () -> Unit,
     onOpen: () -> Unit,
     onMenu: () -> Unit,
 ) {
     val canAct = row.entry.number != null
+    // Подпись строки журнала собирается здесь, а не во ViewModel: названия действий локализуемы.
+    val detail = when {
+        row.logKind != null -> {
+            val kind = stringResource(
+                if (row.logKind == CommunicationKind.CALL) R.string.caption_call else R.string.caption_sms
+            )
+            "$kind · ${row.logTime} · ${row.entry.number}"
+        }
+        else -> row.entry.number.orEmpty()
+    }
     SwipeableRow(enabled = canAct, onTrigger = onCall) { labels ->
         Row(
             modifier = Modifier.fillMaxWidth().height(ROW_HEIGHT).padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            if (favorite) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_star),
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -111,9 +133,9 @@ private fun ContactRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                if (row.detail.isNotBlank()) {
+                if (detail.isNotBlank()) {
                     Text(
-                        text = row.detail,
+                        text = detail,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -126,16 +148,16 @@ private fun ContactRow(
                 ActionIcon(
                     handlerIcon = smsIcon,
                     fallbackIcon = painterResource(R.drawable.ic_sms),
-                    contentDescription = "Написать СМС",
+                    contentDescription = stringResource(R.string.sms_action),
                     onClick = onSms,
-                    caption = if (labels) "СМС" else null,
+                    caption = if (labels) stringResource(R.string.caption_sms) else null,
                 )
                 ActionIcon(
                     handlerIcon = callIcon,
                     fallbackIcon = painterResource(R.drawable.ic_call),
-                    contentDescription = "Позвонить",
+                    contentDescription = stringResource(R.string.call_action),
                     onClick = onCall,
-                    caption = if (labels) "Звонок" else null,
+                    caption = if (labels) stringResource(R.string.caption_call) else null,
                 )
             } else {
                 Spacer(Modifier.size(AppItemSize * 2 + 10.dp))
@@ -228,7 +250,7 @@ private fun HistoryRow(
         )
         Icon(
             painter = painterResource(R.drawable.ic_submit),
-            contentDescription = "Вернуть в строку поиска",
+            contentDescription = stringResource(R.string.history_restore),
             modifier = Modifier
                 .padding(end = 14.dp)
                 .clip(RoundedCornerShape(8.dp))
@@ -286,7 +308,7 @@ private fun WebRow(
                 letter = "Я",
                 badgeBackground = Color(0xFFFC3F1D),
                 badgeContentColor = Color.White,
-                label = "Искать в Яндексе",
+                label = stringResource(R.string.search_yandex),
                 onClick = { onSearch(WebEngine.YANDEX) },
                 caption = if (labels) "Яндекс" else null,
             )
@@ -294,7 +316,7 @@ private fun WebRow(
                 letter = "G",
                 badgeBackground = Color(0xFFF1F3F4),
                 badgeContentColor = Color(0xFF4285F4),
-                label = "Искать в Google",
+                label = stringResource(R.string.search_google),
                 onClick = { onSearch(WebEngine.GOOGLE) },
                 caption = if (labels) "Google" else null,
             )

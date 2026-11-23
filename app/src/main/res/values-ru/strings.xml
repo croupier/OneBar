@@ -1,0 +1,48 @@
+<resources>
+    <string name="app_name">OneBar</string>
+
+    <!-- Widget -->
+    <string name="widget_label">Поиск OneBar</string>
+    <string name="widget_hint">Поиск</string>
+    <string name="widget_description">Строка поиска: тап открывает OneBar с уже активированной клавиатурой</string>
+
+    <!-- Search bar -->
+    <string name="search_hint">Поиск</string>
+    <string name="close">Закрыть</string>
+    <string name="favorites">Избранное</string>
+
+    <!-- Sections -->
+    <string name="caption_sms">СМС</string>
+    <string name="caption_call">Звонок</string>
+    <string name="contacts_denied">Доступ к контактам не разрешён</string>
+    <string name="allow">Разрешить</string>
+    <string name="sms_action">Написать СМС</string>
+    <string name="call_action">Позвонить</string>
+    <string name="history_restore">Вернуть в строку поиска</string>
+    <string name="search_yandex">Искать в Яндексе</string>
+    <string name="search_google">Искать в Google</string>
+    <string name="nothing_found">Ничего не найдено</string>
+    <string name="fav_nothing_found">В избранном ничего не найдено</string>
+
+    <!-- Contact menu -->
+    <string name="menu_no_phone">Телефона нет</string>
+    <string name="menu_more_numbers">%1$s · ещё %2$d</string>
+    <string name="menu_call">Позвонить</string>
+    <string name="menu_sms">Отправить СМС</string>
+    <string name="menu_copy">Скопировать номер</string>
+    <string name="menu_edit">Изменить контакт</string>
+    <string name="menu_history_remove">Удалить из истории</string>
+    <string name="menu_fav_add">В избранное</string>
+    <string name="menu_fav_remove">Из избранного</string>
+    <string name="mail_action">Почта: %1$s</string>
+    <string name="clipboard_phone">Телефон</string>
+
+    <!-- App menu -->
+    <string name="app_menu_open">Открыть</string>
+    <string name="app_menu_info">О приложении</string>
+
+    <!-- Favorites empty state -->
+    <string name="fav_empty_title">Избранного пока нет</string>
+    <string name="fav_empty_text">Удерживайте палец на контакте или приложении и выберите «В избранное».</string>
+    <string name="fav_auto_close">Закроется через %1$d с</string>
+</resources>

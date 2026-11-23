@@ -58,6 +58,44 @@ class ContactRepository(private val context: Context) {
     }
 
     /**
+     * Избранные по lookup-ключам: порядок тот же, что в списке избранного, поэтому
+     * сортировка провайдера контактов здесь не подходит.
+     */
+    @SuppressLint("Range")
+    fun byLookupKeys(keys: List<String>): List<ContactEntry> {
+        if (!hasPermission() || keys.isEmpty()) return emptyList()
+        val selection = "${Contacts.LOOKUP_KEY} IN (${keys.placeholders()}) AND $HAS_PHONE_ONLY"
+        val found = HashMap<String, Pair<Long, String>>(keys.size)
+        context.contentResolver.query(
+            Contacts.CONTENT_URI,
+            arrayOf(Contacts._ID, Contacts.DISPLAY_NAME, Contacts.LOOKUP_KEY),
+            selection,
+            keys.toTypedArray(),
+            null,
+        )?.use { cursor ->
+            while (cursor.moveToNext()) {
+                found[cursor.getString(2)] = cursor.getLong(0) to cursor.getString(1)
+            }
+        }
+        val rows = keys.mapNotNull { key ->
+            val hit = found[key] ?: return@mapNotNull null
+            val (number, count) = defaultPhone(hit.first)
+            ContactEntry(
+                contactId = hit.first,
+                name = hit.second,
+                lookupKey = key,
+                number = number,
+                phoneCount = count,
+            )
+        }
+        val emails = emailsOf(rows.map { it.contactId })
+        val profiles = profileRows(rows.map { it.contactId })
+        return rows.map {
+            it.copy(email = emails[it.contactId], messengers = profiles[it.contactId].orEmpty())
+        }
+    }
+
+    /**
      * Дефолтным считаем номер, помеченный самим контактом (IS_SUPER_PRIMARY/IS_PRIMARY);
      * если таких пометок нет — мобильный, а иначе первую строку.
      */

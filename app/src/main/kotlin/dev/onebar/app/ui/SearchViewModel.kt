@@ -7,6 +7,7 @@ import dev.onebar.app.data.CommunicationEntry
 import dev.onebar.app.data.CommunicationKind
 import dev.onebar.app.data.ContactEntry
 import dev.onebar.app.data.ContactRepository
+import dev.onebar.app.data.FavoritesStore
 import dev.onebar.app.data.HistoryStore
 import dev.onebar.app.data.LaunchableApp
 import dev.onebar.app.data.SuggestRepository
@@ -27,7 +28,9 @@ import java.time.format.DateTimeFormatter
 
 data class ContactRowUi(
     val entry: ContactEntry,
-    val detail: String,
+    /** Строка журнала: тип действия и время; подпись типа локализуем в UI. */
+    val logKind: CommunicationKind? = null,
+    val logTime: String = "",
 )
 
 data class SearchState(
@@ -38,6 +41,11 @@ data class SearchState(
     val contactsGranted: Boolean = false,
     val queries: List<String> = emptyList(),
     val historyRequested: Boolean = false,
+    val favoritesMode: Boolean = false,
+    val favApps: List<String> = emptyList(),
+    val favContactKeys: List<String> = emptyList(),
+    /** Попап-подсказка при входе в избранное, где ещё ничего нет. */
+    val favoritesHint: Boolean = false,
 )
 
 class SearchViewModel(
@@ -45,6 +53,7 @@ class SearchViewModel(
     private val contacts: ContactRepository,
     private val suggestions: SuggestRepository,
     private val history: HistoryStore,
+    private val favoritesStore: FavoritesStore,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SearchState(contactsGranted = contacts.hasPermission()))
@@ -60,6 +69,9 @@ class SearchViewModel(
     private val _menuEntry = MutableStateFlow<ContactEntry?>(null)
     val menuEntry: StateFlow<ContactEntry?> = _menuEntry.asStateFlow()
 
+    private val _menuApp = MutableStateFlow<LaunchableApp?>(null)
+    val menuApp: StateFlow<LaunchableApp?> = _menuApp.asStateFlow()
+
     private var appsJob: Job? = null
     private var contactsJob: Job? = null
     private var suggestionsJob: Job? = null
@@ -69,7 +81,7 @@ class SearchViewModel(
             apps.matching("", 1)
             history.recentApps.collect { packages ->
                 recent = apps.byPackages(packages)
-                _state.update { if (it.query.isBlank()) it.copy(apps = recent) else it }
+                _state.update { if (it.query.isBlank() && !it.favoritesMode) it.copy(apps = recent) else it }
             }
         }
         viewModelScope.launch(Dispatchers.IO) {
@@ -79,9 +91,21 @@ class SearchViewModel(
             history.queries.collect { queries -> _state.update { it.copy(queries = queries) } }
         }
         viewModelScope.launch {
+            favoritesStore.apps.collect { packages ->
+                _state.update { it.copy(favApps = packages) }
+                reloadBlankApps()
+            }
+        }
+        viewModelScope.launch {
+            favoritesStore.contacts.collect { keys ->
+                _state.update { it.copy(favContactKeys = keys) }
+                reloadBlankContacts()
+            }
+        }
+        viewModelScope.launch {
             combine(journal, favorites) { entries, favs -> blankQueryRows(entries, favs) }
                 .collect { rows ->
-                    _state.update { if (it.query.isBlank()) it.copy(contacts = rows) else it }
+                    _state.update { if (it.query.isBlank() && !it.favoritesMode) it.copy(contacts = rows) else it }
                 }
         }
         loadContacts()
@@ -98,14 +122,62 @@ class SearchViewModel(
     /** Обход PackageManager занимает сотни миллисекунд, поэтому вне главного потока. */
     private fun loadApps(trimmed: String) {
         appsJob?.cancel()
+        val favoritesMode = _state.value.favoritesMode
         if (trimmed.isEmpty()) {
-            _state.update { it.copy(apps = recent) }
+            if (favoritesMode) reloadBlankApps() else _state.update { it.copy(apps = recent) }
             return
         }
         appsJob = viewModelScope.launch(Dispatchers.IO) {
             val found = apps.matching(trimmed, LIMIT)
-            _state.update { if (it.query.trim() == trimmed) it.copy(apps = found) else it }
+            val favSet = _state.value.favApps.toSet()
+            val visible = if (favoritesMode) found.filter { it.packageName in favSet } else found
+            _state.update {
+                if (it.query.trim() == trimmed && it.favoritesMode == favoritesMode) it.copy(apps = visible) else it
+            }
         }
+    }
+
+    /** Избранные приложения при пустом запросе: порядок — как список избранного. */
+    private fun reloadBlankApps() {
+        val s = _state.value
+        if (!s.favoritesMode || s.query.isNotBlank()) return
+        appsJob?.cancel()
+        appsJob = viewModelScope.launch(Dispatchers.IO) {
+            val fav = apps.byPackages(_state.value.favApps)
+            _state.update { if (it.favoritesMode && it.query.isBlank()) it.copy(apps = fav) else it }
+        }
+    }
+
+    /** Тап по звезде: тот же экран, только списки фильтруются по избранному. */
+    fun onToggleFavoritesMode() {
+        val entering = !_state.value.favoritesMode
+        _state.update {
+            it.copy(
+                favoritesMode = entering,
+                favoritesHint = entering && it.favApps.isEmpty() && it.favContactKeys.isEmpty(),
+            )
+        }
+        onQueryChange(_state.value.query)
+    }
+
+    fun onFavoritesHintDismissed() {
+        _state.update { it.copy(favoritesHint = false) }
+    }
+
+    fun onToggleFavoriteApp(app: LaunchableApp) {
+        viewModelScope.launch { favoritesStore.toggleApp(app.packageName) }
+    }
+
+    fun onToggleFavoriteContact(entry: ContactEntry) {
+        viewModelScope.launch { favoritesStore.toggleContact(entry.lookupKey) }
+    }
+
+    fun onAppMenuOpen(app: LaunchableApp) {
+        _menuApp.value = app
+    }
+
+    fun onAppMenuClose() {
+        _menuApp.value = null
     }
 
     /** Тап по полю: только он, а не автофокус при старте, вызывает историю. */
@@ -179,15 +251,45 @@ class SearchViewModel(
             return
         }
         val trimmed = _state.value.query.trim()
+        val favoritesMode = _state.value.favoritesMode
+        if (trimmed.isEmpty() && favoritesMode) {
+            reloadBlankContacts()
+            return
+        }
         contactsJob = viewModelScope.launch(Dispatchers.IO) {
             if (trimmed.isEmpty()) {
-                favorites.value = contacts.search("", LIMIT)
+                val found = contacts.search("", LIMIT)
+                favorites.value = found
+                // После выхода из избранного StateFlow может не эмитить: список тот же, а
+                // состояние контактов там осталось фильтрованным. Перезаписываем напрямую.
+                val rows = blankQueryRows(journal.value, found)
+                _state.update {
+                    if (it.query.isBlank() && !it.favoritesMode) it.copy(contacts = rows) else it
+                }
             } else {
-                val rows = contacts.search(trimmed, LIMIT).map { ContactRowUi(it, it.number.orEmpty()) }
+                val favSet = _state.value.favContactKeys.toSet()
+                val rows = contacts.search(trimmed, LIMIT)
+                    .filter { !favoritesMode || it.lookupKey in favSet }
+                    .map { ContactRowUi(it) }
                 // Отмена корутины блокирующего запроса не прерывает, поэтому проверяем, что
                 // за время поиска запрос не успел измениться.
-                _state.update { if (it.query.trim() == trimmed) it.copy(contacts = rows) else it }
+                _state.update {
+                    if (it.query.trim() == trimmed && it.favoritesMode == favoritesMode) {
+                        it.copy(contacts = rows)
+                    } else it
+                }
             }
+        }
+    }
+
+    /** Избранные контакты при пустом запросе: порядок — как список избранного. */
+    private fun reloadBlankContacts() {
+        val s = _state.value
+        if (!s.favoritesMode || s.query.isNotBlank() || !contacts.hasPermission()) return
+        contactsJob?.cancel()
+        contactsJob = viewModelScope.launch(Dispatchers.IO) {
+            val rows = contacts.byLookupKeys(_state.value.favContactKeys).map { ContactRowUi(it) }
+            _state.update { if (it.favoritesMode && it.query.isBlank()) it.copy(contacts = rows) else it }
         }
     }
 
@@ -196,18 +298,14 @@ class SearchViewModel(
         entries: List<CommunicationEntry>,
         favs: List<ContactEntry>,
     ): List<ContactRowUi> =
-        (entries.map { logRow(it) } + favs.map { ContactRowUi(it, it.number.orEmpty()) })
+        (entries.map { logRow(it) } + favs.map { ContactRowUi(it) })
             .distinctBy { it.entry.contactId }
 
     private fun logRow(entry: CommunicationEntry): ContactRowUi = ContactRowUi(
         entry = ContactEntry(entry.contactId, entry.lookupKey, entry.name, entry.number),
-        detail = "${label(entry.kind)} · ${formatTime(entry.timestamp)} · ${entry.number}",
+        logKind = entry.kind,
+        logTime = formatTime(entry.timestamp),
     )
-
-    private fun label(kind: CommunicationKind): String = when (kind) {
-        CommunicationKind.CALL -> "Звонок"
-        CommunicationKind.SMS -> "СМС"
-    }
 
     private fun formatTime(millis: Long): String {
         val zone = ZoneId.systemDefault()

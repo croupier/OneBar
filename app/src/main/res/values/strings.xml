@@ -1,6 +1,48 @@
 <resources>
     <string name="app_name">OneBar</string>
-    <string name="widget_label">Поиск OneBar</string>
-    <string name="widget_hint">Поиск</string>
-    <string name="widget_description">Строка поиска: тап открывает OneBar с уже активированной клавиатурой</string>
+
+    <!-- Widget -->
+    <string name="widget_label">OneBar search</string>
+    <string name="widget_hint">Search</string>
+    <string name="widget_description">Search bar: a tap opens OneBar with the keyboard already active</string>
+
+    <!-- Search bar -->
+    <string name="search_hint">Search</string>
+    <string name="close">Close</string>
+    <string name="favorites">Favorites</string>
+
+    <!-- Sections -->
+    <string name="caption_sms">SMS</string>
+    <string name="caption_call">Call</string>
+    <string name="contacts_denied">Contacts access is not granted</string>
+    <string name="allow">Allow</string>
+    <string name="sms_action">Send SMS</string>
+    <string name="call_action">Call</string>
+    <string name="history_restore">Return to search field</string>
+    <string name="search_yandex">Search in Yandex</string>
+    <string name="search_google">Search in Google</string>
+    <string name="nothing_found">Nothing found</string>
+    <string name="fav_nothing_found">Nothing found in favorites</string>
+
+    <!-- Contact menu -->
+    <string name="menu_no_phone">No phone</string>
+    <string name="menu_more_numbers">%1$s · %2$d more</string>
+    <string name="menu_call">Call</string>
+    <string name="menu_sms">Send SMS</string>
+    <string name="menu_copy">Copy number</string>
+    <string name="menu_edit">Edit contact</string>
+    <string name="menu_history_remove">Remove from history</string>
+    <string name="menu_fav_add">Add to favorites</string>
+    <string name="menu_fav_remove">Remove from favorites</string>
+    <string name="mail_action">Email: %1$s</string>
+    <string name="clipboard_phone">Phone</string>
+
+    <!-- App menu -->
+    <string name="app_menu_open">Open</string>
+    <string name="app_menu_info">App info</string>
+
+    <!-- Favorites empty state -->
+    <string name="fav_empty_title">No favorites yet</string>
+    <string name="fav_empty_text">Long-press a contact or an app and choose \"Add to favorites\".</string>
+    <string name="fav_auto_close">Closing in %1$d s</string>
 </resources>
