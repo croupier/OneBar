@@ -4,8 +4,8 @@ plugins {
 }
 
 // semver 2.0.0: до публичного API держим 0.0.z и пре-релиз; versionCode для Play/обновлений растёт на 1.
-val appVersion = "0.0.1-pre-alpha.1"
-val appVersionCode = 1
+val appVersion = "0.0.2-alpha.1"
+val appVersionCode = 2
 
 android {
   namespace = "dev.onebar.app"

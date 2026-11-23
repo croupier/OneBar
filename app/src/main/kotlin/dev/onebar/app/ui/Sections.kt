@@ -107,60 +107,63 @@ private fun ContactRow(
         else -> row.entry.number.orEmpty()
     }
     SwipeableRow(enabled = canAct, onTrigger = onCall) { labels ->
-        Row(
-            modifier = Modifier.fillMaxWidth().height(ROW_HEIGHT).padding(horizontal = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
+        Box(Modifier.fillMaxWidth().height(ROW_HEIGHT)) {
+            Row(
+                modifier = Modifier.fillMaxWidth().height(ROW_HEIGHT).padding(horizontal = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .combinedClickable(onClick = onOpen, onLongClick = onMenu),
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Text(
+                        text = row.entry.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (detail.isNotBlank()) {
+                        Text(
+                            text = detail,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+
+                if (canAct) {
+                    ActionIcon(
+                        handlerIcon = smsIcon,
+                        fallbackIcon = painterResource(R.drawable.ic_sms),
+                        contentDescription = stringResource(R.string.sms_action),
+                        onClick = onSms,
+                        caption = if (labels) stringResource(R.string.caption_sms) else null,
+                    )
+                    ActionIcon(
+                        handlerIcon = callIcon,
+                        fallbackIcon = painterResource(R.drawable.ic_call),
+                        contentDescription = stringResource(R.string.call_action),
+                        onClick = onCall,
+                        caption = if (labels) stringResource(R.string.caption_call) else null,
+                    )
+                } else {
+                    Spacer(Modifier.size(AppItemSize * 2 + 10.dp))
+                }
+            }
+            // Звезда — наложение в углу строки: как у иконок приложений, она не должна сдвигать текст.
             if (favorite) {
                 Icon(
                     painter = painterResource(R.drawable.ic_star),
                     contentDescription = null,
-                    modifier = Modifier.size(14.dp),
+                    modifier = Modifier.align(Alignment.TopStart).padding(start = 2.dp, top = 2.dp).size(14.dp),
                     tint = MaterialTheme.colorScheme.primary,
                 )
-            }
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(8.dp))
-                    .combinedClickable(onClick = onOpen, onLongClick = onMenu),
-                verticalArrangement = Arrangement.Center,
-            ) {
-                Text(
-                    text = row.entry.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (detail.isNotBlank()) {
-                    Text(
-                        text = detail,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-
-            if (canAct) {
-                ActionIcon(
-                    handlerIcon = smsIcon,
-                    fallbackIcon = painterResource(R.drawable.ic_sms),
-                    contentDescription = stringResource(R.string.sms_action),
-                    onClick = onSms,
-                    caption = if (labels) stringResource(R.string.caption_sms) else null,
-                )
-                ActionIcon(
-                    handlerIcon = callIcon,
-                    fallbackIcon = painterResource(R.drawable.ic_call),
-                    contentDescription = stringResource(R.string.call_action),
-                    onClick = onCall,
-                    caption = if (labels) stringResource(R.string.caption_call) else null,
-                )
-            } else {
-                Spacer(Modifier.size(AppItemSize * 2 + 10.dp))
             }
         }
     }

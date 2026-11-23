@@ -24,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.res.painterResource
@@ -159,6 +160,8 @@ fun AppMenu(
 /**
  * Строка «В избранное / Из избранного». В режиме избранного метка остаётся «Из избранного»,
  * а после отмены перечёркивается: пункт не исчезает, и повторный тап возвращает запись.
+ * Залитая звезда в цвет акцента — единственный надёжный признак состояния: в 20 dp серые
+ * залитая и контурная звезды различимы плохо.
  */
 @Composable
 private fun FavoriteRow(
@@ -174,6 +177,7 @@ private fun FavoriteRow(
         iconRes = if (isFavorite) R.drawable.ic_star else R.drawable.ic_star_border,
         label = label,
         struck = struck,
+        iconTint = if (isFavorite) MaterialTheme.colorScheme.primary else null,
         onClick = onClick,
     )
 }
@@ -189,6 +193,7 @@ private fun MenuRow(
     label: String,
     enabled: Boolean = true,
     struck: Boolean = false,
+    iconTint: Color? = null,
     onClick: () -> Unit,
 ) {
     val dimmed = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
@@ -219,7 +224,7 @@ private fun MenuRow(
                 painter = painterResource(iconRes),
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
-                tint = tint,
+                tint = iconTint ?: tint,
             )
         }
         Text(
