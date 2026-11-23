@@ -9,10 +9,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -58,6 +60,7 @@ import dev.onebar.app.data.DefaultContactRepository
 import dev.onebar.app.data.DefaultFavoritesStore
 import dev.onebar.app.data.DefaultHistoryStore
 import dev.onebar.app.data.DefaultSuggestRepository
+import dev.onebar.app.data.LaunchableApp
 import dev.onebar.app.data.MessengerRepository
 
 @Composable
@@ -102,6 +105,14 @@ fun SearchScreen(
         }
     }
 
+    val openApp: (LaunchableApp) -> Unit = { app ->
+        viewModel.onAppLaunched(app)
+        SearchActions.openApp(context, app.packageName)
+    }
+
+    val favoritesBlank =
+        state.favoritesMode && state.favApps.isEmpty() && state.favContactKeys.isEmpty()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -127,81 +138,93 @@ fun SearchScreen(
             },
         )
 
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .verticalScroll(rememberScrollState()),
-        ) {
-            if (state.apps.isNotEmpty()) {
-                LazyRow(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    items(state.apps, key = { it.packageName }) { app ->
-                        AppItem(
-                            app = app,
-                            favorite = !state.favoritesMode && app.packageName in state.favApps,
-                            onClick = {
-                                viewModel.onAppLaunched(app)
-                                SearchActions.openApp(context, app.packageName)
-                            },
-                            onLongClick = { viewModel.onAppMenuOpen(app) },
-                        )
+        // Вне избранного списки короче экрана и прокручиваются вместе; в избранном клавиатуры нет,
+        // поэтому внешнего скролла не делаем — высоту делят сетка приложений и контакты.
+        val favoritesShown = state.favoritesMode && !favoritesBlank
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth().weight(1f)) {
+            val appColumns = appsColumns(maxWidth)
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(if (favoritesShown) Modifier else Modifier.verticalScroll(rememberScrollState())),
+            ) {
+                if (favoritesShown) {
+                    FavoritesAppsSection(
+                        apps = state.apps,
+                        columns = appColumns,
+                        onOpen = openApp,
+                        onMenu = viewModel::onAppMenuOpen,
+                    )
+                    if (state.apps.isNotEmpty()) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     }
-                }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            }
-
-            val showHistory =
-                state.historyRequested && state.query.isBlank() && state.queries.isNotEmpty() &&
-                    !state.favoritesMode
-            if (showHistory) {
-                SearchHistorySection(queries = state.queries, onPick = viewModel::onQueryChange)
-            }
-
-            val favoritesBlank =
-                state.favoritesMode && state.favApps.isEmpty() && state.favContactKeys.isEmpty()
-            if (favoritesBlank) {
-                FavoritesEmptyHint()
-            } else {
-                ContactsSection(
-                    state = state,
-                    smsIcon = smsIcon,
-                    callIcon = callIcon,
-                    onRequestPermission = { contactsPermission.launch(Manifest.permission.READ_CONTACTS) },
-                    onSms = { entry ->
-                        viewModel.onCommunication(CommunicationKind.SMS, entry)
-                        SearchActions.smsEntry(context, entry)
-                    },
-                    onCall = { entry ->
-                        viewModel.onCommunication(CommunicationKind.CALL, entry)
-                        SearchActions.callEntry(context, entry)
-                    },
-                    onOpen = { entry ->
-                        viewModel.onQuerySubmitted(state.query)
-                        SearchActions.openContact(context, entry)
-                    },
-                    onMenu = viewModel::onMenuOpen,
-                )
-
-                val noLocalResults = state.query.isNotBlank() &&
-                    state.apps.isEmpty() && state.contacts.isEmpty()
-                if (noLocalResults) {
-                    NothingFoundRow(inFavorites = state.favoritesMode)
-                }
-
-                if (state.suggestions.isNotEmpty()) {
+                } else if (state.apps.isNotEmpty()) {
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        items(state.apps, key = { it.packageName }) { app ->
+                            AppItem(
+                                app = app,
+                                favorite = !state.favoritesMode && app.packageName in state.favApps,
+                                onClick = { openApp(app) },
+                                onLongClick = { viewModel.onAppMenuOpen(app) },
+                            )
+                        }
+                    }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
-                WebSuggestionsSection(
-                    state = state,
-                    onPick = viewModel::onQueryChange,
-                    onSearch = { engine, text ->
-                        viewModel.onQuerySubmitted(text)
-                        SearchActions.webSearch(context, engine, text)
-                    },
-                )
+
+                val showHistory =
+                    state.historyRequested && state.query.isBlank() && state.queries.isNotEmpty() &&
+                        !state.favoritesMode
+                if (showHistory) {
+                    SearchHistorySection(queries = state.queries, onPick = viewModel::onQueryChange)
+                }
+
+                if (favoritesBlank) {
+                    FavoritesEmptyHint()
+                } else {
+                    ContactsSection(
+                        state = state,
+                        modifier = if (favoritesShown) Modifier.fillMaxWidth().weight(1f)
+                        else Modifier.fillMaxWidth().height(ROW_HEIGHT * 3),
+                        smsIcon = smsIcon,
+                        callIcon = callIcon,
+                        onRequestPermission = { contactsPermission.launch(Manifest.permission.READ_CONTACTS) },
+                        onSms = { entry ->
+                            viewModel.onCommunication(CommunicationKind.SMS, entry)
+                            SearchActions.smsEntry(context, entry)
+                        },
+                        onCall = { entry ->
+                            viewModel.onCommunication(CommunicationKind.CALL, entry)
+                            SearchActions.callEntry(context, entry)
+                        },
+                        onOpen = { entry ->
+                            viewModel.onQuerySubmitted(state.query)
+                            SearchActions.openContact(context, entry)
+                        },
+                        onMenu = viewModel::onMenuOpen,
+                    )
+
+                    val noLocalResults = state.query.isNotBlank() &&
+                        state.apps.isEmpty() && state.contacts.isEmpty()
+                    if (noLocalResults) {
+                        NothingFoundRow(inFavorites = state.favoritesMode)
+                    }
+
+                    if (state.suggestions.isNotEmpty()) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    }
+                    WebSuggestionsSection(
+                        state = state,
+                        onPick = viewModel::onQueryChange,
+                        onSearch = { engine, text ->
+                            viewModel.onQuerySubmitted(text)
+                            SearchActions.webSearch(context, engine, text)
+                        },
+                    )
+                }
             }
         }
     }

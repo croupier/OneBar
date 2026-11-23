@@ -17,6 +17,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -39,14 +42,17 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.onebar.app.R
 import dev.onebar.app.data.CommunicationKind
 import dev.onebar.app.data.ContactEntry
+import dev.onebar.app.data.LaunchableApp
 
 @Composable
 fun ContactsSection(
     state: SearchState,
+    modifier: Modifier,
     smsIcon: Drawable?,
     callIcon: Drawable?,
     onRequestPermission: () -> Unit,
@@ -68,7 +74,7 @@ fun ContactsSection(
     }
     if (state.contacts.isEmpty()) return
 
-    LazyColumn(modifier = Modifier.fillMaxWidth().height(ROW_HEIGHT * 3)) {
+    LazyColumn(modifier = modifier) {
         items(state.contacts, key = { it.entry.contactId }) { row ->
             ContactRow(
                 row = row,
@@ -79,6 +85,41 @@ fun ContactsSection(
                 onCall = { onCall(row.entry) },
                 onOpen = { onOpen(row.entry) },
                 onMenu = { onMenu(row.entry) },
+            )
+        }
+    }
+}
+
+/** Плиток в ряду избранного приложений: столько ширины экрана влезает с зазором. */
+fun appsColumns(width: Dp): Int =
+    ((width - 16.dp + 4.dp) / (AppItemWidth + 4.dp)).toInt().coerceAtLeast(1)
+
+private const val MAX_FAV_APP_ROWS = 2
+
+/**
+ * Избранные приложения — сетка до двух рядов, а не одна горизонтальная строка: в избранном
+ * клавиатуры нет, освободившуюся высоту отдаём спискам. Сверх двух рядов сетка листается сама.
+ */
+@Composable
+fun FavoritesAppsSection(
+    apps: List<LaunchableApp>,
+    columns: Int,
+    onOpen: (LaunchableApp) -> Unit,
+    onMenu: (LaunchableApp) -> Unit,
+) {
+    if (apps.isEmpty()) return
+    val rows = ((apps.size + columns - 1) / columns).coerceAtMost(MAX_FAV_APP_ROWS)
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(columns),
+        modifier = Modifier.fillMaxWidth().height(AppItemHeight * rows + 12.dp).padding(vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        items(apps, key = { it.packageName }) { app ->
+            AppItem(
+                app = app,
+                favorite = false,
+                onClick = { onOpen(app) },
+                onLongClick = { onMenu(app) },
             )
         }
     }

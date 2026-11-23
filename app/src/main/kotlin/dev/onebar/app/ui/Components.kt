@@ -185,6 +185,10 @@ private fun Labeled(caption: String?, content: @Composable () -> Unit) {
 
 val AppItemSize = 44.dp
 
+/** Геометрия плитки приложения: нужна и ряду-строке, и сетке избранного, чтобы ряды совпадали. */
+val AppItemWidth = 70.dp
+val AppItemHeight = 78.dp
+
 @Composable
 fun AppItem(
     app: LaunchableApp,
@@ -195,7 +199,7 @@ fun AppItem(
 ) {
     Column(
         modifier = modifier
-            .size(width = 70.dp, height = 78.dp)
+            .size(width = AppItemWidth, height = AppItemHeight)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
