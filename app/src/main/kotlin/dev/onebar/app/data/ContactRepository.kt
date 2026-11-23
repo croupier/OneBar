@@ -71,6 +71,12 @@ private fun contactFields(entry: ContactEntry, withNumbers: Boolean): List<List<
         .map { it.lowercase() },
 )
 
+// Скобки обязательны: иначе OR в следующей LIKE-маске отменит фильтр перед всей группой.
+internal fun likeClause(patterns: List<String>, column: String): String =
+    patterns.joinToString(separator = " OR ", prefix = "(", postfix = ")") { "$column LIKE ?$LIKE_ESCAPE" }
+
+private const val LIKE_ESCAPE = " ESCAPE '\\'"
+
 class DefaultContactRepository(private val context: Context) : ContactRepository {
 
     override fun hasPermission(): Boolean =
@@ -214,9 +220,6 @@ class DefaultContactRepository(private val context: Context) : ContactRepository
             )
         }
     }
-
-    private fun likeClause(patterns: List<String>, column: String): String =
-        patterns.joinToString(" OR ") { "$column LIKE ?$LIKE_ESCAPE" }
 
     private fun List<String>?.joined(): String = this?.joinToString(" ").orEmpty()
 
@@ -390,8 +393,6 @@ class DefaultContactRepository(private val context: Context) : ContactRepository
         const val STARRED_FIRST_SORT =
             "${Contacts.STARRED} DESC, ${Contacts.TIMES_CONTACTED} DESC, ${Contacts.DISPLAY_NAME} ASC"
 
-        // LIKE-маска: '%' и '_' из запроса экранируем, иначе они стали бы джокерами.
-        const val LIKE_ESCAPE = " ESCAPE '\\'"
 
         // Запас кандидатов: часть отбросят е/ё и регистр, которые LIKE не различает точно.
         const val CANDIDATE_FACTOR = 6
