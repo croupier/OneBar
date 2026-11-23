@@ -1,7 +1,8 @@
 package dev.onebar.app.ui
 
 import android.graphics.drawable.Drawable
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -23,11 +24,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,9 +43,13 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.onebar.app.R
 import dev.onebar.app.data.CommunicationKind
 import dev.onebar.app.data.ContactEntry
+import kotlinx.coroutines.launch
 
 @Composable
 fun ContactsSection(
@@ -167,8 +174,10 @@ private fun ContactRow(
 }
 
 /**
- * Свайп справа налево по строке: до половины порога — показать подписи под кнопками,
- * за порогом (50 % ширины) — выполнить правое действие сразу.
+ * Свайп справа налево по строке: протяжка плавно, за пальцем, раскрывает кнопки — плитка
+ * расширяется, под ней проступает подпись. Отпущено меньше чем на 30 dp — строка возвращается;
+ * дальше кнопки остаются раскрытыми, а за 50 % ширины сразу выполняется правое действие.
+ * При возвращении в приложение строка сбрасывается в исходное состояние.
  */
 @Composable
 private fun SwipeableRow(
@@ -178,36 +187,78 @@ private fun SwipeableRow(
 ) {
     var width by remember { mutableIntStateOf(0) }
     var labels by remember { mutableStateOf(false) }
-    var drag by remember { mutableFloatStateOf(0f) }
-    val shift by animateFloatAsState(drag, animationSpec = tween(120), label = "rowSwipe")
+    // 0f — покой, 1f — протяжка до порога действия; во время жеста значение ставится сразу.
+    val reveal = remember { Animatable(0f) }
+    val scope = rememberCoroutineScope()
 
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .onSizeChanged { width = it.width }
-            .graphicsLayer { translationX = shift }
-            .pointerInput(enabled) {
-                if (!enabled) return@pointerInput
-                val minDrag = MIN_DRAG_DP.dp.toPx()
-                detectHorizontalDragGestures(
-                    onHorizontalDrag = { _, amount -> drag = (drag + amount).coerceIn(-width * TRIGGER, 0f) },
-                    onDragEnd = {
-                        val pulled = -drag
-                        drag = 0f
-                        when {
-                            width > 0 && pulled >= width * TRIGGER -> onTrigger()
-                            pulled >= minDrag -> labels = true
-                        }
-                    },
-                )
-            },
-    ) {
-        content(labels)
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                labels = false
+                scope.launch { reveal.snapTo(0f) }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    CompositionLocalProvider(LocalSwipeReveal provides reveal.value) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .onSizeChanged { width = it.width }
+                .graphicsLayer { translationX = -width * ROW_SHIFT * reveal.value }
+                .pointerInput(enabled) {
+                    if (!enabled) return@pointerInput
+                    val minDrag = MIN_DRAG_DP.dp.toPx()
+                    detectHorizontalDragGestures(
+                        onHorizontalDrag = { _, amount ->
+                            val full = width * TRIGGER
+                            if (full > 0f) {
+                                val pulled = (reveal.value * full - amount).coerceIn(0f, full)
+                                scope.launch { reveal.snapTo(pulled / full) }
+                            }
+                        },
+                        onDragEnd = {
+                            val full = width * TRIGGER
+                            val pulled = reveal.value * full
+                            when {
+                                full > 0f && pulled >= full -> {
+                                    labels = false
+                                    scope.launch { reveal.animateTo(0f, settle()) }
+                                    onTrigger()
+                                }
+                                pulled >= minDrag -> {
+                                    labels = true
+                                    scope.launch { reveal.animateTo(SETTLED, settle()) }
+                                }
+                                else -> scope.launch { reveal.animateTo(if (labels) SETTLED else 0f, settle()) }
+                            }
+                        },
+                        onDragCancel = {
+                            scope.launch { reveal.animateTo(if (labels) SETTLED else 0f, settle()) }
+                        },
+                    )
+                },
+        ) {
+            content(labels || reveal.value > 0f)
+        }
     }
 }
 
+/** Доводка строки после отпускания: без пружинного перелёта, иначе кнопка «прыгает» за край. */
+private fun settle() = tween<Float>(SETTLE_MS, easing = FastOutSlowInEasing)
+
 private const val MIN_DRAG_DP = 30
 private const val TRIGGER = 0.5f
+
+/** Доля раскрытия, на которой строка остаётся подписанной: подписи к этому моменту уже видны. */
+private const val SETTLED = 0.6f
+
+/** Насколько ширина строки она уходит влево следом за пальцем. */
+private const val ROW_SHIFT = 0.06f
+private const val SETTLE_MS = 220
 
 @Composable
 fun SearchHistorySection(
