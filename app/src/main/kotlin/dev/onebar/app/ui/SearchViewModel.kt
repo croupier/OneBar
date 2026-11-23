@@ -158,14 +158,14 @@ class SearchViewModel(
 
     /** Тап по звезде: тот же экран, только списки фильтруются по избранному. */
     fun onToggleFavoritesMode() {
-        val entering = !_state.value.favoritesMode
-        _state.update {
-            it.copy(
-                favoritesMode = entering,
-                favoritesHint = entering && it.favApps.isEmpty() && it.favContactKeys.isEmpty(),
-            )
+        val current = _state.value
+        if (!current.favoritesMode && current.favApps.isEmpty() && current.favContactKeys.isEmpty()) {
+            // Пустое избранное показывать нечем: остаёмся на основном экране, меняет его только попап.
+            _state.update { it.copy(favoritesHint = true) }
+            return
         }
-        onQueryChange(_state.value.query)
+        _state.update { it.copy(favoritesMode = !current.favoritesMode) }
+        onQueryChange(current.query)
     }
 
     fun onFavoritesHintDismissed() {
@@ -324,16 +324,21 @@ class SearchViewModel(
         return DateTimeFormatter.ofPattern(pattern).format(dateTime)
     }
 
+    /** В избранном веб-подсказок нет: у них нет контекстного меню, добавить их нельзя. */
     private fun loadSuggestions(trimmed: String) {
         suggestionsJob?.cancel()
-        if (trimmed.isEmpty()) {
+        val favoritesMode = _state.value.favoritesMode
+        if (trimmed.isEmpty() || favoritesMode) {
             _state.update { it.copy(suggestions = emptyList()) }
             return
         }
         suggestionsJob = viewModelScope.launch {
             delay(DEBOUNCE_MS)
             val found = suggestions.suggest(trimmed).distinct()
-            _state.update { it.copy(suggestions = found) }
+            // Ответ мог прийти уже после выхода из запроса или входа в избранное.
+            _state.update {
+                if (!it.favoritesMode && it.query.trim() == trimmed) it.copy(suggestions = found) else it
+            }
         }
     }
 

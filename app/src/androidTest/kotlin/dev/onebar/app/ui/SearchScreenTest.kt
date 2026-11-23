@@ -9,6 +9,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -101,6 +102,25 @@ class SearchScreenTest {
 
         ui.onNodeWithTag(TAG_FAVORITES_HINT_CLOSE).performClick()
         ui.waitUntil(TIMEOUT) { ui.onAllNodesWithTag(TAG_FAVORITES_HINT_CLOSE).fetchSemanticsNodes().isEmpty() }
+
+        // Пустое избранное экран не меняет: за подсказкой — тот же список недавних приложений.
+        ui.onNodeWithText("Maps").assertIsDisplayed()
+    }
+
+    @Test
+    fun `в_избранном_веб_подсказки_пропадают`() {
+        show(
+            apps = FakeApps(known = listOf(app("com.a", "Maps"))),
+            suggestions = FakeSuggestions(replies = mapOf("map" to listOf("maps в яндексе"))),
+            favorites = FakeFavorites(apps = listOf("com.a")),
+        )
+        ui.onNode(hasSetTextAction()).performTextInput("map")
+        ui.waitUntilAtLeastOneExists(hasText("maps в яндексе"), TIMEOUT)
+
+        ui.onNodeWithContentDescription(str(R.string.favorites)).performClick()
+
+        ui.waitUntil(TIMEOUT) { ui.onAllNodesWithText("maps в яндексе").fetchSemanticsNodes().isEmpty() }
+        ui.onNodeWithText("Maps").assertIsDisplayed()
     }
 
     @Test

@@ -97,6 +97,9 @@ class SearchViewModelTest {
             apps = FakeApps(known = listOf(app("com.a", "A"), app("com.b", "B"))),
             favorites = FakeFavorites(apps = listOf("com.b", "com.a")),
         )
+        // Избранное читается асинхронно: до тапа по звезде состояние уже должно быть загружено.
+        advanceUntilIdle()
+
         vm.onToggleFavoritesMode()
         advanceUntilIdle()
 
@@ -130,9 +133,31 @@ class SearchViewModelTest {
 
         vm.onToggleFavoritesMode()
         assertTrue(vm.state.value.favoritesHint)
+        // Показывать нечего, поэтому экран остаётся основным: избранное открываем только с содержимым.
+        assertFalse(vm.state.value.favoritesMode)
 
         vm.onFavoritesHintDismissed()
         assertFalse(vm.state.value.favoritesHint)
+    }
+
+    @Test
+    fun `в избранном веб-подсказки не приходят, даже если запрос начат до входа`() = runTest(main.dispatcher) {
+        val suggestions = FakeSuggestions(replies = mapOf("коф" to listOf("кофе")))
+        val vm = viewModel(
+            apps = FakeApps(known = listOf(app("com.a", "A"))),
+            suggestions = suggestions,
+            favorites = FakeFavorites(apps = listOf("com.a")),
+        )
+        advanceUntilIdle()
+
+        vm.onQueryChange("коф")
+        vm.onToggleFavoritesMode()
+        advanceTimeBy(300)
+        runCurrent()
+
+        assertTrue(vm.state.value.favoritesMode)
+        assertTrue(vm.state.value.suggestions.isEmpty())
+        assertTrue(suggestions.asked.isEmpty())
     }
 
     @Test
