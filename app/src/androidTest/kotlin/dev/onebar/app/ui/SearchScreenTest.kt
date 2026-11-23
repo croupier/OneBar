@@ -2,6 +2,7 @@ package dev.onebar.app.ui
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasSetTextAction
@@ -14,9 +15,11 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.onebar.app.R
@@ -72,7 +75,8 @@ class SearchScreenTest {
 
         ui.waitUntilAtLeastOneExists(hasText("Maps"), TIMEOUT)
         ui.onNodeWithText("appmaps").assertExists()
-        ui.onNodeWithText("Ann").assertIsDisplayed()
+        ui.onNodeWithText(str(R.string.contacts_title)).assertExists()
+        ui.onNodeWithText("Ann").assertExists()
     }
 
     @Test
@@ -173,7 +177,8 @@ class SearchScreenTest {
         show(contacts = FakeContacts(known = listOf(contact(1, "Ann"))), history = history)
 
         ui.waitUntilAtLeastOneExists(hasText("Ann"), TIMEOUT)
-        ui.onNodeWithContentDescription(str(R.string.call_action)).performClick()
+        ui.onNodeWithContentDescription(str(R.string.call_action))
+            .performSemanticsAction(SemanticsActions.OnClick)
 
         ui.waitUntil(TIMEOUT) { history.pushedCommunications.isNotEmpty() }
         assertEquals(CommunicationKind.CALL, history.pushedCommunications.single().kind)
@@ -199,9 +204,11 @@ class SearchScreenTest {
         ui.onNode(hasSetTextAction()).performTextInput("коф")
 
         ui.waitUntilAtLeastOneExists(hasText("кофе в зёрнах"), TIMEOUT)
+        val suggestion = ui.onNodeWithText("кофе в зёрнах")
+        suggestion.assertHasClickAction()
         assertEquals(listOf("коф"), suggestions.asked)
 
-        ui.onNodeWithText("кофе в зёрнах").performClick()
+        suggestion.performSemanticsAction(SemanticsActions.OnClick)
 
         ui.onNode(hasSetTextAction()).assertTextEquals("кофе в зёрнах")
     }

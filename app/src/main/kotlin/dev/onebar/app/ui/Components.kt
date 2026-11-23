@@ -34,10 +34,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -49,6 +51,17 @@ import dev.onebar.app.data.LaunchableApp
 
 val ROW_HEIGHT = 64.dp
 private const val ICON_PX = 96
+
+val CONTACT_ROW_HEIGHT = 68.dp
+val CONTACT_ROW_GAP = 2.dp
+val CONTACT_AVATAR_SIZE = 36.dp
+val CONTACT_ACTION_SIZE = 48.dp
+val CONTACT_ACTION_ICON_SIZE = 28.dp
+val CONTACT_CARD_RADIUS = 16.dp
+val CONTACT_HEADER_HEIGHT = 36.dp
+val CONTACT_LIST_BOTTOM = 12.dp
+val CONTACT_SECTION_HEIGHT =
+    CONTACT_HEADER_HEIGHT + CONTACT_ROW_HEIGHT * 3 + CONTACT_ROW_GAP * 2 + CONTACT_LIST_BOTTOM
 
 /** Стиль иконок: квадрат со скруглением, а не круглая маска лаунчера. */
 val IconRadius = 12.dp
@@ -109,6 +122,39 @@ fun AppIcon(packageName: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
+internal fun contactCardColor(): Color {
+    val scheme = MaterialTheme.colorScheme
+    return if (scheme.background.luminance() > 0.5f) {
+        scheme.surfaceContainerLowest
+    } else {
+        scheme.surfaceContainerLow
+    }
+}
+
+@Composable
+fun ContactAvatar(contactId: Long, name: String, modifier: Modifier = Modifier) {
+    val scheme = MaterialTheme.colorScheme
+    val palette = listOf(
+        scheme.primaryContainer to scheme.onPrimaryContainer,
+        scheme.secondaryContainer to scheme.onSecondaryContainer,
+        scheme.tertiaryContainer to scheme.onTertiaryContainer,
+        scheme.surfaceVariant to scheme.onSurfaceVariant,
+    )
+    val index = (contactId.hashCode() and Int.MAX_VALUE) % palette.size
+    val (background, content) = palette[index]
+    val initial = name.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "?"
+    Box(
+        modifier = modifier
+            .size(CONTACT_AVATAR_SIZE)
+            .background(background, CircleShape)
+            .clearAndSetSemantics {},
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text = initial, color = content, style = MaterialTheme.typography.titleMedium)
+    }
+}
+
+@Composable
 fun ActionIcon(
     handlerIcon: Drawable?,
     fallbackIcon: Painter,
@@ -119,27 +165,32 @@ fun ActionIcon(
     tint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
 ) {
     val reveal = LocalSwipeReveal.current
-    Labeled(caption = caption) { tileWidth ->
+    Labeled(caption = caption, tileSize = CONTACT_ACTION_SIZE) { tileWidth ->
         val button: Modifier = modifier
-            .size(width = tileWidth, height = AppItemSize)
+            .size(width = tileWidth, height = CONTACT_ACTION_SIZE)
             .clip(RoundedCornerShape(IconRadius))
             .clickable(onClick = onClick)
 
-        if (handlerIcon != null) {
-            val bitmap = remember(handlerIcon) { iconBitmap(handlerIcon) }
-            // Под иконкой приложения подложка проступает вместе с протяжкой: без неё рост ширины незаметен.
-            Box(
-                modifier = button.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = reveal)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Image(bitmap = bitmap, contentDescription = contentDescription, modifier = Modifier.size(AppItemSize))
-            }
-        } else {
-            Box(
-                modifier = button.background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(painter = fallbackIcon, contentDescription = contentDescription, modifier = Modifier.size(22.dp), tint = tint)
+        Box(
+            modifier = button.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = reveal)),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (handlerIcon != null) {
+                val bitmap = remember(handlerIcon) { iconBitmap(handlerIcon) }
+                Image(
+                    bitmap = bitmap,
+                    contentDescription = contentDescription,
+                    modifier = Modifier
+                        .size(CONTACT_ACTION_ICON_SIZE)
+                        .clip(RoundedCornerShape(8.dp)),
+                )
+            } else {
+                Icon(
+                    painter = fallbackIcon,
+                    contentDescription = contentDescription,
+                    modifier = Modifier.size(20.dp),
+                    tint = tint,
+                )
             }
         }
     }
@@ -192,10 +243,14 @@ fun BrandBadge(
  * протяжкой ([LocalSwipeReveal]): плитка расширяется, подпись выезжает из-под неё и проступает.
  */
 @Composable
-private fun Labeled(caption: String?, content: @Composable (tileWidth: Dp) -> Unit) {
+private fun Labeled(
+    caption: String?,
+    tileSize: Dp = AppItemSize,
+    content: @Composable (tileWidth: Dp) -> Unit,
+) {
     val reveal = LocalSwipeReveal.current
     if (caption == null) {
-        content(AppItemSize)
+        content(tileSize)
         return
     }
     val shown = ((reveal - CAPTION_FADE_START) / (CAPTION_FADE_END - CAPTION_FADE_START)).coerceIn(0f, 1f)
@@ -203,7 +258,7 @@ private fun Labeled(caption: String?, content: @Composable (tileWidth: Dp) -> Un
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(CaptionGap * shown),
     ) {
-        content(AppItemSize + TileGrow * reveal)
+        content(tileSize + TileGrow * reveal)
         Box(
             modifier = Modifier.height(CaptionLine * shown).clipToBounds(),
             contentAlignment = Alignment.BottomCenter,

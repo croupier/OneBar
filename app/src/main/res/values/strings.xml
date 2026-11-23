@@ -14,6 +14,7 @@
     <!-- Sections -->
     <string name="caption_sms">SMS</string>
     <string name="caption_call">Call</string>
+    <string name="contacts_title">All contacts</string>
     <string name="contacts_denied">Contacts access is not granted</string>
     <string name="allow">Allow</string>
     <string name="sms_action">Send SMS</string>
