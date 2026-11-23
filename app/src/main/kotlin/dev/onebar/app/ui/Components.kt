@@ -2,6 +2,9 @@ package dev.onebar.app.ui
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.AdaptiveIconDrawable
 import android.graphics.drawable.Drawable
 import android.net.Uri
 import androidx.compose.foundation.Image
@@ -26,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
@@ -41,18 +45,46 @@ import dev.onebar.app.data.LaunchableApp
 val ROW_HEIGHT = 64.dp
 private const val ICON_PX = 96
 
+/** Стиль иконок: квадрат со скруглением, а не круглая маска лаунчера. */
+val IconRadius = 12.dp
+
+/**
+ * Во сколько раз увеличить передний план. В круге система показывает только центр площадки
+ * 72/108, поэтому без увеличения глиф в квадрате кажется мельче, чем в лаунчере.
+ */
+private const val FOREGROUND_SCALE = 1.3f
+
+/**
+ * Адаптивная иконка рисуется системой под маску (на Pixel — круг), и toBitmap возвращает уже
+ * вырезанный кружок. Здесь слои рисуются целиком, на весь холст 108×108: получается исходный
+ * квадрат, который потом скругливается формой в UI.
+ */
+internal fun iconBitmap(source: Drawable): ImageBitmap {
+    if (source !is AdaptiveIconDrawable) return source.toBitmap(ICON_PX, ICON_PX).asImageBitmap()
+    val bitmap = Bitmap.createBitmap(ICON_PX, ICON_PX, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    source.background?.let { layer ->
+        layer.setBounds(0, 0, ICON_PX, ICON_PX)
+        layer.draw(canvas)
+    }
+    canvas.scale(FOREGROUND_SCALE, FOREGROUND_SCALE, ICON_PX / 2f, ICON_PX / 2f)
+    source.foreground?.let { layer ->
+        layer.setBounds(0, 0, ICON_PX, ICON_PX)
+        layer.draw(canvas)
+    }
+    return bitmap.asImageBitmap()
+}
+
 @Composable
 fun AppIcon(packageName: String, modifier: Modifier = Modifier) {
     val packageManager = LocalContext.current.packageManager
     val bitmap = remember(packageName) {
-        runCatching {
-            packageManager.getApplicationIcon(packageName).toBitmap(ICON_PX, ICON_PX).asImageBitmap()
-        }.getOrNull()
+        runCatching { iconBitmap(packageManager.getApplicationIcon(packageName)) }.getOrNull()
     }
     if (bitmap == null) {
-        Box(modifier = modifier.size(AppItemSize).background(MaterialTheme.colorScheme.surfaceVariant, CircleShape))
+        Box(modifier = modifier.size(AppItemSize).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(IconRadius)))
     } else {
-        Image(bitmap = bitmap, contentDescription = null, modifier = modifier.size(AppItemSize))
+        Image(bitmap = bitmap, contentDescription = null, modifier = modifier.size(AppItemSize).clip(RoundedCornerShape(IconRadius)))
     }
 }
 
@@ -68,12 +100,12 @@ fun ActionIcon(
 ) {
     val button: Modifier = modifier
         .size(AppItemSize)
-        .clip(RoundedCornerShape(if (handlerIcon != null) 12.dp else 10.dp))
+        .clip(RoundedCornerShape(IconRadius))
         .clickable(onClick = onClick)
 
     Labeled(caption = caption) {
         if (handlerIcon != null) {
-            val bitmap = remember(handlerIcon) { handlerIcon.toBitmap(ICON_PX, ICON_PX).asImageBitmap() }
+            val bitmap = remember(handlerIcon) { iconBitmap(handlerIcon) }
             Box(modifier = button, contentAlignment = Alignment.Center) {
                 Image(bitmap = bitmap, contentDescription = contentDescription, modifier = Modifier.size(AppItemSize))
             }
@@ -120,7 +152,7 @@ fun BrandBadge(
         Box(
             modifier = modifier
                 .size(AppItemSize)
-                .background(badgeBackground, RoundedCornerShape(10.dp))
+                .background(badgeBackground, RoundedCornerShape(IconRadius))
                 .semantics { contentDescription = label }
                 .clickable(onClick = onClick),
             contentAlignment = Alignment.Center,

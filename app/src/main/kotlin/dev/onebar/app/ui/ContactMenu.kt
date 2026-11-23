@@ -24,7 +24,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.res.painterResource
@@ -38,7 +37,6 @@ import dev.onebar.app.data.ContactEntry
 import dev.onebar.app.data.LaunchableApp
 import dev.onebar.app.data.MessengerTile
 
-private const val MENU_ICON_PX = 96
 private val MENU_TILE = 36.dp
 
 /**
@@ -241,11 +239,7 @@ private fun MenuRow(
 private fun MessengerIcon(tile: MessengerTile, onClick: () -> Unit) {
     val packageManager = LocalContext.current.packageManager
     val bitmap = remember(tile.messenger) {
-        runCatching {
-            packageManager.getApplicationIcon(tile.messenger.packageName)
-                .toBitmap(MENU_ICON_PX, MENU_ICON_PX)
-                .asImageBitmap()
-        }.getOrNull()
+        runCatching { iconBitmap(packageManager.getApplicationIcon(tile.messenger.packageName)) }.getOrNull()
     }
     AppTile(onClick = onClick) {
         if (bitmap == null) {
