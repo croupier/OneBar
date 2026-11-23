@@ -65,17 +65,30 @@ class SearchViewModelTest {
     }
 
     @Test
-    fun `набранный запрос фильтрует приложения, избранное оставляет только избранные`() = runTest(main.dispatcher) {
+    fun `набранный запрос ставит избранные вперёд, а в избранном оставляет только избранные`() = runTest(main.dispatcher) {
         val apps = FakeApps(known = listOf(app("com.a", "Maps"), app("com.b", "appmaps")))
         val vm = viewModel(apps = apps, favorites = FakeFavorites(apps = listOf("com.b")))
 
         vm.onQueryChange("map")
         advanceUntilIdle()
-        assertEquals(listOf("com.a", "com.b"), vm.state.value.apps.map { it.packageName })
+        assertEquals(listOf("com.b", "com.a"), vm.state.value.apps.map { it.packageName })
 
         vm.onToggleFavoritesMode()
         advanceUntilIdle()
         assertEquals(listOf("com.b"), vm.state.value.apps.map { it.packageName })
+    }
+
+    @Test
+    fun `в избранном контакт по запросу ищется только среди избранных`() = runTest(main.dispatcher) {
+        val vm = viewModel(
+            contacts = FakeContacts(known = listOf(contact(1, "Аня"), contact(2, "Анна Петрова"))),
+            favorites = FakeFavorites(contacts = listOf("lookup-2")),
+        )
+        vm.onToggleFavoritesMode()
+        vm.onQueryChange("анна")
+        advanceUntilIdle()
+
+        assertEquals(listOf("Анна Петрова"), vm.state.value.contacts.map { it.entry.name })
     }
 
     @Test
