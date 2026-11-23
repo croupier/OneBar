@@ -10,10 +10,12 @@ import dev.onebar.app.data.HistoryStore
 import dev.onebar.app.data.LaunchableApp
 import dev.onebar.app.data.SuggestRepository
 import dev.onebar.app.data.rankApps
+import dev.onebar.app.data.rankContacts
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 
-fun app(packageName: String, label: String = packageName) = LaunchableApp(packageName, label)
+fun app(packageName: String, label: String = packageName, description: String = "") =
+    LaunchableApp(packageName, label, description)
 
 fun contact(
     id: Long,
@@ -22,6 +24,11 @@ fun contact(
     number: String? = "+7000000000$id",
     phoneCount: Int = 1,
     email: String? = null,
+    organization: String = "",
+    nickname: String = "",
+    note: String = "",
+    address: String = "",
+    numbers: List<String> = emptyList(),
 ) = ContactEntry(
     contactId = id,
     lookupKey = lookupKey,
@@ -29,6 +36,11 @@ fun contact(
     number = number,
     phoneCount = phoneCount,
     email = email,
+    organization = organization,
+    nickname = nickname,
+    note = note,
+    address = address,
+    searchableNumbers = numbers,
 )
 
 fun log(
@@ -50,10 +62,10 @@ class FakeApps(
 ) : AppRepository {
     val matched: MutableList<String> = mutableListOf()
 
-    override fun matching(query: String, limit: Int): List<LaunchableApp> {
+    override fun matching(query: String, limit: Int, favorites: Set<String>, favoritesOnly: Boolean): List<LaunchableApp> {
         onMatch(query)
         matched += query
-        return rankApps(known, query, limit)
+        return rankApps(known, query, limit, favorites, favoritesOnly)
     }
 
     override fun byPackages(packages: List<String>): List<LaunchableApp> =
@@ -70,14 +82,16 @@ class FakeContacts(
 
     override fun hasPermission(): Boolean = granted
 
-    override fun search(query: String, limit: Int): List<ContactEntry> {
+    override fun search(
+        query: String,
+        limit: Int,
+        favorites: Set<String>,
+        favoritesOnly: Boolean,
+    ): List<ContactEntry> {
         if (!granted) return emptyList()
         onSearch(query)
         searched += query
-        val needle = query.trim()
-        return known
-            .filter { needle.isEmpty() || it.name.contains(needle, ignoreCase = true) }
-            .take(limit)
+        return rankContacts(known, query, limit, favorites, favoritesOnly)
     }
 
     override fun byLookupKeys(keys: List<String>): List<ContactEntry> =

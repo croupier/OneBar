@@ -4,7 +4,10 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.provider.ContactsContract.CommonDataKinds.Email
+import android.provider.ContactsContract.CommonDataKinds.Nickname
+import android.provider.ContactsContract.CommonDataKinds.Organization
 import android.provider.ContactsContract.CommonDataKinds.Phone
+import android.provider.ContactsContract.CommonDataKinds.StructuredPostal
 import android.provider.ContactsContract.Contacts
 import android.provider.ContactsContract.Data
 import androidx.core.content.ContextCompat
@@ -16,12 +19,57 @@ import androidx.core.content.ContextCompat
 interface ContactRepository {
     fun hasPermission(): Boolean
 
-    fun search(query: String, limit: Int): List<ContactEntry>
+    fun search(
+        query: String,
+        limit: Int,
+        favorites: Set<String> = emptySet(),
+        favoritesOnly: Boolean = false,
+    ): List<ContactEntry>
 
     fun byLookupKeys(keys: List<String>): List<ContactEntry>
 
     fun details(contactId: Long): ContactEntry?
 }
+
+/**
+ * Порядок контактов — те же правила, что у приложений: избранные впереди, затем название и
+ * все номера контакта как равнозначные поля (поиск по номеру равен поиску по имени) по вариантам
+ * запроса — с начала важнее внутри, затем доп. поля: организация с должностью, ник, заметка,
+ * адрес, e-mail. Равные ключи сохраняют порядок провайдера, то есть избранность в телефоне и
+ * частоту общения.
+ */
+internal fun rankContacts(
+    all: List<ContactEntry>,
+    query: String,
+    limit: Int,
+    favorites: Set<String> = emptySet(),
+    favoritesOnly: Boolean = false,
+): List<ContactEntry> {
+    if (query.isBlank()) {
+        return all.asSequence()
+            .filter { !favoritesOnly || it.lookupKey in favorites }
+            .take(limit)
+            .toList()
+    }
+    val needles = buildNeedles(query)
+    // Номера участвуют в сравнении только для настоящего номера: «12» нашло бы половину
+    // телефонной книги, а набирать её ради этого никто не станет.
+    val withNumbers = phoneForms(query).isNotEmpty()
+    val scored = ArrayList<Pair<Rank, ContactEntry>>(all.size)
+    for (entry in all) {
+        val favorite = entry.lookupKey in favorites
+        if (favoritesOnly && !favorite) continue
+        val rank = rankOf(needles, contactFields(entry, withNumbers), favorite) ?: continue
+        scored += rank to entry
+    }
+    return scored.sortedBy { it.first }.map { it.second }.take(limit)
+}
+
+private fun contactFields(entry: ContactEntry, withNumbers: Boolean): List<List<String>> = listOf(
+    listOf(entry.name.lowercase()) + if (withNumbers) entry.searchableNumbers else emptyList(),
+    listOf(entry.organization, entry.nickname, entry.note, entry.address, entry.email.orEmpty())
+        .map { it.lowercase() },
+)
 
 class DefaultContactRepository(private val context: Context) : ContactRepository {
 
@@ -30,18 +78,42 @@ class DefaultContactRepository(private val context: Context) : ContactRepository
             PackageManager.PERMISSION_GRANTED
 
     @SuppressLint("Range")
-    override fun search(query: String, limit: Int): List<ContactEntry> {
+    override fun search(
+        query: String,
+        limit: Int,
+        favorites: Set<String>,
+        favoritesOnly: Boolean,
+    ): List<ContactEntry> {
         if (!hasPermission() || limit <= 0) return emptyList()
-
-        val needle = query.trim()
-        val selection = if (needle.isEmpty()) {
-            "$HAS_PHONE_ONLY"
-        } else {
-            "$HAS_PHONE_ONLY AND ${Contacts.DISPLAY_NAME} LIKE ?"
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) {
+            val rows = baseRows(HAS_PHONE_ONLY, null, limit).map(::entryOf)
+            return enrich(rankContacts(rows, "", limit, favorites, favoritesOnly))
         }
-        val args = if (needle.isEmpty()) null else arrayOf("%$needle%")
 
-        val found = ArrayList<Pair<Long, Pair<String, String>>>(limit)
+        // LIKE у провайдера — только грубый фильтр: регистр он складывает по ASCII, а разницу
+        // е/ё глушим маской «любой символ». Точность и порядок решает ранжировщик в памяти,
+        // поэтому кандидатов берём с запасом, иначе лимит отрезал бы лучшие совпадения.
+        val patterns = likePatterns(trimmed).map { "%$it%" }
+        val byName = baseRows(
+            "$HAS_PHONE_ONLY AND ${likeClause(patterns, Contacts.DISPLAY_NAME)}",
+            patterns.toTypedArray(),
+            limit * CANDIDATE_FACTOR,
+        ).map(::entryOf)
+        val candidates = withPhoneNumbers(byName, trimmed, limit * CANDIDATE_FACTOR)
+
+        val ranked = rankContacts(candidates, trimmed, limit, favorites, favoritesOnly).toMutableList()
+        if (!favoritesOnly && ranked.size < limit) {
+            val extra = fieldRows(patterns, ranked.map { it.contactId }.toSet(), limit * CANDIDATE_FACTOR)
+            ranked += rankContacts(extra, trimmed, limit - ranked.size, favorites, favoritesOnly)
+        }
+        return enrich(withNumbers(ranked))
+    }
+
+    /** id, название и lookup-ключ — всё, что нужно ранжировщику до загрузки номеров. */
+    @SuppressLint("Range")
+    private fun baseRows(selection: String, args: Array<String>?, cap: Int): List<Triple<Long, String, String>> {
+        val found = ArrayList<Triple<Long, String, String>>(cap)
         context.contentResolver.query(
             Contacts.CONTENT_URI,
             arrayOf(Contacts._ID, Contacts.DISPLAY_NAME, Contacts.LOOKUP_KEY),
@@ -49,23 +121,104 @@ class DefaultContactRepository(private val context: Context) : ContactRepository
             args,
             STARRED_FIRST_SORT,
         )?.use { cursor ->
-            while (cursor.moveToNext() && found.size < limit) {
-                found += cursor.getLong(0) to (cursor.getString(1) to cursor.getString(2))
+            while (cursor.moveToNext() && found.size < cap) {
+                found += Triple(cursor.getLong(0), cursor.getString(1).orEmpty(), cursor.getString(2).orEmpty())
             }
         }
+        return found
+    }
 
-        val rows = found.map { (id, names) ->
-            val (number, count) = defaultPhone(id)
-            ContactEntry(
-                contactId = id,
-                name = names.first,
-                lookupKey = names.second,
-                number = number,
-                phoneCount = count,
+    private fun entryOf(row: Triple<Long, String, String>) = ContactEntry(row.first, row.third, row.second, null)
+
+    /**
+     * Поиск по номеру равнозначен поиску по имени, поэтому номера нужны до ранжирования:
+     * отдельный запрос к Phone по маскам «цифры через %» — в телефоне номер хранится с
+     * пробелами и дефисами, а SQLite их не понимает. NORMALIZED_NUMBER (E.164 от провайдера)
+     * берём, когда он есть: там «8» уже превращена в «+7».
+     */
+    @SuppressLint("Range")
+    private fun withPhoneNumbers(rows: List<ContactEntry>, query: String, cap: Int): List<ContactEntry> {
+        val patterns = phoneLikePatterns(query)
+        if (patterns.isEmpty()) return rows
+        val selection = "${likeClause(patterns, Phone.NUMBER)} OR ${likeClause(patterns, Phone.NORMALIZED_NUMBER)}"
+        val numbers = HashMap<Long, MutableList<String>>(cap)
+        context.contentResolver.query(
+            Phone.CONTENT_URI,
+            arrayOf(Phone.CONTACT_ID, Phone.NORMALIZED_NUMBER, Phone.NUMBER),
+            selection,
+            (patterns + patterns).toTypedArray(),
+            null,
+        )?.use { cursor ->
+            while (cursor.moveToNext() && numbers.size < cap) {
+                val stored = cursor.getString(1) ?: cursor.getString(2) ?: continue
+                val digits = numberDigits(stored).trimStart('+')
+                if (digits.isEmpty()) continue
+                numbers.getOrPut(cursor.getLong(0)) { mutableListOf() } += digits
+            }
+        }
+        val ids = numbers.keys.toList()
+        if (ids.isEmpty()) return rows
+        val selectionById = "${Contacts._ID} IN (${ids.placeholders()}) AND $HAS_PHONE_ONLY"
+        val byPhone = baseRows(selectionById, ids.map { it.toString() }.toTypedArray(), cap)
+            .map { row -> entryOf(row).copy(searchableNumbers = numbers[row.first].orEmpty()) }
+        // Строка из телефонного прохода уже содержит название, поэтому просто переставляет
+        // найденную по имени запись той же строкой, но с номерами.
+        return (rows + byPhone).associateBy { it.contactId }.values.toList()
+    }
+
+    /** defaultPhone — отдельный запрос на контакт, поэтому номера догружаем лишь показанным строкам. */
+    private fun withNumbers(rows: List<ContactEntry>): List<ContactEntry> = rows.map { row ->
+        val (number, count) = defaultPhone(row.contactId)
+        row.copy(number = number, phoneCount = count)
+    }
+
+    /**
+     * Совпадения в доп. полях — одним запросом к Data: в DATA1 лежат и e-mail, и организация,
+     * и ник, и заметка, и адрес целиком; у Organization в DATA2 должность, её добавляем к названию
+     * компании, чтобы «разработчик» нашёл человека по строке «Иванов, разработчик».
+     */
+    @SuppressLint("Range")
+    private fun fieldRows(patterns: List<String>, exclude: Set<Long>, cap: Int): List<ContactEntry> {
+        val mimes = EXTRA_FIELD_MIMES
+        val selection = "${Data.MIMETYPE} IN (${mimes.placeholders()}) AND ${likeClause(patterns, Data.DATA1)}"
+        val args = (mimes + patterns).toTypedArray()
+        val values = HashMap<Long, MutableMap<String, MutableList<String>>>(cap)
+        context.contentResolver.query(
+            Data.CONTENT_URI,
+            arrayOf(Data.CONTACT_ID, Data.MIMETYPE, Data.DATA1, Data.DATA2),
+            selection,
+            args,
+            null,
+        )?.use { cursor ->
+            while (cursor.moveToNext() && values.size < cap) {
+                val id = cursor.getLong(0)
+                if (id in exclude) continue
+                val mime = cursor.getString(1)
+                val role = if (mime == Organization.CONTENT_ITEM_TYPE) cursor.getString(3).orEmpty() else ""
+                val value = listOf(cursor.getString(2).orEmpty(), role).filter { it.isNotBlank() }.joinToString(" ")
+                if (value.isBlank()) continue
+                values.getOrPut(id) { HashMap() }.getOrPut(mime) { mutableListOf() } += value
+            }
+        }
+        val ids = values.keys.toList()
+        if (ids.isEmpty()) return emptyList()
+        val baseSelection = "${Contacts._ID} IN (${ids.placeholders()}) AND $HAS_PHONE_ONLY"
+        return baseRows(baseSelection, ids.map { it.toString() }.toTypedArray(), cap).map { row ->
+            val found = values[row.first].orEmpty()
+            entryOf(row).copy(
+                organization = found[Organization.CONTENT_ITEM_TYPE].joined(),
+                nickname = found[Nickname.CONTENT_ITEM_TYPE].joined(),
+                note = found[NOTE_MIME].joined(),
+                address = found[StructuredPostal.CONTENT_ITEM_TYPE].joined(),
+                email = found[Email.CONTENT_ITEM_TYPE].joined(),
             )
         }
-        return enrich(rows)
     }
+
+    private fun likeClause(patterns: List<String>, column: String): String =
+        patterns.joinToString(" OR ") { "$column LIKE ?$LIKE_ESCAPE" }
+
+    private fun List<String>?.joined(): String = this?.joinToString(" ").orEmpty()
 
     /**
      * Избранные по lookup-ключам: порядок тот же, что в списке избранного, поэтому
@@ -236,5 +389,22 @@ class DefaultContactRepository(private val context: Context) : ContactRepository
         // Избранные первыми, затем по частоте обращения, затем алфавит.
         const val STARRED_FIRST_SORT =
             "${Contacts.STARRED} DESC, ${Contacts.TIMES_CONTACTED} DESC, ${Contacts.DISPLAY_NAME} ASC"
+
+        // LIKE-маска: '%' и '_' из запроса экранируем, иначе они стали бы джокерами.
+        const val LIKE_ESCAPE = " ESCAPE '\\'"
+
+        // Запас кандидатов: часть отбросят е/ё и регистр, которые LIKE не различает точно.
+        const val CANDIDATE_FACTOR = 6
+
+        // ContactsContract.Notes вне публичного API, поэтому mime строкой — как он записан в провайдере.
+        const val NOTE_MIME = "vnd.com.android.item/note"
+
+        val EXTRA_FIELD_MIMES = listOf(
+            Organization.CONTENT_ITEM_TYPE,
+            Nickname.CONTENT_ITEM_TYPE,
+            NOTE_MIME,
+            StructuredPostal.CONTENT_ITEM_TYPE,
+            Email.CONTENT_ITEM_TYPE,
+        )
     }
 }

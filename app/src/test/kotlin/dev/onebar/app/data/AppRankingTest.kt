@@ -42,4 +42,45 @@ class AppRankingTest {
     fun `нет совпадений — пустой результат`() {
         assertTrue(rankApps(apps, "нет такого", 10).isEmpty())
     }
+
+    @Test
+    fun `точное совпадение идёт раньше перестановки е-ё`() {
+        val withYo = listOf(app("a", "Фёкла"), app("b", "Фекла"), app("c", "Флак"))
+        assertEquals(listOf("Фекла", "Фёкла"), rankApps(withYo, "фек", 10).map { it.label })
+    }
+
+    @Test
+    fun `транслит ищет в обе стороны`() {
+        val mixed = listOf(app("a", "Код"), app("b", "Погода"), app("c", "Maps"))
+        assertEquals(listOf("Код"), rankApps(mixed, "kod", 10).map { it.label })
+        assertEquals(listOf("Maps"), rankApps(mixed, "мап", 10).map { it.label })
+    }
+
+    @Test
+    fun `избранные идут впереди более точных совпадений`() {
+        val list = listOf(app("com.best", "Карты"), app("com.fav", "Мои Карты"))
+        val found = rankApps(list, "карт", 10, favorites = setOf("com.fav"))
+        assertEquals(listOf("com.fav", "com.best"), found.map { it.packageName })
+    }
+
+    @Test
+    fun `в режиме избранного неизбранные не добираются до лимита`() {
+        val list = listOf(app("com.best", "Карты"), app("com.fav", "Мои Карты"), app("com.two", "Картон"))
+        val found = rankApps(list, "карт", 2, favorites = setOf("com.fav"), favoritesOnly = true)
+        assertEquals(listOf("com.fav"), found.map { it.packageName })
+    }
+
+    @Test
+    fun `пакет и описание подключаются только когда название молчит`() {
+        val list = listOf(
+            app("com.x", "Mbank"),
+            app("ru.tinkoff.mbank", "Тинькофф"),
+            app("com.d", "Калькулятор", description = "Ноты"),
+        )
+        assertEquals(
+            listOf("com.x", "ru.tinkoff.mbank"),
+            rankApps(list, "mbank", 10).map { it.packageName },
+        )
+        assertEquals(listOf("com.d"), rankApps(list, "нот", 10).map { it.packageName })
+    }
 }

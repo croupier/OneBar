@@ -131,11 +131,16 @@ class SearchViewModel(
             return
         }
         appsJob = viewModelScope.launch(io) {
-            val found = apps.matching(trimmed, LIMIT)
-            val favSet = _state.value.favApps.toSet()
-            val visible = if (favoritesMode) found.filter { it.packageName in favSet } else found
+            // Избранные участвуют в ранжировании, а не отфильтровываются после: лимит должен
+            // отсекать наименее релевантное совпадение, а не совпадение вне избранного.
+            val found = apps.matching(
+                trimmed,
+                LIMIT,
+                _state.value.favApps.toSet(),
+                favoritesOnly = favoritesMode,
+            )
             _state.update {
-                if (it.query.trim() == trimmed && it.favoritesMode == favoritesMode) it.copy(apps = visible) else it
+                if (it.query.trim() == trimmed && it.favoritesMode == favoritesMode) it.copy(apps = found) else it
             }
         }
     }
@@ -270,10 +275,12 @@ class SearchViewModel(
                     if (it.query.isBlank() && !it.favoritesMode) it.copy(contacts = rows) else it
                 }
             } else {
-                val favSet = _state.value.favContactKeys.toSet()
-                val rows = contacts.search(trimmed, LIMIT)
-                    .filter { !favoritesMode || it.lookupKey in favSet }
-                    .map { ContactRowUi(it) }
+                val rows = contacts.search(
+                    trimmed,
+                    LIMIT,
+                    _state.value.favContactKeys.toSet(),
+                    favoritesOnly = favoritesMode,
+                ).map { ContactRowUi(it) }
                 // Отмена корутины блокирующего запроса не прерывает, поэтому проверяем, что
                 // за время поиска запрос не успел измениться.
                 _state.update {
