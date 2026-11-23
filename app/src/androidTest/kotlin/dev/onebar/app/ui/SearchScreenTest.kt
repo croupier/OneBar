@@ -4,6 +4,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotFocused
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
@@ -15,6 +16,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
@@ -231,6 +233,38 @@ class SearchScreenTest {
         suggestion.performSemanticsAction(SemanticsActions.OnClick)
 
         ui.onNode(hasSetTextAction()).assertTextEquals("кофе в зёрнах")
+    }
+
+    @Test
+    fun `кнопка_поиска_скрывает_клавиатуру_и_сохраняет_отправленный_запрос`() {
+        val history = FakeHistory()
+        show(history = history)
+        val field = ui.onNode(hasSetTextAction())
+
+        field.performTextInput("  кофе  ")
+        assertTrue(history.pushedQueries.isEmpty())
+
+        field.performImeAction()
+
+        field.assertIsNotFocused()
+        ui.waitUntil(TIMEOUT) { history.pushedQueries.isNotEmpty() }
+        assertEquals(listOf("кофе"), history.pushedQueries)
+    }
+
+    @Test
+    fun `отправленный_запрос_потом_показывается_в_истории`() {
+        val history = FakeHistory()
+        show(history = history)
+        val field = ui.onNode(hasSetTextAction())
+
+        field.performTextInput("кофе")
+        field.performImeAction()
+        ui.waitUntil(TIMEOUT) { history.pushedQueries.isNotEmpty() }
+
+        ui.onNodeWithContentDescription(str(R.string.close)).performClick()
+        field.performClick()
+
+        ui.waitUntilAtLeastOneExists(hasText("кофе"), TIMEOUT)
     }
 
     @Test
