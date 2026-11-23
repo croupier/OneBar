@@ -188,7 +188,7 @@ fun SearchScreen(
                     ContactsSection(
                         state = state,
                         modifier = if (favoritesShown) Modifier.fillMaxWidth().weight(1f)
-                        else Modifier.fillMaxWidth().height(ROW_HEIGHT * 3),
+                        else Modifier.fillMaxWidth().height(CONTACT_SECTION_HEIGHT),
                         smsIcon = smsIcon,
                         callIcon = callIcon,
                         onRequestPermission = { contactsPermission.launch(Manifest.permission.READ_CONTACTS) },

@@ -4,23 +4,28 @@ import android.graphics.drawable.Drawable
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -84,18 +89,30 @@ fun ContactsSection(
     }
     if (state.contacts.isEmpty()) return
 
-    LazyColumn(modifier = modifier) {
-        items(state.contacts, key = { it.entry.contactId }) { row ->
-            ContactRow(
-                row = row,
-                smsIcon = smsIcon,
-                callIcon = callIcon,
-                favorite = !state.favoritesMode && row.entry.lookupKey in state.favContactKeys,
-                onSms = { onSms(row.entry) },
-                onCall = { onCall(row.entry) },
-                onOpen = { onOpen(row.entry) },
-                onMenu = { onMenu(row.entry) },
-            )
+    Column(modifier = modifier) {
+        Text(
+            text = stringResource(R.string.contacts_title),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp),
+        )
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(CONTACT_ROW_GAP),
+            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = CONTACT_LIST_BOTTOM),
+        ) {
+            items(state.contacts, key = { it.entry.contactId }) { row ->
+                ContactRow(
+                    row = row,
+                    smsIcon = smsIcon,
+                    callIcon = callIcon,
+                    favorite = !state.favoritesMode && row.entry.lookupKey in state.favContactKeys,
+                    onSms = { onSms(row.entry) },
+                    onCall = { onCall(row.entry) },
+                    onOpen = { onOpen(row.entry) },
+                    onMenu = { onMenu(row.entry) },
+                )
+            }
         }
     }
 }
@@ -158,17 +175,37 @@ private fun ContactRow(
         else -> row.entry.number.orEmpty()
     }
     SwipeableRow(enabled = canAct, onTrigger = onCall) { labels ->
-        Box(Modifier.fillMaxWidth().height(ROW_HEIGHT)) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(CONTACT_ROW_HEIGHT)
+                .clip(RoundedCornerShape(CONTACT_CARD_RADIUS))
+                .background(contactCardColor()),
+        ) {
             Row(
-                modifier = Modifier.fillMaxWidth().height(ROW_HEIGHT).padding(horizontal = 14.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 12.dp)
+                    .combinedClickable(onClick = onOpen, onLongClick = onMenu),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
+                Box {
+                    ContactAvatar(contactId = row.entry.contactId, name = row.entry.name)
+                    if (favorite) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_star),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .size(14.dp)
+                                .background(contactCardColor(), CircleShape),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
                 Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(8.dp))
-                        .combinedClickable(onClick = onOpen, onLongClick = onMenu),
+                    modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.Center,
                 ) {
                     Text(
@@ -180,7 +217,7 @@ private fun ContactRow(
                     if (detail.isNotBlank()) {
                         Text(
                             text = detail,
-                            style = MaterialTheme.typography.bodySmall,
+                            style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -189,32 +226,25 @@ private fun ContactRow(
                 }
 
                 if (canAct) {
-                    ActionIcon(
-                        handlerIcon = smsIcon,
-                        fallbackIcon = painterResource(R.drawable.ic_sms),
-                        contentDescription = stringResource(R.string.sms_action),
-                        onClick = onSms,
-                        caption = if (labels) stringResource(R.string.caption_sms) else null,
-                    )
-                    ActionIcon(
-                        handlerIcon = callIcon,
-                        fallbackIcon = painterResource(R.drawable.ic_call),
-                        contentDescription = stringResource(R.string.call_action),
-                        onClick = onCall,
-                        caption = if (labels) stringResource(R.string.caption_call) else null,
-                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                        ActionIcon(
+                            handlerIcon = smsIcon,
+                            fallbackIcon = painterResource(R.drawable.ic_sms),
+                            contentDescription = stringResource(R.string.sms_action),
+                            onClick = onSms,
+                            caption = if (labels) stringResource(R.string.caption_sms) else null,
+                        )
+                        ActionIcon(
+                            handlerIcon = callIcon,
+                            fallbackIcon = painterResource(R.drawable.ic_call),
+                            contentDescription = stringResource(R.string.call_action),
+                            onClick = onCall,
+                            caption = if (labels) stringResource(R.string.caption_call) else null,
+                        )
+                    }
                 } else {
-                    Spacer(Modifier.size(AppItemSize * 2 + 10.dp))
+                    Spacer(Modifier.width(CONTACT_ACTION_SIZE * 2 + 2.dp))
                 }
-            }
-            // Звезда — наложение в углу строки: как у иконок приложений, она не должна сдвигать текст.
-            if (favorite) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_star),
-                    contentDescription = null,
-                    modifier = Modifier.align(Alignment.TopStart).padding(start = 2.dp, top = 2.dp).size(14.dp),
-                    tint = MaterialTheme.colorScheme.primary,
-                )
             }
         }
     }
