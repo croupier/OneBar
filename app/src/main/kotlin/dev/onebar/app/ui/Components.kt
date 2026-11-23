@@ -1,12 +1,15 @@
 package dev.onebar.app.ui
 
+import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.drawable.AdaptiveIconDrawable
 import android.graphics.drawable.Drawable
 import android.net.Uri
+import android.provider.ContactsContract
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -14,18 +17,19 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.core.graphics.drawable.toBitmap
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,7 +41,9 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -46,8 +52,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.drawable.toBitmap
 import dev.onebar.app.R
 import dev.onebar.app.data.LaunchableApp
+import java.io.InputStream
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 val ROW_HEIGHT = 64.dp
 private const val ICON_PX = 96
@@ -132,7 +142,18 @@ internal fun contactCardColor(): Color {
 }
 
 @Composable
-fun ContactAvatar(contactId: Long, name: String, modifier: Modifier = Modifier) {
+fun ContactAvatar(contactId: Long, name: String, photoUri: String? = null, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val density = LocalDensity.current
+    val photoSize = with(density) { CONTACT_AVATAR_SIZE.roundToPx() }
+    val photo = produceState<ImageBitmap?>(initialValue = null, photoUri, context, photoSize) {
+        value = photoUri?.takeIf { it.isNotBlank() }?.let {
+            withContext(Dispatchers.IO) {
+                runCatching { decodeContactPhoto(context, contactId, photoSize) }
+                    .getOrNull()?.asImageBitmap()
+            }
+        }
+    }.value
     val scheme = MaterialTheme.colorScheme
     val palette = listOf(
         scheme.primaryContainer to scheme.onPrimaryContainer,
@@ -146,13 +167,42 @@ fun ContactAvatar(contactId: Long, name: String, modifier: Modifier = Modifier) 
     Box(
         modifier = modifier
             .size(CONTACT_AVATAR_SIZE)
-            .background(background, CircleShape)
+            .clip(CircleShape)
+            .background(background)
             .clearAndSetSemantics {},
         contentAlignment = Alignment.Center,
     ) {
-        Text(text = initial, color = content, style = MaterialTheme.typography.titleMedium)
+        if (photo != null) {
+            Image(
+                bitmap = photo,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
+        } else if (photoUri.isNullOrBlank()) {
+            Text(text = initial, color = content, style = MaterialTheme.typography.titleMedium)
+        }
     }
 }
+
+private fun decodeContactPhoto(context: Context, contactId: Long, targetPx: Int): Bitmap? {
+    val target = targetPx.coerceAtLeast(1)
+    val contactUri = ContentUris.withAppendedId(ContactsContract.Contacts.CONTENT_URI, contactId)
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    val input = openContactPhoto(context, contactUri) ?: return null
+    input.use { BitmapFactory.decodeStream(it, null, bounds) }
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+    var sampleSize = 1
+    while (bounds.outWidth / (sampleSize * 2) >= target && bounds.outHeight / (sampleSize * 2) >= target) {
+        sampleSize *= 2
+    }
+    val options = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+    return openContactPhoto(context, contactUri)?.use { BitmapFactory.decodeStream(it, null, options) }
+}
+
+private fun openContactPhoto(context: Context, contactUri: Uri): InputStream? =
+    ContactsContract.Contacts.openContactPhotoInputStream(context.contentResolver, contactUri, false)
+        ?: ContactsContract.Contacts.openContactPhotoInputStream(context.contentResolver, contactUri, true)
 
 @Composable
 fun ActionIcon(

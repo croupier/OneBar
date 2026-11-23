@@ -77,6 +77,13 @@ internal fun likeClause(patterns: List<String>, column: String): String =
 
 private const val LIKE_ESCAPE = " ESCAPE '\\'"
 
+private data class BaseContact(
+    val contactId: Long,
+    val name: String,
+    val lookupKey: String,
+    val photoUri: String?,
+)
+
 class DefaultContactRepository(private val context: Context) : ContactRepository {
 
     override fun hasPermission(): Boolean =
@@ -116,25 +123,41 @@ class DefaultContactRepository(private val context: Context) : ContactRepository
         return enrich(withNumbers(ranked))
     }
 
-    /** id, название и lookup-ключ — всё, что нужно ранжировщику до загрузки номеров. */
+    /** id, название, lookup-ключ и фото нужны и ранжировщику, и строке результата. */
     @SuppressLint("Range")
-    private fun baseRows(selection: String, args: Array<String>?, cap: Int): List<Triple<Long, String, String>> {
-        val found = ArrayList<Triple<Long, String, String>>(cap)
+    private fun baseRows(selection: String, args: Array<String>?, cap: Int): List<BaseContact> {
+        val found = ArrayList<BaseContact>(cap)
         context.contentResolver.query(
             Contacts.CONTENT_URI,
-            arrayOf(Contacts._ID, Contacts.DISPLAY_NAME, Contacts.LOOKUP_KEY),
+            arrayOf(
+                Contacts._ID,
+                Contacts.DISPLAY_NAME,
+                Contacts.LOOKUP_KEY,
+                Contacts.PHOTO_URI,
+            ),
             selection,
             args,
             STARRED_FIRST_SORT,
         )?.use { cursor ->
             while (cursor.moveToNext() && found.size < cap) {
-                found += Triple(cursor.getLong(0), cursor.getString(1).orEmpty(), cursor.getString(2).orEmpty())
+                found += BaseContact(
+                    contactId = cursor.getLong(0),
+                    name = cursor.getString(1).orEmpty(),
+                    lookupKey = cursor.getString(2).orEmpty(),
+                    photoUri = cursor.getString(3)?.takeIf { it.isNotBlank() },
+                )
             }
         }
         return found
     }
 
-    private fun entryOf(row: Triple<Long, String, String>) = ContactEntry(row.first, row.third, row.second, null)
+    private fun entryOf(row: BaseContact) = ContactEntry(
+        contactId = row.contactId,
+        lookupKey = row.lookupKey,
+        name = row.name,
+        number = null,
+        photoUri = row.photoUri,
+    )
 
     /**
      * Поиск по номеру равнозначен поиску по имени, поэтому номера нужны до ранжирования:
@@ -166,7 +189,7 @@ class DefaultContactRepository(private val context: Context) : ContactRepository
         if (ids.isEmpty()) return rows
         val selectionById = "${Contacts._ID} IN (${ids.placeholders()}) AND $HAS_PHONE_ONLY"
         val byPhone = baseRows(selectionById, ids.map { it.toString() }.toTypedArray(), cap)
-            .map { row -> entryOf(row).copy(searchableNumbers = numbers[row.first].orEmpty()) }
+            .map { row -> entryOf(row).copy(searchableNumbers = numbers[row.contactId].orEmpty()) }
         // Строка из телефонного прохода уже содержит название, поэтому просто переставляет
         // найденную по имени запись той же строкой, но с номерами.
         return (rows + byPhone).associateBy { it.contactId }.values.toList()
@@ -210,7 +233,7 @@ class DefaultContactRepository(private val context: Context) : ContactRepository
         if (ids.isEmpty()) return emptyList()
         val baseSelection = "${Contacts._ID} IN (${ids.placeholders()}) AND $HAS_PHONE_ONLY"
         return baseRows(baseSelection, ids.map { it.toString() }.toTypedArray(), cap).map { row ->
-            val found = values[row.first].orEmpty()
+            val found = values[row.contactId].orEmpty()
             entryOf(row).copy(
                 organization = found[Organization.CONTENT_ITEM_TYPE].joined(),
                 nickname = found[Nickname.CONTENT_ITEM_TYPE].joined(),
@@ -231,26 +254,38 @@ class DefaultContactRepository(private val context: Context) : ContactRepository
     override fun byLookupKeys(keys: List<String>): List<ContactEntry> {
         if (!hasPermission() || keys.isEmpty()) return emptyList()
         val selection = "${Contacts.LOOKUP_KEY} IN (${keys.placeholders()}) AND $HAS_PHONE_ONLY"
-        val found = HashMap<String, Pair<Long, String>>(keys.size)
+        val found = HashMap<String, BaseContact>(keys.size)
         context.contentResolver.query(
             Contacts.CONTENT_URI,
-            arrayOf(Contacts._ID, Contacts.DISPLAY_NAME, Contacts.LOOKUP_KEY),
+            arrayOf(
+                Contacts._ID,
+                Contacts.DISPLAY_NAME,
+                Contacts.LOOKUP_KEY,
+                Contacts.PHOTO_URI,
+            ),
             selection,
             keys.toTypedArray(),
             null,
         )?.use { cursor ->
             while (cursor.moveToNext()) {
-                found[cursor.getString(2)] = cursor.getLong(0) to cursor.getString(1)
+                val key = cursor.getString(2).orEmpty()
+                found[key] = BaseContact(
+                    contactId = cursor.getLong(0),
+                    name = cursor.getString(1).orEmpty(),
+                    lookupKey = key,
+                    photoUri = cursor.getString(3)?.takeIf { it.isNotBlank() },
+                )
             }
         }
         val rows = keys.mapNotNull { key ->
             val hit = found[key] ?: return@mapNotNull null
-            val (number, count) = defaultPhone(hit.first)
+            val (number, count) = defaultPhone(hit.contactId)
             ContactEntry(
-                contactId = hit.first,
-                name = hit.second,
+                contactId = hit.contactId,
+                name = hit.name,
                 lookupKey = key,
                 number = number,
+                photoUri = hit.photoUri,
                 phoneCount = count,
             )
         }
@@ -266,7 +301,11 @@ class DefaultContactRepository(private val context: Context) : ContactRepository
         if (!hasPermission()) return null
         val base = context.contentResolver.query(
             Contacts.CONTENT_URI,
-            arrayOf(Contacts.DISPLAY_NAME, Contacts.LOOKUP_KEY),
+            arrayOf(
+                Contacts.DISPLAY_NAME,
+                Contacts.LOOKUP_KEY,
+                Contacts.PHOTO_URI,
+            ),
             "${Contacts._ID} = ?",
             arrayOf(contactId.toString()),
             null,
@@ -278,6 +317,7 @@ class DefaultContactRepository(private val context: Context) : ContactRepository
                 name = cursor.getString(0).orEmpty(),
                 lookupKey = cursor.getString(1).orEmpty(),
                 number = number,
+                photoUri = cursor.getString(2)?.takeIf { it.isNotBlank() },
                 phoneCount = count,
             )
         } ?: return null

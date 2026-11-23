@@ -191,7 +191,11 @@ private fun ContactRow(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Box {
-                    ContactAvatar(contactId = row.entry.contactId, name = row.entry.name)
+                    ContactAvatar(
+                        contactId = row.entry.contactId,
+                        name = row.entry.name,
+                        photoUri = row.entry.photoUri,
+                    )
                     if (favorite) {
                         Icon(
                             painter = painterResource(R.drawable.ic_star),
