@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="272" height="96" viewBox="0 0 272 96">
 <g transform="translate(1.76 -5.94) scale(3.8532)">
-  <path d="M8.4,8 L15.6,8 A6,6 0 0 1 15.6,20 L8.4,20 A6,6 0 0 1 8.4,8 Z" fill="none" stroke="#006A61" stroke-width="2.6"/>
-  <path d="M8.6,11.4 L8.6,16.6" fill="none" stroke="#006A61" stroke-width="2" stroke-linecap="round"/>
-  <path d="M15.6,12.3 A1.7,1.7 0 1 1 15.6,15.7 A1.7,1.7 0 1 1 15.6,12.3 Z" fill="#006A61"/></g>
-  <text x="108" y="66" font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="46" font-weight="600" letter-spacing="-0.5" fill="#006A61">OneBar</text>
+  <path d="M8.4,8 L15.6,8 A6,6 0 0 1 15.6,20 L8.4,20 A6,6 0 0 1 8.4,8 Z" fill="none" stroke="#006200" stroke-width="2.6"/>
+  <path d="M8.6,11.4 L8.6,16.6" fill="none" stroke="#006200" stroke-width="2" stroke-linecap="round"/>
+  <path d="M15.6,12.3 A1.7,1.7 0 1 1 15.6,15.7 A1.7,1.7 0 1 1 15.6,12.3 Z" fill="#006200"/></g>
+  <text x="108" y="66" font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="46" font-weight="600" letter-spacing="-0.5" fill="#006200">OneBar</text>
 </svg>

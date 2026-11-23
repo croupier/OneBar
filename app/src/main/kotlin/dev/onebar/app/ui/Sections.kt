@@ -32,7 +32,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
@@ -43,6 +42,10 @@ import androidx.compose.ui.unit.dp
 import dev.onebar.app.R
 import dev.onebar.app.data.CommunicationKind
 import dev.onebar.app.data.ContactEntry
+import dev.onebar.app.ui.theme.googleBadgeBackground
+import dev.onebar.app.ui.theme.googleBadgeContent
+import dev.onebar.app.ui.theme.yandexBadgeBackground
+import dev.onebar.app.ui.theme.yandexBadgeContent
 
 @Composable
 fun ContactsSection(
@@ -309,16 +312,16 @@ private fun WebRow(
             )
             BrandBadge(
                 letter = "Я",
-                badgeBackground = Color(0xFFFC3F1D),
-                badgeContentColor = Color.White,
+                badgeBackground = yandexBadgeBackground,
+                badgeContentColor = yandexBadgeContent,
                 label = stringResource(R.string.search_yandex),
                 onClick = { onSearch(WebEngine.YANDEX) },
                 caption = if (labels) "Яндекс" else null,
             )
             BrandBadge(
                 letter = "G",
-                badgeBackground = Color(0xFFF1F3F4),
-                badgeContentColor = Color(0xFF4285F4),
+                badgeBackground = googleBadgeBackground,
+                badgeContentColor = googleBadgeContent,
                 label = stringResource(R.string.search_google),
                 onClick = { onSearch(WebEngine.GOOGLE) },
                 caption = if (labels) "Google" else null,

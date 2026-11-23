@@ -103,7 +103,7 @@ private val DarkColorScheme: ColorScheme = darkColorScheme(
 )
 
 // dynamicColor выключен: фирменная палитра важнее обоев телефона, а с включённой динамической
-// темой seed teal-600 просто перекрывался бы системной схемой на Android 12+.
+// темой seed Green #006200 просто перекрывался бы системной схемой на Android 12+.
 @Composable
 fun OneBarTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),

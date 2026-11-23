@@ -2,8 +2,9 @@
 <resources>
     <!-- Тёмная тема виджета: surfaceContainerHigh / outlineVariant / onSurfaceVariant тёмной
          схемы. launcher_background не переопределяем — иконка запуска одна на обе темы. -->
-    <color name="widget_surface">#FF252B2A</color>
-    <color name="widget_stroke">#FF3F4947</color>
-    <color name="widget_text">#FFBEC9C6</color>
-    <color name="widget_icon">#FFBEC9C6</color>
+    <color name="widget_surface">#FF272B25</color>
+    <color name="widget_stroke">#FF43483F</color>
+    <color name="widget_text">#FFC3C8BC</color>
+    <color name="widget_icon">#FFC3C8BC</color>
+    <color name="window_background">#FF11140F</color>
 </resources>

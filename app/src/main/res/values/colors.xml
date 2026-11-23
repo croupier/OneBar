@@ -1,14 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Виджет на рабочем столе: роли палитры teal-600 из Color.kt, а не дефолтные серые
-         Google — card = surface, обводка = outlineVariant, текст и иконка = onSurfaceVariant
-         (контраст к фону 8.87). -->
-    <color name="widget_surface">#FFF4FBF8</color>
-    <color name="widget_stroke">#FFBEC9C6</color>
-    <color name="widget_text">#FF3F4947</color>
-    <color name="widget_icon">#FF3F4947</color>
+    <!-- Виджет на рабочем столе: роли палитры Green #006200 из Color.kt — card = surface,
+         обводка = outlineVariant, текст и иконка = onSurfaceVariant. -->
+    <color name="widget_surface">#FFF8FBF1</color>
+    <color name="widget_stroke">#FFC3C8BC</color>
+    <color name="widget_text">#FF43483F</color>
+    <color name="widget_icon">#FF43483F</color>
 
-    <!-- Иконка запуска темой не перекрашивается: brand тон 40 и белый знак. -->
-    <color name="launcher_background">#FF006A61</color>
+    <!-- Стартовое окно до первого кадра Compose использует тот же surface. -->
+    <color name="window_background">#FFF8FBF1</color>
+
+    <!-- Иконка запуска темой не перекрашивается: точный brand #006200 и белый знак. -->
+    <color name="launcher_background">#FF006200</color>
     <color name="launcher_foreground">#FFFFFFFF</color>
 </resources>
