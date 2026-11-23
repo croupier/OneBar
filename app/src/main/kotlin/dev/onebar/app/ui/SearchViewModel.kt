@@ -343,7 +343,9 @@ class SearchViewModel(
     }
 
     private companion object {
-        const val LIMIT = 12
+        // С запасом на свёрнутую клавиатуру: два ряда плиток и до девяти строк контактов
+        // влезает без прокрутки, лишнее досказывается прокруткой самой панели.
+        const val LIMIT = 20
         const val DEBOUNCE_MS = 200L
     }
 }

@@ -100,28 +100,27 @@ fun ContactsSection(
     }
 }
 
-/** Плиток в ряду избранного приложений: столько ширины экрана влезает с зазором. */
+/** Плиток в ряду: столько ширины экрана влезает с зазором. */
 fun appsColumns(width: Dp): Int =
     ((width - 16.dp + 4.dp) / (AppItemWidth + 4.dp)).toInt().coerceAtLeast(1)
 
-private const val MAX_FAV_APP_ROWS = 2
-
 /**
- * Избранные приложения — сетка до двух рядов, а не одна горизонтальная строка: в избранном
- * клавиатуры нет, освободившуюся высоту отдаём спискам. Сверх двух рядов сетка листается сама.
+ * Приложения сеткой, когда высоты хватает на два ряда: горизонтальная строка при большой
+ * высоте оставила бы пустое поле. Сверх отданных рядов сетка листается сама.
  */
 @Composable
-fun FavoritesAppsSection(
+fun AppsGridSection(
     apps: List<LaunchableApp>,
     columns: Int,
+    rows: Int,
     onOpen: (LaunchableApp) -> Unit,
     onMenu: (LaunchableApp) -> Unit,
 ) {
     if (apps.isEmpty()) return
-    val rows = ((apps.size + columns - 1) / columns).coerceAtMost(MAX_FAV_APP_ROWS)
+    val usedRows = ((apps.size + columns - 1) / columns).coerceAtMost(rows).coerceAtLeast(1)
     LazyVerticalGrid(
         columns = GridCells.Fixed(columns),
-        modifier = Modifier.fillMaxWidth().height(AppItemHeight * rows + 12.dp).padding(vertical = 6.dp),
+        modifier = Modifier.fillMaxWidth().height(AppsRowHeight * usedRows).padding(vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         items(apps, key = { it.packageName }) { app ->

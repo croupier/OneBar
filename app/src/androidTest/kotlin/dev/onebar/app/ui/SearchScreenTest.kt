@@ -150,6 +150,26 @@ class SearchScreenTest {
     }
 
     @Test
+    fun `тап_по_избранному_в_меню_закрывает_меню_и_в_избранном`() {
+        show(
+            apps = FakeApps(known = listOf(app("com.a", "Maps"), app("com.b", "Notes"))),
+            history = FakeHistory(recentApps = listOf("com.a", "com.b")),
+            favorites = FakeFavorites(apps = listOf("com.a", "com.b")),
+        )
+        ui.onNodeWithContentDescription(str(R.string.favorites)).performClick()
+        ui.waitUntilAtLeastOneExists(hasText("Maps"), TIMEOUT)
+
+        ui.onNodeWithText("Maps").performTouchInput { longClick() }
+        ui.waitUntilAtLeastOneExists(hasText(str(R.string.menu_fav_remove)), TIMEOUT)
+        ui.onNodeWithText(str(R.string.menu_fav_remove)).performClick()
+
+        // Меню закрыто, а отмену видно списком: плитка пропала, вторая осталась.
+        ui.waitUntil(TIMEOUT) { ui.onAllNodesWithText(str(R.string.menu_fav_remove)).fetchSemanticsNodes().isEmpty() }
+        ui.onNodeWithText("Maps").assertDoesNotExist()
+        ui.onNodeWithText("Notes").assertIsDisplayed()
+    }
+
+    @Test
     fun `свайп_на_треть_ширины_показывает_подписи_и_не_вызывает_действие`() {
         val history = FakeHistory()
         show(contacts = FakeContacts(known = listOf(contact(1, "Ann"))), history = history)

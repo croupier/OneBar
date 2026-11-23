@@ -1,0 +1,49 @@
+package dev.onebar.app.ui
+
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+
+/**
+ * Сколько рядов показывать панелям. Клавиатура снимает с высоты почти половину экрана
+ * (на Pixel 8a 402 dp из 914), поэтому число рядов нельзя задать одной константой:
+ * два ряда плиток даём только когда контактам остаётся не меньше пяти строк, а внешний
+ * скролл оставляем лишь тогда, когда не влезает даже минимум.
+ */
+data class PanelRows(val appRows: Int, val contactRows: Int, val scroll: Boolean)
+
+/** Ряд плиток: сама плитка и вертикальные поля строки приложений. */
+val AppsRowHeight = AppItemHeight + 12.dp
+
+private val DividerHeight = 1.dp
+private const val MIN_CONTACT_ROWS = 3
+private const val SIDE_LIST_ROWS = 3
+
+/** Плитки теснят контакты: второй ряд оправдан, только когда результатов видно хотя бы пять. */
+private const val APP_GRID_MIN_CONTACT_ROWS = 5
+
+internal fun panelRows(
+    available: Dp,
+    hasApps: Boolean,
+    hasHistory: Boolean,
+    hasSuggestions: Boolean,
+): PanelRows {
+    // Высота блоков, которые не растут: плитки, история запросов, веб-подсказки.
+    fun fixed(appRows: Int): Dp {
+        val apps = if (hasApps && appRows > 0) AppsRowHeight * appRows + DividerHeight else 0.dp
+        val history = if (hasHistory) ROW_HEIGHT * SIDE_LIST_ROWS else 0.dp
+        val suggestions = if (hasSuggestions) ROW_HEIGHT * SIDE_LIST_ROWS + DividerHeight else 0.dp
+        return apps + history + suggestions
+    }
+
+    val minContacts = ROW_HEIGHT * MIN_CONTACT_ROWS
+    val appRows = when {
+        !hasApps -> 0
+        available - fixed(2) >= ROW_HEIGHT * APP_GRID_MIN_CONTACT_ROWS -> 2
+        else -> 1
+    }
+    val rest = available - fixed(appRows)
+    val scroll = rest < minContacts
+    val contactRows =
+        if (scroll) MIN_CONTACT_ROWS else (rest / ROW_HEIGHT).toInt().coerceAtLeast(MIN_CONTACT_ROWS)
+    return PanelRows(appRows, contactRows, scroll)
+}

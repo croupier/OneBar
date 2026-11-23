@@ -138,46 +138,51 @@ fun SearchScreen(
             },
         )
 
-        // Вне избранного списки короче экрана и прокручиваются вместе; в избранном клавиатуры нет,
-        // поэтому внешнего скролла не делаем — высоту делят сетка приложений и контакты.
-        val favoritesShown = state.favoritesMode && !favoritesBlank
+        // Высоту под панелями делим по измеренному остатку: с клавиатурой влезает одна строка
+        // плиток и три строки контактов, без неё — два ряда плиток и всё остальное контактам.
         BoxWithConstraints(modifier = Modifier.fillMaxWidth().weight(1f)) {
             val appColumns = appsColumns(maxWidth)
+            val showHistory =
+                state.historyRequested && state.query.isBlank() && state.queries.isNotEmpty() &&
+                    !state.favoritesMode
+            val rows = panelRows(
+                available = maxHeight,
+                hasApps = state.apps.isNotEmpty(),
+                hasHistory = showHistory,
+                hasSuggestions = state.suggestions.isNotEmpty(),
+            )
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .then(if (favoritesShown) Modifier else Modifier.verticalScroll(rememberScrollState())),
+                    .then(if (rows.scroll) Modifier.verticalScroll(rememberScrollState()) else Modifier),
             ) {
-                if (favoritesShown) {
-                    FavoritesAppsSection(
-                        apps = state.apps,
-                        columns = appColumns,
-                        onOpen = openApp,
-                        onMenu = viewModel::onAppMenuOpen,
-                    )
-                    if (state.apps.isNotEmpty()) {
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    }
-                } else if (state.apps.isNotEmpty()) {
-                    LazyRow(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        items(state.apps, key = { it.packageName }) { app ->
-                            AppItem(
-                                app = app,
-                                favorite = !state.favoritesMode && app.packageName in state.favApps,
-                                onClick = { openApp(app) },
-                                onLongClick = { viewModel.onAppMenuOpen(app) },
-                            )
+                if (state.apps.isNotEmpty()) {
+                    if (rows.appRows > 1) {
+                        AppsGridSection(
+                            apps = state.apps,
+                            columns = appColumns,
+                            rows = rows.appRows,
+                            onOpen = openApp,
+                            onMenu = viewModel::onAppMenuOpen,
+                        )
+                    } else {
+                        LazyRow(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            items(state.apps, key = { it.packageName }) { app ->
+                                AppItem(
+                                    app = app,
+                                    favorite = !state.favoritesMode && app.packageName in state.favApps,
+                                    onClick = { openApp(app) },
+                                    onLongClick = { viewModel.onAppMenuOpen(app) },
+                                )
+                            }
                         }
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
 
-                val showHistory =
-                    state.historyRequested && state.query.isBlank() && state.queries.isNotEmpty() &&
-                        !state.favoritesMode
                 if (showHistory) {
                     SearchHistorySection(queries = state.queries, onPick = viewModel::onQueryChange)
                 }
@@ -187,8 +192,8 @@ fun SearchScreen(
                 } else {
                     ContactsSection(
                         state = state,
-                        modifier = if (favoritesShown) Modifier.fillMaxWidth().weight(1f)
-                        else Modifier.fillMaxWidth().height(ROW_HEIGHT * 3),
+                        modifier = if (rows.scroll) Modifier.fillMaxWidth().height(ROW_HEIGHT * 3)
+                        else Modifier.fillMaxWidth().weight(1f),
                         smsIcon = smsIcon,
                         callIcon = callIcon,
                         onRequestPermission = { contactsPermission.launch(Manifest.permission.READ_CONTACTS) },
@@ -237,7 +242,6 @@ fun SearchScreen(
             entry = menuTarget,
             inJournal = viewModel.inJournal(menuTarget.contactId),
             isFavorite = menuTarget.lookupKey in state.favContactKeys,
-            favoritesMode = state.favoritesMode,
             messengers = tiles,
             onDismiss = viewModel::onMenuClose,
             onToggleFavorite = { viewModel.onToggleFavoriteContact(menuTarget) },
@@ -279,7 +283,6 @@ fun SearchScreen(
         AppMenu(
             app = appTarget,
             isFavorite = appTarget.packageName in state.favApps,
-            favoritesMode = state.favoritesMode,
             onDismiss = viewModel::onAppMenuClose,
             onOpen = {
                 viewModel.onAppMenuClose()
