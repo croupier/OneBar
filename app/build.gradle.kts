@@ -17,6 +17,7 @@ android {
     targetSdk = 36
     versionCode = appVersionCode
     versionName = appVersion
+    testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
   buildTypes {
@@ -40,6 +41,12 @@ android {
     resources {
       excludes += "/META-INF/{AL2.0,LGPL2.1}"
     }
+  }
+
+  // Заглушки источников одни на юнит-тесты и на тесты в телефоне: экран собирается по ним же.
+  sourceSets {
+    getByName("test") { kotlin.srcDir("src/sharedTest/kotlin") }
+    getByName("androidTest") { kotlin.srcDir("src/sharedTest/kotlin") }
   }
 }
 

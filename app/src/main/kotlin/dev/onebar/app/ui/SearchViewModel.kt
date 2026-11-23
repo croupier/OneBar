@@ -11,6 +11,7 @@ import dev.onebar.app.data.FavoritesStore
 import dev.onebar.app.data.HistoryStore
 import dev.onebar.app.data.LaunchableApp
 import dev.onebar.app.data.SuggestRepository
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -54,6 +55,8 @@ class SearchViewModel(
     private val suggestions: SuggestRepository,
     private val history: HistoryStore,
     private val favoritesStore: FavoritesStore,
+    /** Блокирующие обращения к PackageManager и контактам; в тестах — виртуальный диспетчер. */
+    private val io: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SearchState(contactsGranted = contacts.hasPermission()))
@@ -77,14 +80,14 @@ class SearchViewModel(
     private var suggestionsJob: Job? = null
 
     init {
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(io) {
             apps.matching("", 1)
             history.recentApps.collect { packages ->
                 recent = apps.byPackages(packages)
                 _state.update { if (it.query.isBlank() && !it.favoritesMode) it.copy(apps = recent) else it }
             }
         }
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(io) {
             history.communications.collect { entries -> journal.value = entries }
         }
         viewModelScope.launch {
@@ -127,7 +130,7 @@ class SearchViewModel(
             if (favoritesMode) reloadBlankApps() else _state.update { it.copy(apps = recent) }
             return
         }
-        appsJob = viewModelScope.launch(Dispatchers.IO) {
+        appsJob = viewModelScope.launch(io) {
             val found = apps.matching(trimmed, LIMIT)
             val favSet = _state.value.favApps.toSet()
             val visible = if (favoritesMode) found.filter { it.packageName in favSet } else found
@@ -142,7 +145,7 @@ class SearchViewModel(
         val s = _state.value
         if (!s.favoritesMode || s.query.isNotBlank()) return
         appsJob?.cancel()
-        appsJob = viewModelScope.launch(Dispatchers.IO) {
+        appsJob = viewModelScope.launch(io) {
             val fav = apps.byPackages(_state.value.favApps)
             _state.update { if (it.favoritesMode && it.query.isBlank()) it.copy(apps = fav) else it }
         }
@@ -224,7 +227,7 @@ class SearchViewModel(
     fun onMenuOpen(entry: ContactEntry) {
         _menuEntry.value = entry
         if (entry.email != null || entry.messengers.isNotEmpty()) return
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(io) {
             val full = contacts.details(entry.contactId) ?: return@launch
             _menuEntry.update { if (it?.contactId == full.contactId) full else it }
         }
@@ -256,7 +259,7 @@ class SearchViewModel(
             reloadBlankContacts()
             return
         }
-        contactsJob = viewModelScope.launch(Dispatchers.IO) {
+        contactsJob = viewModelScope.launch(io) {
             if (trimmed.isEmpty()) {
                 val found = contacts.search("", LIMIT)
                 favorites.value = found
@@ -287,7 +290,7 @@ class SearchViewModel(
         val s = _state.value
         if (!s.favoritesMode || s.query.isNotBlank() || !contacts.hasPermission()) return
         contactsJob?.cancel()
-        contactsJob = viewModelScope.launch(Dispatchers.IO) {
+        contactsJob = viewModelScope.launch(io) {
             val rows = contacts.byLookupKeys(_state.value.favContactKeys).map { ContactRowUi(it) }
             _state.update { if (it.favoritesMode && it.query.isBlank()) it.copy(contacts = rows) else it }
         }

@@ -1,0 +1,159 @@
+package dev.onebar.app.testing
+
+import dev.onebar.app.data.AppRepository
+import dev.onebar.app.data.CommunicationEntry
+import dev.onebar.app.data.CommunicationKind
+import dev.onebar.app.data.ContactEntry
+import dev.onebar.app.data.ContactRepository
+import dev.onebar.app.data.FavoritesStore
+import dev.onebar.app.data.HistoryStore
+import dev.onebar.app.data.LaunchableApp
+import dev.onebar.app.data.SuggestRepository
+import dev.onebar.app.data.rankApps
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+
+fun app(packageName: String, label: String = packageName) = LaunchableApp(packageName, label)
+
+fun contact(
+    id: Long,
+    name: String,
+    lookupKey: String = "lookup-$id",
+    number: String? = "+7000000000$id",
+    phoneCount: Int = 1,
+    email: String? = null,
+) = ContactEntry(
+    contactId = id,
+    lookupKey = lookupKey,
+    name = name,
+    number = number,
+    phoneCount = phoneCount,
+    email = email,
+)
+
+fun log(
+    id: Long,
+    name: String,
+    kind: CommunicationKind = CommunicationKind.CALL,
+    lookupKey: String = "lookup-$id",
+    number: String = "+7000000000$id",
+    timestamp: Long = System.currentTimeMillis(),
+) = CommunicationEntry(kind, id, lookupKey, name, number, timestamp)
+
+/**
+ * Заглушки источников данных. Колбэки onMatch/onSearch вызываются до формирования
+ * результата — ими тест блокирует корутину и проверяет гонку отменённых запросов.
+ */
+class FakeApps(
+    var known: List<LaunchableApp> = emptyList(),
+    private val onMatch: (String) -> Unit = {},
+) : AppRepository {
+    val matched: MutableList<String> = mutableListOf()
+
+    override fun matching(query: String, limit: Int): List<LaunchableApp> {
+        onMatch(query)
+        matched += query
+        return rankApps(known, query, limit)
+    }
+
+    override fun byPackages(packages: List<String>): List<LaunchableApp> =
+        packages.mapNotNull { pkg -> known.firstOrNull { it.packageName == pkg } }
+}
+
+class FakeContacts(
+    var granted: Boolean = true,
+    var known: List<ContactEntry> = emptyList(),
+    var fullDetails: Map<Long, ContactEntry> = emptyMap(),
+    private val onSearch: (String) -> Unit = {},
+) : ContactRepository {
+    val searched: MutableList<String> = mutableListOf()
+
+    override fun hasPermission(): Boolean = granted
+
+    override fun search(query: String, limit: Int): List<ContactEntry> {
+        if (!granted) return emptyList()
+        onSearch(query)
+        searched += query
+        val needle = query.trim()
+        return known
+            .filter { needle.isEmpty() || it.name.contains(needle, ignoreCase = true) }
+            .take(limit)
+    }
+
+    override fun byLookupKeys(keys: List<String>): List<ContactEntry> =
+        keys.mapNotNull { key -> known.firstOrNull { it.lookupKey == key } }
+
+    override fun details(contactId: Long): ContactEntry? = fullDetails[contactId]
+}
+
+class FakeSuggestions(private val replies: Map<String, List<String>> = emptyMap()) : SuggestRepository {
+    val asked: MutableList<String> = mutableListOf()
+
+    override suspend fun suggest(query: String): List<String> {
+        asked += query
+        return replies[query].orEmpty()
+    }
+}
+
+/** Хранит то же, что DataStore-журнал, но в памяти и сразу отдаёт изменения во flows. */
+class FakeHistory(
+    recentApps: List<String> = emptyList(),
+    communications: List<CommunicationEntry> = emptyList(),
+    queries: List<String> = emptyList(),
+) : HistoryStore {
+    private val _recentApps = MutableStateFlow(recentApps)
+    private val _communications = MutableStateFlow(communications)
+    private val _queries = MutableStateFlow(queries)
+
+    val pushedQueries: MutableList<String> = mutableListOf()
+    val pushedApps: MutableList<String> = mutableListOf()
+    val pushedCommunications: MutableList<CommunicationEntry> = mutableListOf()
+    val journalRemoved: MutableList<Long> = mutableListOf()
+
+    override val recentApps: Flow<List<String>> = _recentApps
+    override val communications: Flow<List<CommunicationEntry>> = _communications
+    override val queries: Flow<List<String>> = _queries
+
+    override suspend fun pushRecentApp(packageName: String) {
+        pushedApps += packageName
+        _recentApps.value = listOf(packageName) + _recentApps.value.filterNot { it == packageName }
+    }
+
+    override suspend fun pushCommunication(entry: CommunicationEntry) {
+        pushedCommunications += entry
+        _communications.value = listOf(entry) +
+            _communications.value.filterNot { it.contactId == entry.contactId && it.kind == entry.kind }
+    }
+
+    override suspend fun removeCommunications(contactId: Long) {
+        journalRemoved += contactId
+        _communications.value = _communications.value.filterNot { it.contactId == contactId }
+    }
+
+    override suspend fun pushQuery(text: String) {
+        val query = text.trim()
+        if (query.isEmpty()) return
+        pushedQueries += query
+        _queries.value = listOf(query) + _queries.value.filter { it != query }
+    }
+}
+
+class FakeFavorites(
+    apps: List<String> = emptyList(),
+    contacts: List<String> = emptyList(),
+) : FavoritesStore {
+    private val _apps = MutableStateFlow(apps)
+    private val _contacts = MutableStateFlow(contacts)
+
+    override val apps: Flow<List<String>> = _apps
+    override val contacts: Flow<List<String>> = _contacts
+
+    override suspend fun toggleApp(packageName: String) {
+        _apps.value = if (packageName in _apps.value) _apps.value - packageName else _apps.value + packageName
+    }
+
+    override suspend fun toggleContact(lookupKey: String) {
+        if (lookupKey.isBlank()) return
+        _contacts.value = if (lookupKey in _contacts.value) _contacts.value - lookupKey else _contacts.value + lookupKey
+    }
+}

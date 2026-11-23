@@ -4,34 +4,43 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.SystemClock
 
-class AppRepository(private val pm: PackageManager) {
+/**
+ * Источник запускаемых приложений. Интерфейс нужен чтобы логика ViewModel
+ * проверялась на JVM, без PackageManager и эмулятора.
+ */
+interface AppRepository {
+    fun matching(query: String, limit: Int): List<LaunchableApp>
+
+    fun byPackages(packages: List<String>): List<LaunchableApp>
+}
+
+/** Совпадение с начала названия важнее совпадения внутри, поэтому результат собирается двумя корзинами. */
+internal fun rankApps(all: List<LaunchableApp>, query: String, limit: Int): List<LaunchableApp> {
+    if (query.isBlank()) return all.take(limit)
+    val needle = query.trim().lowercase()
+    val starts = ArrayList<LaunchableApp>()
+    val contains = ArrayList<LaunchableApp>()
+    for (app in all) {
+        val label = app.label.lowercase()
+        when {
+            label.startsWith(needle) -> starts += app
+            label.contains(needle) -> contains += app
+        }
+    }
+    return (starts + contains).take(limit)
+}
+
+class DefaultAppRepository(private val pm: PackageManager) : AppRepository {
 
     private var cache: List<LaunchableApp> = emptyList()
     private var cachedAt: Long = 0L
 
-    fun matching(query: String, limit: Int): List<LaunchableApp> {
-        val all = all()
-        if (query.isBlank()) return all.take(limit)
-        val needle = query.trim().lowercase()
-        val starts = ArrayList<LaunchableApp>()
-        val contains = ArrayList<LaunchableApp>()
-        for (app in all) {
-            val label = app.label.lowercase()
-            when {
-                label.startsWith(needle) -> starts += app
-                label.contains(needle) -> contains += app
-            }
-        }
-        return (starts + contains).take(limit)
-    }
+    override fun matching(query: String, limit: Int): List<LaunchableApp> = rankApps(all(), query, limit)
 
-    fun byPackages(packages: List<String>): List<LaunchableApp> {
+    override fun byPackages(packages: List<String>): List<LaunchableApp> {
         val all = all()
         return packages.mapNotNull { pkg -> all.firstOrNull { it.packageName == pkg } }
     }
-
-    fun launchIntent(packageName: String): Intent? =
-        pm.getLaunchIntentForPackage(packageName)
 
     private fun all(): List<LaunchableApp> {
         val now = SystemClock.elapsedRealtime()

@@ -52,13 +52,13 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.onebar.app.R
-import dev.onebar.app.data.AppRepository
 import dev.onebar.app.data.CommunicationKind
-import dev.onebar.app.data.ContactRepository
-import dev.onebar.app.data.FavoritesStore
-import dev.onebar.app.data.HistoryStore
+import dev.onebar.app.data.DefaultAppRepository
+import dev.onebar.app.data.DefaultContactRepository
+import dev.onebar.app.data.DefaultFavoritesStore
+import dev.onebar.app.data.DefaultHistoryStore
+import dev.onebar.app.data.DefaultSuggestRepository
 import dev.onebar.app.data.MessengerRepository
-import dev.onebar.app.data.SuggestRepository
 
 @Composable
 fun SearchScreen(
@@ -66,11 +66,11 @@ fun SearchScreen(
     context: Context = LocalContext.current,
     viewModel: SearchViewModel = viewModel {
         SearchViewModel(
-            apps = AppRepository(context.packageManager),
-            contacts = ContactRepository(context),
-            suggestions = SuggestRepository(),
-            history = HistoryStore(context),
-            favoritesStore = FavoritesStore(context),
+            apps = DefaultAppRepository(context.packageManager),
+            contacts = DefaultContactRepository(context),
+            suggestions = DefaultSuggestRepository(),
+            history = DefaultHistoryStore(context),
+            favoritesStore = DefaultFavoritesStore(context),
         )
     },
 ) {

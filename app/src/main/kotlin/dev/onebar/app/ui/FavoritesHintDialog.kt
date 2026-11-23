@@ -22,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -29,6 +30,9 @@ import dev.onebar.app.R
 import kotlinx.coroutines.delay
 
 private const val AUTO_CLOSE_SECONDS = 15
+
+/** Тег для тестов: крестик диалога и крестик панели имеют одинаковое описание. */
+const val TAG_FAVORITES_HINT_CLOSE = "favorites-hint-close"
 
 /**
  * Попап при входе в пустое избранное: объясняет жест добавления и закрывается сам.
@@ -66,7 +70,7 @@ fun FavoritesHintDialog(onDismiss: () -> Unit) {
                     style = MaterialTheme.typography.titleLarge,
                     modifier = Modifier.weight(1f),
                 )
-                IconButton(onClick = onDismiss, modifier = Modifier.size(36.dp)) {
+                IconButton(onClick = onDismiss, modifier = Modifier.size(36.dp).testTag(TAG_FAVORITES_HINT_CLOSE)) {
                     Icon(
                         painter = painterResource(R.drawable.ic_close),
                         contentDescription = stringResource(R.string.close),

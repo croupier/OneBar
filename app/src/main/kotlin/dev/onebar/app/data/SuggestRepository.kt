@@ -7,12 +7,17 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 
-class SuggestRepository {
+/** Веб-подсказки; отдельный интерфейс, чтобы ViewModel тестировалась без сети. */
+interface SuggestRepository {
+    suspend fun suggest(query: String): List<String>
+}
+
+class DefaultSuggestRepository : SuggestRepository {
 
     private var cachedQuery: String? = null
     private var cachedResult: List<String> = emptyList()
 
-    suspend fun suggest(query: String): List<String> {
+    override suspend fun suggest(query: String): List<String> {
         val trimmed = query.trim()
         if (trimmed.isEmpty()) return emptyList()
         if (trimmed == cachedQuery) return cachedResult

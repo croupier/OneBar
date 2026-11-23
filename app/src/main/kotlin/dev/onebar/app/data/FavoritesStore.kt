@@ -1,6 +1,8 @@
 package dev.onebar.app.data
 
 import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -8,26 +10,43 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import org.json.JSONArray
+import java.io.File
 
 private val Context.favoritesDataStore by preferencesDataStore(name = "favorites")
 
-/**
- * Избранное OneBar: порядок добавления и есть порядок показа, поэтому храним списки,
- * а не множества. lookupKey контакта может содержать запятую, его пишем JSON-массивом;
- * имена пакетов запятых не содержат — там разделитель безопасен.
- */
-class FavoritesStore(private val context: Context) {
+/** Тот же формат, что у приложения, но в отдельном файле — ради тестов в телефоне. */
+internal fun favoritesStoreForFile(file: File): FavoritesStore =
+    DefaultFavoritesStore(PreferenceDataStoreFactory.create(produceFile = { file }))
 
-    val apps: Flow<List<String>> = context.favoritesDataStore.data.map { prefs ->
+/** Избранное OneBar: порядок добавления и есть порядок показа, поэтому списки, а не множества. */
+interface FavoritesStore {
+    val apps: Flow<List<String>>
+
+    val contacts: Flow<List<String>>
+
+    suspend fun toggleApp(packageName: String)
+
+    suspend fun toggleContact(lookupKey: String)
+}
+
+/**
+ * Порядок добавления и есть порядок показа. lookupKey контакта может содержать запятую,
+ * его пишем JSON-массивом; имена пакетов запятых не содержат — там разделитель безопасен.
+ */
+class DefaultFavoritesStore internal constructor(private val store: DataStore<Preferences>) : FavoritesStore {
+
+    constructor(context: Context) : this(context.favoritesDataStore)
+
+    override val apps: Flow<List<String>> = store.data.map { prefs ->
         prefs[KEY_APPS]?.split(SEPARATOR)?.filter { it.isNotBlank() } ?: emptyList()
     }
 
-    val contacts: Flow<List<String>> = context.favoritesDataStore.data.map { prefs ->
+    override val contacts: Flow<List<String>> = store.data.map { prefs ->
         readKeys(prefs)
     }
 
-    suspend fun toggleApp(packageName: String) {
-        context.favoritesDataStore.edit { prefs ->
+    override suspend fun toggleApp(packageName: String) {
+        store.edit { prefs ->
             val current = prefs[KEY_APPS]?.split(SEPARATOR).orEmpty().filter { it.isNotBlank() }
             val updated = if (packageName in current) current - packageName
             else current + packageName
@@ -35,9 +54,9 @@ class FavoritesStore(private val context: Context) {
         }
     }
 
-    suspend fun toggleContact(lookupKey: String) {
+    override suspend fun toggleContact(lookupKey: String) {
         if (lookupKey.isBlank()) return
-        context.favoritesDataStore.edit { prefs ->
+        store.edit { prefs ->
             val current = readKeys(prefs)
             val updated = if (lookupKey in current) current - lookupKey else current + lookupKey
             prefs[KEY_CONTACTS] = JSONArray(updated).toString()

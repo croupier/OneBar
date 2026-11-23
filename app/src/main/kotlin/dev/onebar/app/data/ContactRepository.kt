@@ -9,14 +9,28 @@ import android.provider.ContactsContract.Contacts
 import android.provider.ContactsContract.Data
 import androidx.core.content.ContextCompat
 
-class ContactRepository(private val context: Context) {
+/**
+ * Доступ к провайдеру контактов. Интерфейс позволяет проверить логику ViewModel на JVM,
+ * не поднимая ContentResolver.
+ */
+interface ContactRepository {
+    fun hasPermission(): Boolean
 
-    fun hasPermission(): Boolean =
+    fun search(query: String, limit: Int): List<ContactEntry>
+
+    fun byLookupKeys(keys: List<String>): List<ContactEntry>
+
+    fun details(contactId: Long): ContactEntry?
+}
+
+class DefaultContactRepository(private val context: Context) : ContactRepository {
+
+    override fun hasPermission(): Boolean =
         ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_CONTACTS) ==
             PackageManager.PERMISSION_GRANTED
 
     @SuppressLint("Range")
-    fun search(query: String, limit: Int): List<ContactEntry> {
+    override fun search(query: String, limit: Int): List<ContactEntry> {
         if (!hasPermission() || limit <= 0) return emptyList()
 
         val needle = query.trim()
@@ -50,11 +64,7 @@ class ContactRepository(private val context: Context) {
                 phoneCount = count,
             )
         }
-        val emails = emailsOf(rows.map { it.contactId })
-        val profiles = profileRows(rows.map { it.contactId })
-        return rows.map {
-            it.copy(email = emails[it.contactId], messengers = profiles[it.contactId].orEmpty())
-        }
+        return enrich(rows)
     }
 
     /**
@@ -62,7 +72,7 @@ class ContactRepository(private val context: Context) {
      * сортировка провайдера контактов здесь не подходит.
      */
     @SuppressLint("Range")
-    fun byLookupKeys(keys: List<String>): List<ContactEntry> {
+    override fun byLookupKeys(keys: List<String>): List<ContactEntry> {
         if (!hasPermission() || keys.isEmpty()) return emptyList()
         val selection = "${Contacts.LOOKUP_KEY} IN (${keys.placeholders()}) AND $HAS_PHONE_ONLY"
         val found = HashMap<String, Pair<Long, String>>(keys.size)
@@ -88,11 +98,46 @@ class ContactRepository(private val context: Context) {
                 phoneCount = count,
             )
         }
-        val emails = emailsOf(rows.map { it.contactId })
-        val profiles = profileRows(rows.map { it.contactId })
-        return rows.map {
-            it.copy(email = emails[it.contactId], messengers = profiles[it.contactId].orEmpty())
-        }
+        return enrich(rows)
+    }
+
+    /**
+     * Полный контакт по идентификатору: журнал OneBar помнит имя и номер, а почта со
+     * строками мессенджеров живут только в провайдере — их запрашивает меню.
+     */
+    @SuppressLint("Range")
+    override fun details(contactId: Long): ContactEntry? {
+        if (!hasPermission()) return null
+        val base = context.contentResolver.query(
+            Contacts.CONTENT_URI,
+            arrayOf(Contacts.DISPLAY_NAME, Contacts.LOOKUP_KEY),
+            "${Contacts._ID} = ?",
+            arrayOf(contactId.toString()),
+            null,
+        )?.use { cursor ->
+            if (!cursor.moveToFirst()) return null
+            val (number, count) = defaultPhone(contactId)
+            ContactEntry(
+                contactId = contactId,
+                name = cursor.getString(0).orEmpty(),
+                lookupKey = cursor.getString(1).orEmpty(),
+                number = number,
+                phoneCount = count,
+            )
+        } ?: return null
+        val ids = listOf(contactId)
+        return base.copy(
+            email = emailsOf(ids)[contactId],
+            messengers = profileRows(ids)[contactId].orEmpty(),
+        )
+    }
+
+    /** Почта и профили мессенджеров одним запросом на страницу результатов: нужны только меню. */
+    private fun enrich(rows: List<ContactEntry>): List<ContactEntry> {
+        val ids = rows.map { it.contactId }
+        val emails = emailsOf(ids)
+        val profiles = profileRows(ids)
+        return rows.map { it.copy(email = emails[it.contactId], messengers = profiles[it.contactId].orEmpty()) }
     }
 
     /**
@@ -127,10 +172,6 @@ class ContactRepository(private val context: Context) {
         return (marked ?: mobile ?: first) to count
     }
 
-    /**
-     * Один запрос адресов на страницу результатов: почта нужна только меню контакта,
-     * и только у тех, кого сейчас показываем.
-     */
     @SuppressLint("Range")
     private fun emailsOf(ids: List<Long>): Map<Long, String> {
         if (ids.isEmpty()) return emptyMap()
@@ -188,37 +229,6 @@ class ContactRepository(private val context: Context) {
     }
 
     private fun List<*>.placeholders(): String = joinToString(separator = ",") { "?" }
-
-    /**
-     * Полный контакт по идентификатору: журнал OneBar помнит имя и номер, а почта со
-     * строками мессенджеров живут только в провайдере — их запрашивает меню.
-     */
-    @SuppressLint("Range")
-    fun details(contactId: Long): ContactEntry? {
-        if (!hasPermission()) return null
-        val base = context.contentResolver.query(
-            Contacts.CONTENT_URI,
-            arrayOf(Contacts.DISPLAY_NAME, Contacts.LOOKUP_KEY),
-            "${Contacts._ID} = ?",
-            arrayOf(contactId.toString()),
-            null,
-        )?.use { cursor ->
-            if (!cursor.moveToFirst()) return null
-            val (number, count) = defaultPhone(contactId)
-            ContactEntry(
-                contactId = contactId,
-                name = cursor.getString(0).orEmpty(),
-                lookupKey = cursor.getString(1).orEmpty(),
-                number = number,
-                phoneCount = count,
-            )
-        } ?: return null
-        val ids = listOf(contactId)
-        return base.copy(
-            email = emailsOf(ids)[contactId],
-            messengers = profileRows(ids)[contactId].orEmpty(),
-        )
-    }
 
     private companion object {
         const val HAS_PHONE_ONLY = "${Contacts.HAS_PHONE_NUMBER} = 1"

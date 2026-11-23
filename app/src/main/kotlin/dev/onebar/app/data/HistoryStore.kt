@@ -1,6 +1,8 @@
 package dev.onebar.app.data
 
 import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -9,25 +11,50 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 
 private val Context.historyDataStore by preferencesDataStore(name = "history")
 
-class HistoryStore(private val context: Context) {
+/** Журнал поверх отдельного файла: тесты в телефоне не зависят от накопленного состояния. */
+internal fun historyStoreForFile(file: File): HistoryStore =
+    DefaultHistoryStore(PreferenceDataStoreFactory.create(produceFile = { file }))
 
-    val recentApps: Flow<List<String>> = context.historyDataStore.data.map { prefs ->
+/** Журнал OneBar: недавние приложения, коммуникации и строки поиска. */
+interface HistoryStore {
+    val recentApps: Flow<List<String>>
+
+    val communications: Flow<List<CommunicationEntry>>
+
+    val queries: Flow<List<String>>
+
+    suspend fun pushRecentApp(packageName: String)
+
+    suspend fun pushCommunication(entry: CommunicationEntry)
+
+    /** Пункт «Удалить из истории» убирает весь журнал контакта: звонок и СМС одного лица. */
+    suspend fun removeCommunications(contactId: Long)
+
+    suspend fun pushQuery(text: String)
+}
+
+class DefaultHistoryStore internal constructor(private val store: DataStore<Preferences>) : HistoryStore {
+
+    constructor(context: Context) : this(context.historyDataStore)
+
+    override val recentApps: Flow<List<String>> = store.data.map { prefs ->
         prefs[KEY_RECENT_APPS]?.split(SEPARATOR)?.filter { it.isNotBlank() } ?: emptyList()
     }
 
-    val communications: Flow<List<CommunicationEntry>> = context.historyDataStore.data.map { prefs ->
+    override val communications: Flow<List<CommunicationEntry>> = store.data.map { prefs ->
         readCommunications(prefs)
     }
 
-    val queries: Flow<List<String>> = context.historyDataStore.data.map { prefs ->
+    override val queries: Flow<List<String>> = store.data.map { prefs ->
         readQueries(prefs)
     }
 
-    suspend fun pushRecentApp(packageName: String) {
-        context.historyDataStore.edit { prefs ->
+    override suspend fun pushRecentApp(packageName: String) {
+        store.edit { prefs ->
             val current = prefs[KEY_RECENT_APPS]?.split(SEPARATOR).orEmpty()
             prefs[KEY_RECENT_APPS] = (listOf(packageName) + current.filter { it != packageName })
                 .distinct()
@@ -36,8 +63,8 @@ class HistoryStore(private val context: Context) {
         }
     }
 
-    suspend fun pushCommunication(entry: CommunicationEntry) {
-        context.historyDataStore.edit { prefs ->
+    override suspend fun pushCommunication(entry: CommunicationEntry) {
+        store.edit { prefs ->
             val updated = listOf(entry) + readCommunications(prefs).filterNot {
                 it.contactId == entry.contactId && it.kind == entry.kind
             }
@@ -47,9 +74,8 @@ class HistoryStore(private val context: Context) {
         }
     }
 
-    /** Пункт «Удалить из истории» убирает весь журнал контакта: звонок и СМС одного лица. */
-    suspend fun removeCommunications(contactId: Long) {
-        context.historyDataStore.edit { prefs ->
+    override suspend fun removeCommunications(contactId: Long) {
+        store.edit { prefs ->
             val kept = readCommunications(prefs).filterNot { it.contactId == contactId }
             val array = JSONArray()
             kept.forEach { array.put(encode(it)) }
@@ -58,10 +84,10 @@ class HistoryStore(private val context: Context) {
     }
 
     /** Текст из строки поиска. Запрос может содержать запятые и кавычки, поэтому храним JSON-массив. */
-    suspend fun pushQuery(text: String) {
+    override suspend fun pushQuery(text: String) {
         val query = text.trim()
         if (query.isEmpty()) return
-        context.historyDataStore.edit { prefs ->
+        store.edit { prefs ->
             val updated = listOf(query) + readQueries(prefs).filter { it != query }
             prefs[KEY_QUERIES] = JSONArray(updated.take(MAX_QUERIES)).toString()
         }
