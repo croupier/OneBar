@@ -29,7 +29,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
@@ -43,15 +42,14 @@ private val MENU_TILE = 36.dp
 /**
  * Меню долгого нажатия на имя контакта. Пункты без системных разрешений: звонок и СМС уходят
  * «Телефону» и сообщениям, номер и карточка контакта — тоже стандартными интентами.
- * В режиме избранного пункт избранного не закрывает меню: убранное показывается перечёркнутым,
- * чтобы действие было видно и обратимо одним тапом.
+ * Тап по избранному всегда закрывает меню: состояние показывают сами экраны — бейдж звезды
+ * на главном и строка, которая в избранном исчезает сразу после отмены.
  */
 @Composable
 fun ContactMenu(
     entry: ContactEntry,
     inJournal: Boolean,
     isFavorite: Boolean,
-    favoritesMode: Boolean,
     messengers: List<MessengerTile>,
     onDismiss: () -> Unit,
     onToggleFavorite: () -> Unit,
@@ -86,15 +84,10 @@ fun ContactMenu(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 6.dp),
                 )
-                FavoriteRow(
-                    isFavorite = isFavorite,
-                    favoritesMode = favoritesMode,
-                    onClick = {
-                        onToggleFavorite()
-                        // Вне избранного тап завершает действие; внутри — ждём следующего.
-                        if (!favoritesMode) onDismiss()
-                    },
-                )
+                FavoriteRow(isFavorite = isFavorite) {
+                    onToggleFavorite()
+                    onDismiss()
+                }
                 MenuRow(R.drawable.ic_call, stringResource(R.string.menu_call), enabled = hasNumber, onClick = onCall)
                 MenuRow(R.drawable.ic_sms, stringResource(R.string.menu_sms), enabled = hasNumber, onClick = onSms)
                 MenuRow(R.drawable.ic_copy, stringResource(R.string.menu_copy), enabled = hasNumber, onClick = onCopy)
@@ -128,7 +121,6 @@ fun ContactMenu(
 fun AppMenu(
     app: LaunchableApp,
     isFavorite: Boolean,
-    favoritesMode: Boolean,
     onDismiss: () -> Unit,
     onOpen: () -> Unit,
     onInfo: () -> Unit,
@@ -142,14 +134,10 @@ fun AppMenu(
         title = { Text(app.label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                FavoriteRow(
-                    isFavorite = isFavorite,
-                    favoritesMode = favoritesMode,
-                    onClick = {
-                        onToggleFavorite()
-                        if (!favoritesMode) onDismiss()
-                    },
-                )
+                FavoriteRow(isFavorite = isFavorite) {
+                    onToggleFavorite()
+                    onDismiss()
+                }
                 MenuRow(R.drawable.ic_open, stringResource(R.string.app_menu_open), onClick = onOpen)
                 MenuRow(R.drawable.ic_info, stringResource(R.string.app_menu_info), onClick = onInfo)
             }
@@ -158,25 +146,15 @@ fun AppMenu(
 }
 
 /**
- * Строка «В избранное / Из избранного». В режиме избранного метка остаётся «Из избранного»,
- * а после отмены перечёркивается: пункт не исчезает, и повторный тап возвращает запись.
- * Залитая звезда в цвет акцента — единственный надёжный признак состояния: в 20 dp серые
- * залитая и контурная звезды различимы плохо.
+ * Строка «В избранное / Из избранного»: метку и звезду задаёт только текущее состояние,
+ * потому что тап закрывает меню, а результат виден на экране. Залитая звезда в цвет акцента —
+ * единственный надёжный признак состояния: в 20 dp серые залитая и контурная звёзды различимы плохо.
  */
 @Composable
-private fun FavoriteRow(
-    isFavorite: Boolean,
-    favoritesMode: Boolean,
-    onClick: () -> Unit,
-) {
-    val struck = favoritesMode && !isFavorite
-    val label = stringResource(
-        if (isFavorite || favoritesMode) R.string.menu_fav_remove else R.string.menu_fav_add
-    )
+private fun FavoriteRow(isFavorite: Boolean, onClick: () -> Unit) {
     MenuRow(
         iconRes = if (isFavorite) R.drawable.ic_star else R.drawable.ic_star_border,
-        label = label,
-        struck = struck,
+        label = stringResource(if (isFavorite) R.string.menu_fav_remove else R.string.menu_fav_add),
         iconTint = if (isFavorite) MaterialTheme.colorScheme.primary else null,
         onClick = onClick,
     )
@@ -185,23 +163,17 @@ private fun FavoriteRow(
 /**
  * Публичного API «темированных» системных глифов нет, поэтому свои векторы кладём
  * на квадрат со скруглёнными углами — форма та же, что у значков приложений рядом.
- * `struck` — перечёркнутая строка: так показываем уже выполненное в избранном действие.
  */
 @Composable
 private fun MenuRow(
     iconRes: Int,
     label: String,
     enabled: Boolean = true,
-    struck: Boolean = false,
     iconTint: Color? = null,
     onClick: () -> Unit,
 ) {
     val dimmed = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
-    val tint = when {
-        !enabled -> dimmed
-        struck -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
+    val tint = if (!enabled) dimmed else MaterialTheme.colorScheme.onSurfaceVariant
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -230,12 +202,7 @@ private fun MenuRow(
         Text(
             text = label,
             style = MaterialTheme.typography.bodyLarge,
-            color = when {
-                !enabled -> dimmed
-                struck -> tint
-                else -> MaterialTheme.colorScheme.onSurface
-            },
-            textDecoration = if (struck) TextDecoration.LineThrough else null,
+            color = if (enabled) MaterialTheme.colorScheme.onSurface else dimmed,
         )
     }
 }

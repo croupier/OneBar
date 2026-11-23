@@ -302,7 +302,7 @@ fun AppItem(
                     painter = painterResource(R.drawable.ic_star),
                     contentDescription = null,
                     modifier = Modifier
-                        .align(Alignment.BottomEnd)
+                        .align(Alignment.TopStart)
                         .padding(1.dp)
                         .size(14.dp)
                         .background(MaterialTheme.colorScheme.background, CircleShape),
