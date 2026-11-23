@@ -193,20 +193,18 @@ class SearchViewModel(
         _state.update { it.copy(historyRequested = true) }
     }
 
-    /** В историю строки попадает только тот текст, по которому пользователь что-то открыл. */
+    /** В историю запрос попадает только после явной отправки кнопкой «Поиск» или Enter. */
     fun onQuerySubmitted(text: String) {
         val query = text.trim()
         if (query.isNotEmpty()) viewModelScope.launch { history.pushQuery(query) }
     }
 
     fun onAppLaunched(app: LaunchableApp) {
-        onQuerySubmitted(_state.value.query)
         viewModelScope.launch { history.pushRecentApp(app.packageName) }
     }
 
     fun onCommunication(kind: CommunicationKind, entry: ContactEntry) {
         val number = entry.number ?: return
-        onQuerySubmitted(_state.value.query)
         viewModelScope.launch {
             history.pushCommunication(
                 CommunicationEntry(

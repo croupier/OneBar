@@ -217,7 +217,7 @@ class SearchViewModelTest {
     }
 
     @Test
-    fun `запуск приложения пишет запрос в историю и пакет в недавние`() = runTest(main.dispatcher) {
+    fun `запуск приложения пишет пакет в недавние, но не запрос в историю`() = runTest(main.dispatcher) {
         val history = FakeHistory()
         val vm = viewModel(history = history)
         vm.onQueryChange("  Maps  ")
@@ -226,8 +226,23 @@ class SearchViewModelTest {
         vm.onAppLaunched(app("com.a", "Maps"))
         advanceUntilIdle()
 
-        assertEquals(listOf("Maps"), history.pushedQueries)
+        assertTrue(history.pushedQueries.isEmpty())
         assertEquals(listOf("com.a"), history.pushedApps)
+    }
+
+    @Test
+    fun `набранный_запрос_попадает_в_историю_только_после_отправки`() = runTest(main.dispatcher) {
+        val history = FakeHistory()
+        val vm = viewModel(history = history)
+
+        vm.onQueryChange("  Maps  ")
+        advanceUntilIdle()
+        assertTrue(history.pushedQueries.isEmpty())
+
+        vm.onQuerySubmitted(vm.state.value.query)
+        advanceUntilIdle()
+
+        assertEquals(listOf("Maps"), history.pushedQueries)
     }
 
     @Test
@@ -251,6 +266,7 @@ class SearchViewModelTest {
         advanceUntilIdle()
 
         val recorded = history.pushedCommunications.single()
+        assertTrue(history.pushedQueries.isEmpty())
         assertEquals(CommunicationKind.CALL, recorded.kind)
         assertEquals("+70000000001", recorded.number)
     }

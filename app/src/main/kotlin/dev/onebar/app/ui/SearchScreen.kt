@@ -132,7 +132,11 @@ fun SearchScreen(
                 keyboard?.show()
                 viewModel.onHistoryRequested()
             },
-            onImeSearch = { viewModel.onQuerySubmitted(state.query) },
+            onImeSearch = {
+                viewModel.onQuerySubmitted(state.query)
+                focusManager.clearFocus()
+                keyboard?.hide()
+            },
             onClearOrClose = {
                 if (state.query.isEmpty()) onClose() else viewModel.onQueryChange("")
             },
@@ -206,7 +210,6 @@ fun SearchScreen(
                             SearchActions.callEntry(context, entry)
                         },
                         onOpen = { entry ->
-                            viewModel.onQuerySubmitted(state.query)
                             SearchActions.openContact(context, entry)
                         },
                         onMenu = viewModel::onMenuOpen,
@@ -225,7 +228,6 @@ fun SearchScreen(
                         state = state,
                         onPick = viewModel::onQueryChange,
                         onSearch = { engine, text ->
-                            viewModel.onQuerySubmitted(text)
                             SearchActions.webSearch(context, engine, text)
                         },
                     )
