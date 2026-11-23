@@ -3,8 +3,12 @@ plugins {
   alias(libs.plugins.compose.compiler)
 }
 
-// semver 2.0.0: до публичного API держим 0.0.z и пре-релиз; versionCode для Play/обновлений растёт на 1.
-val appVersion = "0.0.2-alpha.1"
+// Схема версий — semver 2.0.0 без пре-релизных суффиксов (правило workspace, 2026-11-23):
+//   формат MAJOR.MINOR.PATCH; bump: совместимая функциональность → MINOR, фиксы → PATCH,
+//   ломка публичного API → MAJOR; до фиксации API держим 0.x, 1.0.0 — первый релизный билд.
+//   Итерации одной задачи версию повторно не поднимают. versionCode — не semver: +1 на
+//   каждый раздаваемый билд.
+val appVersion = "0.0.2"
 val appVersionCode = 2
 
 android {
