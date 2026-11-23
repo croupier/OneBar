@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -24,10 +25,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.painter.Painter
@@ -38,6 +42,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.onebar.app.R
 import dev.onebar.app.data.LaunchableApp
@@ -47,6 +52,21 @@ private const val ICON_PX = 96
 
 /** Стиль иконок: квадрат со скруглением, а не круглая маска лаунчера. */
 val IconRadius = 12.dp
+
+/**
+ * Доля протяжки свайпа в строке: 0 — покой, 1 — достигнут порог действия. Значение ставит
+ * `SwipeableRow` из Sections.kt; наружу строки оно не выходит, поэтому дефолт — нулевой.
+ */
+internal val LocalSwipeReveal = compositionLocalOf { 0f }
+
+/** На сколько расширяется плитка кнопки при полной протяжке. */
+private val TileGrow = 20.dp
+private val CaptionLine = 14.dp
+private val CaptionGap = 2.dp
+
+/** Подпись начинает проступать не с первого пикселя протяжки и доходит до готовности к 0,6. */
+private const val CAPTION_FADE_START = 0.25f
+private const val CAPTION_FADE_END = 0.6f
 
 /**
  * Во сколько раз увеличить передний план. В круге система показывает только центр площадки
@@ -98,15 +118,20 @@ fun ActionIcon(
     caption: String? = null,
     tint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
 ) {
-    val button: Modifier = modifier
-        .size(AppItemSize)
-        .clip(RoundedCornerShape(IconRadius))
-        .clickable(onClick = onClick)
+    val reveal = LocalSwipeReveal.current
+    Labeled(caption = caption) { tileWidth ->
+        val button: Modifier = modifier
+            .size(width = tileWidth, height = AppItemSize)
+            .clip(RoundedCornerShape(IconRadius))
+            .clickable(onClick = onClick)
 
-    Labeled(caption = caption) {
         if (handlerIcon != null) {
             val bitmap = remember(handlerIcon) { iconBitmap(handlerIcon) }
-            Box(modifier = button, contentAlignment = Alignment.Center) {
+            // Под иконкой приложения подложка проступает вместе с протяжкой: без неё рост ширины незаметен.
+            Box(
+                modifier = button.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = reveal)),
+                contentAlignment = Alignment.Center,
+            ) {
                 Image(bitmap = bitmap, contentDescription = contentDescription, modifier = Modifier.size(AppItemSize))
             }
         } else {
@@ -148,10 +173,10 @@ fun BrandBadge(
     modifier: Modifier = Modifier,
     caption: String? = null,
 ) {
-    Labeled(caption = caption) {
+    Labeled(caption = caption) { tileWidth ->
         Box(
             modifier = modifier
-                .size(AppItemSize)
+                .size(width = tileWidth, height = AppItemSize)
                 .background(badgeBackground, RoundedCornerShape(IconRadius))
                 .semantics { contentDescription = label }
                 .clickable(onClick = onClick),
@@ -162,24 +187,35 @@ fun BrandBadge(
     }
 }
 
-/** Подпись под кнопкой: появляется, когда строку оттянули свайпом, но не до порога действия. */
+/**
+ * Кнопка с подписью снизу. Пока строку тянут свайпом, ширина плитки и подпись следуют за
+ * протяжкой ([LocalSwipeReveal]): плитка расширяется, подпись выезжает из-под неё и проступает.
+ */
 @Composable
-private fun Labeled(caption: String?, content: @Composable () -> Unit) {
+private fun Labeled(caption: String?, content: @Composable (tileWidth: Dp) -> Unit) {
+    val reveal = LocalSwipeReveal.current
     if (caption == null) {
-        content()
+        content(AppItemSize)
         return
     }
+    val shown = ((reveal - CAPTION_FADE_START) / (CAPTION_FADE_END - CAPTION_FADE_START)).coerceIn(0f, 1f)
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+        verticalArrangement = Arrangement.spacedBy(CaptionGap * shown),
     ) {
-        content()
-        Text(
-            text = caption,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-        )
+        content(AppItemSize + TileGrow * reveal)
+        Box(
+            modifier = Modifier.height(CaptionLine * shown).clipToBounds(),
+            contentAlignment = Alignment.BottomCenter,
+        ) {
+            Text(
+                text = caption,
+                modifier = Modifier.height(CaptionLine).alpha(shown),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+            )
+        }
     }
 }
 
