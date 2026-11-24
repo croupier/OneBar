@@ -1,6 +1,5 @@
 package dev.onebar.app.ui
 
-import android.graphics.drawable.Drawable
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -43,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
@@ -68,8 +68,8 @@ import kotlinx.coroutines.launch
 fun ContactsSection(
     state: SearchState,
     modifier: Modifier,
-    smsIcon: Drawable?,
-    callIcon: Drawable?,
+    smsIcon: ImageBitmap?,
+    callIcon: ImageBitmap?,
     onRequestPermission: () -> Unit,
     onSms: (ContactEntry) -> Unit,
     onCall: (ContactEntry) -> Unit,
@@ -154,8 +154,8 @@ fun AppsGridSection(
 @Composable
 private fun ContactRow(
     row: ContactRowUi,
-    smsIcon: Drawable?,
-    callIcon: Drawable?,
+    smsIcon: ImageBitmap?,
+    callIcon: ImageBitmap?,
     favorite: Boolean,
     onSms: () -> Unit,
     onCall: () -> Unit,
@@ -227,14 +227,14 @@ private fun ContactRow(
                 if (canAct) {
                     Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                         ActionIcon(
-                            handlerIcon = smsIcon,
+                            handlerBitmap = smsIcon,
                             fallbackIcon = painterResource(R.drawable.ic_sms),
                             contentDescription = stringResource(R.string.sms_action),
                             onClick = onSms,
                             caption = if (labels) stringResource(R.string.caption_sms) else null,
                         )
                         ActionIcon(
-                            handlerIcon = callIcon,
+                            handlerBitmap = callIcon,
                             fallbackIcon = painterResource(R.drawable.ic_call),
                             contentDescription = stringResource(R.string.call_action),
                             onClick = onCall,

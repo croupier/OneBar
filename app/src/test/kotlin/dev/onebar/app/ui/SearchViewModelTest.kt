@@ -200,6 +200,41 @@ class SearchViewModelTest {
     }
 
     @Test
+    fun `контакты приходят после дебаунса`() = runTest(main.dispatcher) {
+        val contacts = FakeContacts(known = listOf(contact(1, "Ann")))
+        val vm = viewModel(contacts = contacts)
+        advanceUntilIdle()
+        contacts.searched.clear()
+
+        vm.onQueryChange("ann")
+        advanceTimeBy(199)
+        runCurrent()
+        assertTrue(contacts.searched.isEmpty())
+
+        advanceTimeBy(2)
+        runCurrent()
+        assertEquals(listOf("ann"), contacts.searched)
+        assertEquals(listOf("Ann"), vm.state.value.contacts.map { it.entry.name })
+    }
+
+    @Test
+    fun `новый запрос отменяет отложенный поиск контактов старого`() = runTest(main.dispatcher) {
+        val contacts = FakeContacts(known = listOf(contact(1, "Ann"), contact(2, "Anna")))
+        val vm = viewModel(contacts = contacts)
+        advanceUntilIdle()
+        contacts.searched.clear()
+
+        vm.onQueryChange("an")
+        advanceTimeBy(100)
+        vm.onQueryChange("ann")
+        advanceTimeBy(300)
+        runCurrent()
+
+        assertEquals(listOf("ann"), contacts.searched)
+        assertEquals(listOf("Ann", "Anna"), vm.state.value.contacts.map { it.entry.name })
+    }
+
+    @Test
     fun `новый запрос отменяет отложенные подсказки старого`() = runTest(main.dispatcher) {
         val suggestions = FakeSuggestions(
             replies = mapOf("коф" to listOf("кофе"), "кофев" to listOf("кофе в зёрнах"))
@@ -362,6 +397,19 @@ class SearchViewModelTest {
         vm.onToggleFavoriteContact(contact(1, "Ann"))
         advanceUntilIdle()
         assertTrue(vm.state.value.favContactKeys.isEmpty())
+    }
+
+    @Test
+    fun `возврат на экран сбрасывает кэш приложений`() = runTest(main.dispatcher) {
+        val apps = FakeApps(known = listOf(app("com.a", "A")))
+        val vm = viewModel(apps = apps, history = FakeHistory(recentApps = listOf("com.a")))
+        advanceUntilIdle()
+
+        vm.onScreenResumed()
+        advanceUntilIdle()
+
+        assertEquals(1, apps.invalidations)
+        assertEquals(listOf("com.a"), vm.state.value.apps.map { it.packageName })
     }
 
     @Test

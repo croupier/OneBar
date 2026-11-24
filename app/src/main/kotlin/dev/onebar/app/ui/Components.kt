@@ -156,7 +156,7 @@ fun ContactAvatar(contactId: Long, name: String, modifier: Modifier = Modifier) 
 
 @Composable
 fun ActionIcon(
-    handlerIcon: Drawable?,
+    handlerBitmap: ImageBitmap?,
     fallbackIcon: Painter,
     contentDescription: String,
     onClick: () -> Unit,
@@ -175,10 +175,9 @@ fun ActionIcon(
             modifier = button.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = reveal)),
             contentAlignment = Alignment.Center,
         ) {
-            if (handlerIcon != null) {
-                val bitmap = remember(handlerIcon) { iconBitmap(handlerIcon) }
+            if (handlerBitmap != null) {
                 Image(
-                    bitmap = bitmap,
+                    bitmap = handlerBitmap,
                     contentDescription = contentDescription,
                     modifier = Modifier
                         .size(CONTACT_ACTION_ICON_SIZE)
@@ -201,9 +200,9 @@ fun ActionIcon(
  * пользователь видит тот же значок, что в лаунчере, а не нарисованный глиф.
  */
 @Composable
-fun rememberHandlerIcon(action: String, uri: String): Drawable? {
-    val context = LocalContext.current
-    return remember(action, uri) { handlerIcon(context, action, uri) }
+fun rememberHandlerBitmap(action: String, uri: String): ImageBitmap? {
+    val context = LocalContext.current.applicationContext
+    return remember(action, uri) { handlerIcon(context, action, uri)?.let(::iconBitmap) }
 }
 
 private fun handlerIcon(context: Context, action: String, uri: String): Drawable? {

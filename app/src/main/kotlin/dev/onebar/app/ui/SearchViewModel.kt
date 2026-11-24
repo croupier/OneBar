@@ -11,16 +11,21 @@ import dev.onebar.app.data.FavoritesStore
 import dev.onebar.app.data.HistoryStore
 import dev.onebar.app.data.LaunchableApp
 import dev.onebar.app.data.SuggestRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -78,12 +83,15 @@ class SearchViewModel(
     private var appsJob: Job? = null
     private var contactsJob: Job? = null
     private var suggestionsJob: Job? = null
+    private val contactsMutex = Mutex()
+    @Volatile private var contactsGeneration: Long = 0L
 
     init {
-        viewModelScope.launch(io) {
-            apps.matching("", 1)
+        viewModelScope.launch {
+            withContext(io) { apps.matching("", 1) }
             history.recentApps.collect { packages ->
-                recent = apps.byPackages(packages)
+                val found = withContext(io) { apps.byPackages(packages) }
+                recent = found
                 _state.update { if (it.query.isBlank() && !it.favoritesMode) it.copy(apps = recent) else it }
             }
         }
@@ -249,9 +257,25 @@ class SearchViewModel(
         if (granted) loadContacts()
     }
 
+    /** Возврат в OneBar сбрасывает кэш приложений: установки и удаления видны сразу. */
+    fun onScreenResumed() {
+        viewModelScope.launch {
+            val snapshot = recent
+            val refreshed = withContext(io) {
+                apps.invalidate()
+                apps.byPackages(snapshot.map { it.packageName })
+            }
+            // Пока PackageManager работал, журнал мог добавить другое недавнее приложение.
+            if (recent == snapshot) recent = refreshed
+            _state.update { if (it.query.isBlank() && !it.favoritesMode) it.copy(apps = recent) else it }
+            loadApps(_state.value.query.trim())
+        }
+    }
+
     private fun loadContacts() {
         contactsJob?.cancel()
         if (!contacts.hasPermission()) {
+            contactsGeneration++
             favorites.value = emptyList()
             _state.update { it.copy(contacts = emptyList()) }
             return
@@ -262,29 +286,40 @@ class SearchViewModel(
             reloadBlankContacts()
             return
         }
+        val generation = ++contactsGeneration
         contactsJob = viewModelScope.launch(io) {
-            if (trimmed.isEmpty()) {
-                val found = contacts.search("", LIMIT)
-                favorites.value = found
-                // После выхода из избранного StateFlow может не эмитить: список тот же, а
-                // состояние контактов там осталось фильтрованным. Перезаписываем напрямую.
-                val rows = blankQueryRows(journal.value, found)
-                _state.update {
-                    if (it.query.isBlank() && !it.favoritesMode) it.copy(contacts = rows) else it
-                }
-            } else {
-                val rows = contacts.search(
-                    trimmed,
-                    LIMIT,
-                    _state.value.favContactKeys.toSet(),
-                    favoritesOnly = favoritesMode,
-                ).map { ContactRowUi(it) }
-                // Отмена корутины блокирующего запроса не прерывает, поэтому проверяем, что
-                // за время поиска запрос не успел измениться.
-                _state.update {
-                    if (it.query.trim() == trimmed && it.favoritesMode == favoritesMode) {
-                        it.copy(contacts = rows)
-                    } else it
+            if (trimmed.isNotEmpty()) delay(DEBOUNCE_MS)
+            // ContentResolver.query блокирует поток и не реагирует на отмену. Mutex не даёт
+            // следующему запросу старовать одновременно, а generation отсекает даже A→B→A.
+            contactsMutex.withLock {
+                ensureActive()
+                if (generation != contactsGeneration) return@withLock
+                if (trimmed.isEmpty()) {
+                    val found = contacts.search("", LIMIT)
+                    if (generation != contactsGeneration) return@withLock
+                    favorites.value = found
+                    // После выхода из избранного StateFlow может не эмитить: список тот же, а
+                    // состояние контактов там осталось фильтрованным. Перезаписываем напрямую.
+                    val rows = blankQueryRows(journal.value, found)
+                    _state.update {
+                        if (generation == contactsGeneration && it.query.isBlank() && !it.favoritesMode) {
+                            it.copy(contacts = rows)
+                        } else it
+                    }
+                } else {
+                    val rows = contacts.search(
+                        trimmed,
+                        LIMIT,
+                        _state.value.favContactKeys.toSet(),
+                        favoritesOnly = favoritesMode,
+                    ).map { ContactRowUi(it) }
+                    _state.update {
+                        if (generation == contactsGeneration &&
+                            it.query.trim() == trimmed && it.favoritesMode == favoritesMode
+                        ) {
+                            it.copy(contacts = rows)
+                        } else it
+                    }
                 }
             }
         }
@@ -295,9 +330,18 @@ class SearchViewModel(
         val s = _state.value
         if (!s.favoritesMode || s.query.isNotBlank() || !contacts.hasPermission()) return
         contactsJob?.cancel()
+        val generation = ++contactsGeneration
         contactsJob = viewModelScope.launch(io) {
-            val rows = contacts.byLookupKeys(_state.value.favContactKeys).map { ContactRowUi(it) }
-            _state.update { if (it.favoritesMode && it.query.isBlank()) it.copy(contacts = rows) else it }
+            contactsMutex.withLock {
+                ensureActive()
+                if (generation != contactsGeneration) return@withLock
+                val rows = contacts.byLookupKeys(_state.value.favContactKeys).map { ContactRowUi(it) }
+                _state.update {
+                    if (generation == contactsGeneration && it.favoritesMode && it.query.isBlank()) {
+                        it.copy(contacts = rows)
+                    } else it
+                }
+            }
         }
     }
 
@@ -332,7 +376,13 @@ class SearchViewModel(
         }
         suggestionsJob = viewModelScope.launch {
             delay(DEBOUNCE_MS)
-            val found = suggestions.suggest(trimmed).distinct()
+            val found = try {
+                suggestions.suggest(trimmed).distinct()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                emptyList()
+            }
             // Ответ мог прийти уже после выхода из запроса или входа в избранное.
             _state.update {
                 if (!it.favoritesMode && it.query.trim() == trimmed) it.copy(suggestions = found) else it

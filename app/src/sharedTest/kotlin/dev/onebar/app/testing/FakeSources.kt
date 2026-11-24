@@ -61,6 +61,8 @@ class FakeApps(
     private val onMatch: (String) -> Unit = {},
 ) : AppRepository {
     val matched: MutableList<String> = mutableListOf()
+    var invalidations: Int = 0
+        private set
 
     override fun matching(query: String, limit: Int, favorites: Set<String>, favoritesOnly: Boolean): List<LaunchableApp> {
         onMatch(query)
@@ -70,6 +72,10 @@ class FakeApps(
 
     override fun byPackages(packages: List<String>): List<LaunchableApp> =
         packages.mapNotNull { pkg -> known.firstOrNull { it.packageName == pkg } }
+
+    override fun invalidate() {
+        invalidations++
+    }
 }
 
 class FakeContacts(
