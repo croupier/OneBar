@@ -9,7 +9,7 @@ plugins {
 //   Итерации одной задачи версию повторно не поднимают. versionCode — не semver: +1 на
 //   каждый раздаваемый билд.
 val appVersion = "0.8.0"
-val appVersionCode = 20
+val appVersionCode = 21
 
 android {
   namespace = "dev.onebar.app"
