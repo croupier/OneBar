@@ -184,8 +184,8 @@ fun SearchScreen(
             },
         )
 
-        // Высоту под панелями делим по измеренному остатку: с клавиатурой влезает одна строка
-        // плиток и три строки контактов, без неё — два ряда плиток и всё остальное контактам.
+        // Второй ряд плиток даём только тогда, когда остаётся место минимуму контактов.
+        // Контакты листаются внутри секции; при нехватке высоты прокручивается вся панель.
         BoxWithConstraints(modifier = Modifier.fillMaxWidth().weight(1f)) {
             val appColumns = appsColumns(maxWidth)
             val showHistory =
@@ -208,6 +208,7 @@ fun SearchScreen(
                             apps = state.apps,
                             columns = appColumns,
                             rows = rows.appRows,
+                            favoritePackages = state.favApps.toSet(),
                             onOpen = openApp,
                             onMenu = viewModel::onAppMenuOpen,
                         )

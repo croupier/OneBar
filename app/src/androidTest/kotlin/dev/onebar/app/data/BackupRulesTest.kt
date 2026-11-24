@@ -14,13 +14,14 @@ class BackupRulesTest {
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
 
     @Test
-    fun `legacy_backup_исключает_персональный_журнал`() {
-        assertEquals(listOf(HISTORY_FILE), exclusions(R.xml.backup_rules))
+    fun `legacy_backup_исключает_журнал_и_временную_копию`() {
+        assertEquals(listOf(HISTORY_FILE, HISTORY_TEMP_FILE), exclusions(R.xml.backup_rules))
     }
 
     @Test
-    fun `облачный_backup_и_перенос_исключают_персональный_журнал`() {
-        assertEquals(listOf(HISTORY_FILE, HISTORY_FILE), exclusions(R.xml.data_extraction_rules))
+    fun `облачный_backup_и_перенос_исключают_журнал_и_временную_копию`() {
+        val expected = listOf(HISTORY_FILE, HISTORY_TEMP_FILE)
+        assertEquals(expected + expected, exclusions(R.xml.data_extraction_rules))
     }
 
     private fun exclusions(resource: Int): List<Pair<String, String>> {
@@ -37,5 +38,6 @@ class BackupRulesTest {
 
     private companion object {
         val HISTORY_FILE = "file" to "datastore/history.preferences_pb"
+        val HISTORY_TEMP_FILE = "file" to "datastore/history.preferences_pb.tmp"
     }
 }

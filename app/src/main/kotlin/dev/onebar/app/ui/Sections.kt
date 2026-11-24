@@ -130,6 +130,7 @@ fun AppsGridSection(
     apps: List<LaunchableApp>,
     columns: Int,
     rows: Int,
+    favoritePackages: Set<String>,
     onOpen: (LaunchableApp) -> Unit,
     onMenu: (LaunchableApp) -> Unit,
 ) {
@@ -143,7 +144,7 @@ fun AppsGridSection(
         items(apps, key = { it.packageName }) { app ->
             AppItem(
                 app = app,
-                favorite = false,
+                favorite = app.packageName in favoritePackages,
                 onClick = { onOpen(app) },
                 onLongClick = { onMenu(app) },
             )
