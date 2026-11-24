@@ -69,7 +69,6 @@ val CONTACT_ROW_HEIGHT = 68.dp
 val CONTACT_ROW_GAP = 2.dp
 val CONTACT_AVATAR_SIZE = 36.dp
 val SWIPE_ACTION_SIZE = 48.dp
-val CONTACT_ACTION_ICON_SIZE = 28.dp
 val CONTACT_CARD_RADIUS = 16.dp
 val CONTACT_HEADER_HEIGHT = 36.dp
 val CONTACT_LIST_BOTTOM = 12.dp
@@ -225,26 +224,39 @@ fun ActionIcon(
     tint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
 ) {
     Labeled(caption = caption, tileSize = SWIPE_ACTION_SIZE) { tileWidth, tileHeight, shown ->
-        val button: Modifier = modifier
-            .size(width = tileWidth, height = tileHeight)
-            .clip(RoundedCornerShape(IconRadius))
-            .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(IconRadius))
-            .clickable(onClick = onClick)
-
-        Box(modifier = button, contentAlignment = Alignment.Center) {
+        // Плитка действия совпадает с брендовым бейджем: окна-подложки нет, глиф сам и есть
+        // плитка. Сторона берётся по меньшей из сторон тайла, чтобы вытянутое при протяжке
+        // окно не растягивало квадратную иконку, а масштаб тот же, что у буквы Я/G.
+        val scale = 1f - shown / 6f
+        val side = minOf(tileWidth, tileHeight)
+        Box(
+            modifier = modifier
+                .size(width = tileWidth, height = tileHeight)
+                .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) {
             if (handlerBitmap != null) {
                 Image(
                     bitmap = handlerBitmap,
                     contentDescription = contentDescription,
                     modifier = Modifier
-                        .size(lerp(CONTACT_ACTION_ICON_SIZE, CONTACT_ACTION_ICON_SIZE - 4.dp, shown))
-                        .clip(RoundedCornerShape(8.dp)),
+                        .size(side)
+                        .clip(RoundedCornerShape(IconRadius))
+                        .graphicsLayer {
+                            scaleX = scale
+                            scaleY = scale
+                        },
                 )
             } else {
                 Icon(
                     painter = fallbackIcon,
                     contentDescription = contentDescription,
-                    modifier = Modifier.size(lerp(20.dp, 16.dp, shown)),
+                    modifier = Modifier
+                        .size(side)
+                        .graphicsLayer {
+                            scaleX = scale
+                            scaleY = scale
+                        },
                     tint = tint,
                 )
             }
