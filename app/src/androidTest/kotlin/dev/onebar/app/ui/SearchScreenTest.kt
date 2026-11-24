@@ -289,15 +289,46 @@ class SearchScreenTest {
     }
 
     @Test
-    fun `крестик_в_пустом_поле_возвращает_фокус`() {
+    fun `крестик_виден_только_для_непустого_запроса`() {
         show()
         val field = ui.onNode(hasSetTextAction())
-        field.performImeAction()
-        field.assertIsNotFocused()
+        val clear = ui.onNodeWithContentDescription(str(R.string.clear))
 
-        ui.onNodeWithContentDescription(str(R.string.clear)).performClick()
+        clear.assertDoesNotExist()
+        field.performTextInput("   ")
+        clear.assertDoesNotExist()
 
-        field.assertIsFocused()
+        field.performTextInput("кофе")
+        clear.assertExists()
+
+        clear.performClick()
+        clear.assertDoesNotExist()
+    }
+
+    @Test
+    fun `пробелы_по_краям_убираются_при_каждом_вводе`() {
+        show()
+        val field = ui.onNode(hasSetTextAction())
+
+        field.performTextInput(" ")
+        assertEquals(
+            "",
+            field.fetchSemanticsNode().config[SemanticsProperties.EditableText].text,
+        )
+
+        field.performTextInput(" кофе ")
+        field.assertTextEquals("кофе")
+        assertEquals(
+            TextRange("кофе".length),
+            field.fetchSemanticsNode().config[SemanticsProperties.TextSelectionRange],
+        )
+
+        field.performTextInput(" ")
+        field.assertTextEquals("кофе")
+        assertEquals(
+            TextRange("кофе".length),
+            field.fetchSemanticsNode().config[SemanticsProperties.TextSelectionRange],
+        )
     }
 
     @Test
