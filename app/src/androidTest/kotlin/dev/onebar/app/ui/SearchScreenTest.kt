@@ -93,6 +93,9 @@ class SearchScreenTest {
     private fun actionWidth(tag: String): Float =
         ui.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot.width
 
+    private fun actionHeight(tag: String): Float =
+        ui.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot.height
+
     private fun show(
         apps: FakeApps = FakeApps(),
         contacts: FakeContacts = FakeContacts(),
@@ -334,6 +337,11 @@ class SearchScreenTest {
         ui.onNode(hasSetTextAction()).performImeAction()
         ui.waitForIdle()
 
+        val collapsedHeight = actionHeight("swipe-action-sms-contact:1")
+        assertEquals(collapsedHeight, actionHeight("swipe-action-call-contact:1"), 1f)
+        assertEquals(collapsedHeight, actionHeight("swipe-action-yandex-web:maps"), 1f)
+        assertEquals(collapsedHeight, actionHeight("swipe-action-google-web:maps"), 1f)
+
         swipeRow("contact:1", 0.95f, 0.55f)
         val expected = ui.onNodeWithTag("swipe-row-contact:1")
             .fetchSemanticsNode().boundsInRoot.width * 0.25f
@@ -344,6 +352,8 @@ class SearchScreenTest {
         assertEquals(sms, call, 1f)
         ui.onNodeWithText(str(R.string.caption_sms)).assertHeightIsAtLeast(18.dp)
         ui.onNodeWithText(str(R.string.caption_call)).assertHeightIsAtLeast(18.dp)
+        val expandedHeight = actionHeight("swipe-action-sms-contact:1")
+        assertEquals(expandedHeight, actionHeight("swipe-action-call-contact:1"), 1f)
 
         swipeRow("web:maps", 0.95f, 0.55f)
         ui.waitUntil(TIMEOUT) { abs(actionWidth("swipe-action-yandex-web:maps") - expected) < 1f }
@@ -351,6 +361,8 @@ class SearchScreenTest {
         val google = actionWidth("swipe-action-google-web:maps")
         assertEquals(sms, yandex, 1f)
         assertEquals(yandex, google, 1f)
+        assertEquals(expandedHeight, actionHeight("swipe-action-yandex-web:maps"), 1f)
+        assertEquals(expandedHeight, actionHeight("swipe-action-google-web:maps"), 1f)
         ui.onNodeWithText("Яндекс").assertHeightIsAtLeast(18.dp)
         ui.onNodeWithText("Google").assertHeightIsAtLeast(18.dp)
     }
@@ -539,13 +551,14 @@ class SearchScreenTest {
     }
 
     @Test
-    fun `крестик_виден_только_для_непустого_запроса`() {
+    fun `крестик_не_появляется_для_одних_пробелов`() {
         show()
         val field = ui.onNode(hasSetTextAction())
         val clear = ui.onNodeWithContentDescription(str(R.string.clear))
 
         clear.assertDoesNotExist()
         field.performTextInput("   ")
+        field.assertTextEquals("   ")
         clear.assertDoesNotExist()
 
         field.performTextInput("кофе")
@@ -556,27 +569,28 @@ class SearchScreenTest {
     }
 
     @Test
-    fun `пробелы_по_краям_убираются_при_каждом_вводе`() {
+    fun `пробелы_сохраняются_при_каждом_вводе`() {
         show()
         val field = ui.onNode(hasSetTextAction())
 
         field.performTextInput(" ")
+        field.assertTextEquals(" ")
         assertEquals(
-            "",
-            field.fetchSemanticsNode().config[SemanticsProperties.EditableText].text,
+            TextRange(1),
+            field.fetchSemanticsNode().config[SemanticsProperties.TextSelectionRange],
         )
 
-        field.performTextInput(" кофе ")
-        field.assertTextEquals("кофе")
+        field.performTextInput("кофе ")
+        field.assertTextEquals(" кофе ")
         assertEquals(
-            TextRange("кофе".length),
+            TextRange(" кофе ".length),
             field.fetchSemanticsNode().config[SemanticsProperties.TextSelectionRange],
         )
 
         field.performTextInput(" ")
-        field.assertTextEquals("кофе")
+        field.assertTextEquals(" кофе  ")
         assertEquals(
-            TextRange("кофе".length),
+            TextRange(" кофе  ".length),
             field.fetchSemanticsNode().config[SemanticsProperties.TextSelectionRange],
         )
     }
