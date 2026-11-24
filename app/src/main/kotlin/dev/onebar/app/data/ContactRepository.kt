@@ -77,14 +77,18 @@ internal fun likeClause(patterns: List<String>, column: String): String =
 
 private const val LIKE_ESCAPE = " ESCAPE '\\'"
 
-private data class BaseContact(
+private data class ContactRow(
     val contactId: Long,
     val name: String,
     val lookupKey: String,
     val photoUri: String?,
+    val starred: Int,
+    val timesContacted: Int,
 )
 
-class DefaultContactRepository(private val context: Context) : ContactRepository {
+class DefaultContactRepository(context: Context) : ContactRepository {
+
+    private val context = context.applicationContext
 
     override fun hasPermission(): Boolean =
         ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_CONTACTS) ==
@@ -108,25 +112,30 @@ class DefaultContactRepository(private val context: Context) : ContactRepository
         // е/ё глушим маской «любой символ». Точность и порядок решает ранжировщик в памяти,
         // поэтому кандидатов берём с запасом, иначе лимит отрезал бы лучшие совпадения.
         val patterns = likePatterns(trimmed).map { "%$it%" }
+        val cap = candidateLimit(limit)
         val byName = baseRows(
             "$HAS_PHONE_ONLY AND ${likeClause(patterns, Contacts.DISPLAY_NAME)}",
             patterns.toTypedArray(),
-            limit * CANDIDATE_FACTOR,
-        ).map(::entryOf)
-        val candidates = withPhoneNumbers(byName, trimmed, limit * CANDIDATE_FACTOR)
+            cap,
+        )
+        val candidates = withPhoneNumbers(byName, trimmed, cap)
 
         val ranked = rankContacts(candidates, trimmed, limit, favorites, favoritesOnly).toMutableList()
         if (!favoritesOnly && ranked.size < limit) {
-            val extra = fieldRows(patterns, ranked.map { it.contactId }.toSet(), limit * CANDIDATE_FACTOR)
+            val extra = fieldRows(patterns, ranked.map { it.contactId }.toSet(), cap)
             ranked += rankContacts(extra, trimmed, limit - ranked.size, favorites, favoritesOnly)
         }
         return enrich(withNumbers(ranked))
     }
 
-    /** id, название, lookup-ключ и фото нужны и ранжировщику, и строке результата. */
+    private val contactRowOrder = compareByDescending<ContactRow> { it.starred }
+        .thenByDescending { it.timesContacted }
+        .thenBy { it.name }
+
+    /** Ключи сортировки провайдера нужны и после объединения результатов нескольких chunk-ов. */
     @SuppressLint("Range")
-    private fun baseRows(selection: String, args: Array<String>?, cap: Int): List<BaseContact> {
-        val found = ArrayList<BaseContact>(cap)
+    private fun baseRows(selection: String, args: Array<String>?, cap: Int): List<ContactRow> {
+        val found = ArrayList<ContactRow>(cap)
         context.contentResolver.query(
             Contacts.CONTENT_URI,
             arrayOf(
@@ -134,24 +143,28 @@ class DefaultContactRepository(private val context: Context) : ContactRepository
                 Contacts.DISPLAY_NAME,
                 Contacts.LOOKUP_KEY,
                 Contacts.PHOTO_URI,
+                Contacts.STARRED,
+                Contacts.TIMES_CONTACTED,
             ),
             selection,
             args,
             STARRED_FIRST_SORT,
         )?.use { cursor ->
             while (cursor.moveToNext() && found.size < cap) {
-                found += BaseContact(
+                found += ContactRow(
                     contactId = cursor.getLong(0),
                     name = cursor.getString(1).orEmpty(),
                     lookupKey = cursor.getString(2).orEmpty(),
                     photoUri = cursor.getString(3)?.takeIf { it.isNotBlank() },
+                    starred = cursor.getInt(4),
+                    timesContacted = cursor.getInt(5),
                 )
             }
         }
         return found
     }
 
-    private fun entryOf(row: BaseContact) = ContactEntry(
+    private fun entryOf(row: ContactRow) = ContactEntry(
         contactId = row.contactId,
         lookupKey = row.lookupKey,
         name = row.name,
@@ -166,9 +179,9 @@ class DefaultContactRepository(private val context: Context) : ContactRepository
      * берём, когда он есть: там «8» уже превращена в «+7».
      */
     @SuppressLint("Range")
-    private fun withPhoneNumbers(rows: List<ContactEntry>, query: String, cap: Int): List<ContactEntry> {
+    private fun withPhoneNumbers(rows: List<ContactRow>, query: String, cap: Int): List<ContactEntry> {
         val patterns = phoneLikePatterns(query)
-        if (patterns.isEmpty()) return rows
+        if (patterns.isEmpty()) return rows.map(::entryOf)
         val selection = "${likeClause(patterns, Phone.NUMBER)} OR ${likeClause(patterns, Phone.NORMALIZED_NUMBER)}"
         val numbers = HashMap<Long, MutableList<String>>(cap)
         context.contentResolver.query(
@@ -186,19 +199,26 @@ class DefaultContactRepository(private val context: Context) : ContactRepository
             }
         }
         val ids = numbers.keys.toList()
-        if (ids.isEmpty()) return rows
-        val selectionById = "${Contacts._ID} IN (${ids.placeholders()}) AND $HAS_PHONE_ONLY"
-        val byPhone = baseRows(selectionById, ids.map { it.toString() }.toTypedArray(), cap)
-            .map { row -> entryOf(row).copy(searchableNumbers = numbers[row.contactId].orEmpty()) }
+        if (ids.isEmpty()) return rows.map(::entryOf)
+        val byPhone = ids.chunked(SQLITE_BATCH_SIZE).flatMap { chunk ->
+            val selectionById = "${Contacts._ID} IN (${chunk.placeholders()}) AND $HAS_PHONE_ONLY"
+            baseRows(selectionById, chunk.map { it.toString() }.toTypedArray(), cap)
+        }.sortedWith(contactRowOrder)
         // Строка из телефонного прохода уже содержит название, поэтому просто переставляет
         // найденную по имени запись той же строкой, но с номерами.
-        return (rows + byPhone).associateBy { it.contactId }.values.toList()
+        return (rows + byPhone).associateBy { it.contactId }.values
+            .sortedWith(contactRowOrder)
+            .map { row -> entryOf(row).copy(searchableNumbers = numbers[row.contactId].orEmpty()) }
     }
 
-    /** defaultPhone — отдельный запрос на контакт, поэтому номера догружаем лишь показанным строкам. */
-    private fun withNumbers(rows: List<ContactEntry>): List<ContactEntry> = rows.map { row ->
-        val (number, count) = defaultPhone(row.contactId)
-        row.copy(number = number, phoneCount = count)
+    /** Номера показанных строк загружаются одним пакетом, а не отдельным запросом на контакт. */
+    private fun withNumbers(rows: List<ContactEntry>): List<ContactEntry> {
+        if (rows.isEmpty()) return rows
+        val phones = phonesOf(rows.map { it.contactId })
+        return rows.map { row ->
+            val (number, count) = phones[row.contactId] ?: (null to 0)
+            row.copy(number = number, phoneCount = count)
+        }
     }
 
     /**
@@ -231,8 +251,10 @@ class DefaultContactRepository(private val context: Context) : ContactRepository
         }
         val ids = values.keys.toList()
         if (ids.isEmpty()) return emptyList()
-        val baseSelection = "${Contacts._ID} IN (${ids.placeholders()}) AND $HAS_PHONE_ONLY"
-        return baseRows(baseSelection, ids.map { it.toString() }.toTypedArray(), cap).map { row ->
+        return ids.chunked(SQLITE_BATCH_SIZE).flatMap { chunk ->
+            val baseSelection = "${Contacts._ID} IN (${chunk.placeholders()}) AND $HAS_PHONE_ONLY"
+            baseRows(baseSelection, chunk.map { it.toString() }.toTypedArray(), cap)
+        }.sortedWith(contactRowOrder).map { row ->
             val found = values[row.contactId].orEmpty()
             entryOf(row).copy(
                 organization = found[Organization.CONTENT_ITEM_TYPE].joined(),
@@ -253,43 +275,15 @@ class DefaultContactRepository(private val context: Context) : ContactRepository
     @SuppressLint("Range")
     override fun byLookupKeys(keys: List<String>): List<ContactEntry> {
         if (!hasPermission() || keys.isEmpty()) return emptyList()
-        val selection = "${Contacts.LOOKUP_KEY} IN (${keys.placeholders()}) AND $HAS_PHONE_ONLY"
-        val found = HashMap<String, BaseContact>(keys.size)
-        context.contentResolver.query(
-            Contacts.CONTENT_URI,
-            arrayOf(
-                Contacts._ID,
-                Contacts.DISPLAY_NAME,
-                Contacts.LOOKUP_KEY,
-                Contacts.PHOTO_URI,
-            ),
-            selection,
-            keys.toTypedArray(),
-            null,
-        )?.use { cursor ->
-            while (cursor.moveToNext()) {
-                val key = cursor.getString(2).orEmpty()
-                found[key] = BaseContact(
-                    contactId = cursor.getLong(0),
-                    name = cursor.getString(1).orEmpty(),
-                    lookupKey = key,
-                    photoUri = cursor.getString(3)?.takeIf { it.isNotBlank() },
-                )
+        val found = HashMap<String, ContactRow>(keys.size)
+        keys.chunked(SQLITE_BATCH_SIZE).forEach { chunk ->
+            val selection = "${Contacts.LOOKUP_KEY} IN (${chunk.placeholders()}) AND $HAS_PHONE_ONLY"
+            baseRows(selection, chunk.toTypedArray(), chunk.size).forEach { row ->
+                found[row.lookupKey] = row
             }
         }
-        val rows = keys.mapNotNull { key ->
-            val hit = found[key] ?: return@mapNotNull null
-            val (number, count) = defaultPhone(hit.contactId)
-            ContactEntry(
-                contactId = hit.contactId,
-                name = hit.name,
-                lookupKey = key,
-                number = number,
-                photoUri = hit.photoUri,
-                phoneCount = count,
-            )
-        }
-        return enrich(rows)
+        val rows = keys.mapNotNull { key -> found[key]?.let(::entryOf) }
+        return enrich(withNumbers(rows))
     }
 
     /**
@@ -311,18 +305,20 @@ class DefaultContactRepository(private val context: Context) : ContactRepository
             null,
         )?.use { cursor ->
             if (!cursor.moveToFirst()) return null
-            val (number, count) = defaultPhone(contactId)
             ContactEntry(
                 contactId = contactId,
                 name = cursor.getString(0).orEmpty(),
                 lookupKey = cursor.getString(1).orEmpty(),
-                number = number,
+                number = null,
                 photoUri = cursor.getString(2)?.takeIf { it.isNotBlank() },
-                phoneCount = count,
+                phoneCount = 0,
             )
         } ?: return null
         val ids = listOf(contactId)
+        val (number, count) = phonesOf(ids)[contactId] ?: (null to 0)
         return base.copy(
+            number = number,
+            phoneCount = count,
             email = emailsOf(ids)[contactId],
             messengers = profileRows(ids)[contactId].orEmpty(),
         )
@@ -341,55 +337,80 @@ class DefaultContactRepository(private val context: Context) : ContactRepository
      * если таких пометок нет — мобильный, а иначе первую строку.
      */
     @SuppressLint("Range")
-    private fun defaultPhone(contactId: Long): Pair<String?, Int> {
-        var marked: String? = null
-        var mobile: String? = null
-        var first: String? = null
-        var count = 0
-        context.contentResolver.query(
-            Phone.CONTENT_URI,
-            arrayOf(Phone.NUMBER, Phone.IS_SUPER_PRIMARY, Phone.IS_PRIMARY, Phone.TYPE),
-            "${Phone.CONTACT_ID} = ? AND ${Phone.NUMBER} IS NOT NULL",
-            arrayOf(contactId.toString()),
-            "${Phone.TYPE} ASC",
-        )?.use { cursor ->
-            while (cursor.moveToNext()) {
-                val number = cursor.getString(0) ?: continue
-                count++
-                first = first ?: number
-                val superPrimary = cursor.getInt(1) == 1
-                val primary = cursor.getInt(2) == 1
-                when {
-                    superPrimary || primary -> marked = marked ?: number
-                    cursor.getInt(3) == Phone.TYPE_MOBILE -> mobile = mobile ?: number
+    private fun phonesOf(ids: List<Long>): Map<Long, Pair<String?, Int>> {
+        if (ids.isEmpty()) return emptyMap()
+        val found = HashMap<Long, PhoneChoice>(ids.size)
+        ids.chunked(SQLITE_BATCH_SIZE).forEach { chunk ->
+            context.contentResolver.query(
+                Phone.CONTENT_URI,
+                arrayOf(
+                    Phone.CONTACT_ID,
+                    Phone.NUMBER,
+                    Phone.IS_SUPER_PRIMARY,
+                    Phone.IS_PRIMARY,
+                    Phone.TYPE,
+                ),
+                "${Phone.CONTACT_ID} IN (${chunk.placeholders()}) AND ${Phone.NUMBER} IS NOT NULL",
+                chunk.map { it.toString() }.toTypedArray(),
+                "${Phone.CONTACT_ID} ASC, ${Phone.TYPE} ASC",
+            )?.use { cursor ->
+                while (cursor.moveToNext()) {
+                    val id = cursor.getLong(0)
+                    val number = cursor.getString(1) ?: continue
+                    found.getOrPut(id) { PhoneChoice() }.add(
+                        number = number,
+                        superPrimary = cursor.getInt(2) == 1,
+                        primary = cursor.getInt(3) == 1,
+                        type = cursor.getInt(4),
+                    )
                 }
             }
         }
-        return (marked ?: mobile ?: first) to count
+        return found.mapValues { (_, choice) -> choice.default to choice.count }
+    }
+
+    private class PhoneChoice {
+        var marked: String? = null
+        var mobile: String? = null
+        var first: String? = null
+        var count: Int = 0
+        val default: String?
+            get() = marked ?: mobile ?: first
+
+        fun add(number: String, superPrimary: Boolean, primary: Boolean, type: Int) {
+            count++
+            first = first ?: number
+            when {
+                superPrimary || primary -> marked = marked ?: number
+                type == Phone.TYPE_MOBILE -> mobile = mobile ?: number
+            }
+        }
     }
 
     @SuppressLint("Range")
     private fun emailsOf(ids: List<Long>): Map<Long, String> {
         if (ids.isEmpty()) return emptyMap()
         val best = HashMap<Long, Pair<Int, String>>(ids.size)
-        context.contentResolver.query(
-            Email.CONTENT_URI,
-            arrayOf(Email.CONTACT_ID, Email.ADDRESS, Email.IS_SUPER_PRIMARY, Email.IS_PRIMARY, Email.TYPE),
-            "${Email.CONTACT_ID} IN (${ids.placeholders()})",
-            ids.map { it.toString() }.toTypedArray(),
-            null,
-        )?.use { cursor ->
-            while (cursor.moveToNext()) {
-                val address = cursor.getString(1)?.trim()?.takeIf { it.isNotEmpty() } ?: continue
-                val rank = when {
-                    cursor.getInt(2) == 1 || cursor.getInt(3) == 1 -> 0
-                    cursor.getInt(4) == Email.TYPE_HOME -> 1
-                    cursor.getInt(4) == Email.TYPE_WORK -> 2
-                    else -> 3
+        ids.chunked(SQLITE_BATCH_SIZE).forEach { chunk ->
+            context.contentResolver.query(
+                Email.CONTENT_URI,
+                arrayOf(Email.CONTACT_ID, Email.ADDRESS, Email.IS_SUPER_PRIMARY, Email.IS_PRIMARY, Email.TYPE),
+                "${Email.CONTACT_ID} IN (${chunk.placeholders()})",
+                chunk.map { it.toString() }.toTypedArray(),
+                null,
+            )?.use { cursor ->
+                while (cursor.moveToNext()) {
+                    val address = cursor.getString(1)?.trim()?.takeIf { it.isNotEmpty() } ?: continue
+                    val rank = when {
+                        cursor.getInt(2) == 1 || cursor.getInt(3) == 1 -> 0
+                        cursor.getInt(4) == Email.TYPE_HOME -> 1
+                        cursor.getInt(4) == Email.TYPE_WORK -> 2
+                        else -> 3
+                    }
+                    val id = cursor.getLong(0)
+                    val current = best[id]
+                    if (current == null || rank < current.first) best[id] = rank to address
                 }
-                val id = cursor.getLong(0)
-                val current = best[id]
-                if (current == null || rank < current.first) best[id] = rank to address
             }
         }
         return best.mapValues { (_, ranked) -> ranked.second }
@@ -403,22 +424,24 @@ class DefaultContactRepository(private val context: Context) : ContactRepository
     private fun profileRows(ids: List<Long>): Map<Long, Map<String, Long>> {
         val mimes = Messenger.entries.mapNotNull { it.profileMime }
         if (ids.isEmpty() || mimes.isEmpty()) return emptyMap()
-        val selection = "${Data.CONTACT_ID} IN (${ids.placeholders()}) AND ${Data.MIMETYPE} IN (${mimes.placeholders()})"
-        val args = (ids.map { it.toString() } + mimes).toTypedArray()
         val found = HashMap<Long, MutableMap<String, Long>>(ids.size)
-        context.contentResolver.query(
-            Data.CONTENT_URI,
-            arrayOf(Data._ID, Data.CONTACT_ID, Data.MIMETYPE),
-            selection,
-            args,
-            null,
-        )?.use { cursor ->
-            while (cursor.moveToNext()) {
-                val packageName = Messenger.entries
-                    .firstOrNull { it.profileMime == cursor.getString(2) }
-                    ?.packageName
-                    ?: continue
-                found.getOrPut(cursor.getLong(1)) { HashMap() }[packageName] = cursor.getLong(0)
+        ids.chunked(SQLITE_BATCH_SIZE).forEach { chunk ->
+            val selection = "${Data.CONTACT_ID} IN (${chunk.placeholders()}) AND ${Data.MIMETYPE} IN (${mimes.placeholders()})"
+            val args = (chunk.map { it.toString() } + mimes).toTypedArray()
+            context.contentResolver.query(
+                Data.CONTENT_URI,
+                arrayOf(Data._ID, Data.CONTACT_ID, Data.MIMETYPE),
+                selection,
+                args,
+                null,
+            )?.use { cursor ->
+                while (cursor.moveToNext()) {
+                    val packageName = Messenger.entries
+                        .firstOrNull { it.profileMime == cursor.getString(2) }
+                        ?.packageName
+                        ?: continue
+                    found.getOrPut(cursor.getLong(1)) { HashMap() }[packageName] = cursor.getLong(0)
+                }
             }
         }
         return found
@@ -426,16 +449,21 @@ class DefaultContactRepository(private val context: Context) : ContactRepository
 
     private fun List<*>.placeholders(): String = joinToString(separator = ",") { "?" }
 
-    private companion object {
+    internal companion object {
         const val HAS_PHONE_ONLY = "${Contacts.HAS_PHONE_NUMBER} = 1"
 
         // Избранные первыми, затем по частоте обращения, затем алфавит.
         const val STARRED_FIRST_SORT =
             "${Contacts.STARRED} DESC, ${Contacts.TIMES_CONTACTED} DESC, ${Contacts.DISPLAY_NAME} ASC"
 
+        // Запас для точного ранжирования после грубого LIKE-фильтра провайдера.
+        const val MAX_CANDIDATES = 1_000
 
-        // Запас кандидатов: часть отбросят е/ё и регистр, которые LIKE не различает точно.
-        const val CANDIDATE_FACTOR = 6
+        // Надёжный запас до классического лимита SQLite в 999 параметров, включая MIME.
+        const val SQLITE_BATCH_SIZE = 500
+
+        internal fun candidateLimit(limit: Int): Int =
+            if (limit <= 0) 0 else maxOf(limit, MAX_CANDIDATES)
 
         // ContactsContract.Notes вне публичного API, поэтому mime строкой — как он записан в провайдере.
         const val NOTE_MIME = "vnd.com.android.item/note"

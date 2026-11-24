@@ -98,4 +98,20 @@ class ContactRankingTest {
         assertEquals(listOf("Боб"), rankContacts(list, "onebar", 10).map { it.name })
         assertTrue(rankContacts(list, "нет-такого", 10).isEmpty())
     }
+
+    @Test
+    fun `непустой поиск берёт до тысячи кандидатов`() {
+        assertEquals(1_000, DefaultContactRepository.candidateLimit(20))
+        assertEquals(1_000, DefaultContactRepository.candidateLimit(1))
+        assertEquals(0, DefaultContactRepository.candidateLimit(0))
+        assertEquals(1_500, DefaultContactRepository.candidateLimit(1_500))
+    }
+
+    @Test
+    fun `тысяча кандидатов ранжируется и ограничивается двадцатью строками`() {
+        val list = (1..1_000).map { contact(it.toLong(), "Contact $it") }
+        val found = rankContacts(list, "contact", 20)
+        assertEquals(20, found.size)
+        assertEquals((1L..20L).toList(), found.map { it.contactId })
+    }
 }

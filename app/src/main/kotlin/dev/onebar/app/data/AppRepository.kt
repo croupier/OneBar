@@ -17,6 +17,8 @@ interface AppRepository {
     ): List<LaunchableApp>
 
     fun byPackages(packages: List<String>): List<LaunchableApp>
+
+    fun invalidate()
 }
 
 /**
@@ -56,6 +58,7 @@ private fun appFields(app: LaunchableApp): List<List<String>> = listOf(
 
 class DefaultAppRepository(private val pm: PackageManager) : AppRepository {
 
+    private val lock = Any()
     private var cache: List<LaunchableApp> = emptyList()
     private var cachedAt: Long = 0L
 
@@ -63,11 +66,18 @@ class DefaultAppRepository(private val pm: PackageManager) : AppRepository {
         rankApps(all(), query, limit, favorites, favoritesOnly)
 
     override fun byPackages(packages: List<String>): List<LaunchableApp> {
-        val all = all()
-        return packages.mapNotNull { pkg -> all.firstOrNull { it.packageName == pkg } }
+        val byPackage = all().associateBy { it.packageName }
+        return packages.mapNotNull { byPackage[it] }
     }
 
-    private fun all(): List<LaunchableApp> {
+    override fun invalidate() {
+        synchronized(lock) {
+            cache = emptyList()
+            cachedAt = 0L
+        }
+    }
+
+    private fun all(): List<LaunchableApp> = synchronized(lock) {
         val now = SystemClock.elapsedRealtime()
         if (cache.isEmpty() || now - cachedAt > CACHE_TTL_MS) {
             val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
@@ -86,7 +96,7 @@ class DefaultAppRepository(private val pm: PackageManager) : AppRepository {
                 .sortedBy { it.label.lowercase() }
             cachedAt = now
         }
-        return cache
+        cache
     }
 
     private companion object {

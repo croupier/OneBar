@@ -32,6 +32,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -55,6 +56,9 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.onebar.app.R
@@ -72,22 +76,31 @@ fun SearchScreen(
     context: Context = LocalContext.current,
     viewModel: SearchViewModel = viewModel {
         SearchViewModel(
-            apps = DefaultAppRepository(context.packageManager),
-            contacts = DefaultContactRepository(context),
+            apps = DefaultAppRepository(context.applicationContext.packageManager),
+            contacts = DefaultContactRepository(context.applicationContext),
             suggestions = DefaultSuggestRepository(),
-            history = DefaultHistoryStore(context),
-            favoritesStore = DefaultFavoritesStore(context),
+            history = DefaultHistoryStore(context.applicationContext),
+            favoritesStore = DefaultFavoritesStore(context.applicationContext),
         )
     },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val menuEntry by viewModel.menuEntry.collectAsStateWithLifecycle()
     val menuApp by viewModel.menuApp.collectAsStateWithLifecycle()
-    val messengerRepository = remember { MessengerRepository(context) }
+    val messengerRepository = remember(context.applicationContext) { MessengerRepository(context.applicationContext) }
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     var fieldValue by remember { mutableStateOf(TextFieldValue(state.query)) }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) viewModel.onScreenResumed()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     LaunchedEffect(state.query) {
         if (fieldValue.text != state.query) {
@@ -95,8 +108,8 @@ fun SearchScreen(
         }
     }
 
-    val smsIcon = rememberHandlerIcon(Intent.ACTION_SENDTO, "smsto:")
-    val callIcon = rememberHandlerIcon(Intent.ACTION_DIAL, "tel:")
+    val smsIcon = rememberHandlerBitmap(Intent.ACTION_SENDTO, "smsto:")
+    val callIcon = rememberHandlerBitmap(Intent.ACTION_DIAL, "tel:")
 
     val contactsPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
