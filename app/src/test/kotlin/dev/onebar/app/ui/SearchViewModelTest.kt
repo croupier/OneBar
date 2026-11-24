@@ -65,6 +65,18 @@ class SearchViewModelTest {
     }
 
     @Test
+    fun `фото контакта из журнала не теряется`() = runTest(main.dispatcher) {
+        val photoUri = "content://com.android.contacts/contacts/1/photo"
+        val vm = viewModel(
+            contacts = FakeContacts(known = listOf(contact(1, "Ann", photoUri = photoUri))),
+            history = FakeHistory(communications = listOf(log(1, "Ann", CommunicationKind.SMS))),
+        )
+        advanceUntilIdle()
+
+        assertEquals(photoUri, vm.state.value.contacts.single().entry.photoUri)
+    }
+
+    @Test
     fun `набранный запрос ставит избранные вперёд, а в избранном оставляет только избранные`() = runTest(main.dispatcher) {
         val apps = FakeApps(known = listOf(app("com.a", "Maps"), app("com.b", "appmaps")))
         val vm = viewModel(apps = apps, favorites = FakeFavorites(apps = listOf("com.b")))

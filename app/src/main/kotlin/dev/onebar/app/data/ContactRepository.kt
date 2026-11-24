@@ -77,6 +77,15 @@ internal fun likeClause(patterns: List<String>, column: String): String =
 
 private const val LIKE_ESCAPE = " ESCAPE '\\'"
 
+private data class ContactRow(
+    val contactId: Long,
+    val name: String,
+    val lookupKey: String,
+    val photoUri: String?,
+    val starred: Int,
+    val timesContacted: Int,
+)
+
 class DefaultContactRepository(context: Context) : ContactRepository {
 
     private val context = context.applicationContext
@@ -119,14 +128,6 @@ class DefaultContactRepository(context: Context) : ContactRepository {
         return enrich(withNumbers(ranked))
     }
 
-    private data class ContactRow(
-        val contactId: Long,
-        val name: String,
-        val lookupKey: String,
-        val starred: Int,
-        val timesContacted: Int,
-    )
-
     private val contactRowOrder = compareByDescending<ContactRow> { it.starred }
         .thenByDescending { it.timesContacted }
         .thenBy { it.name }
@@ -141,6 +142,7 @@ class DefaultContactRepository(context: Context) : ContactRepository {
                 Contacts._ID,
                 Contacts.DISPLAY_NAME,
                 Contacts.LOOKUP_KEY,
+                Contacts.PHOTO_URI,
                 Contacts.STARRED,
                 Contacts.TIMES_CONTACTED,
             ),
@@ -153,15 +155,22 @@ class DefaultContactRepository(context: Context) : ContactRepository {
                     contactId = cursor.getLong(0),
                     name = cursor.getString(1).orEmpty(),
                     lookupKey = cursor.getString(2).orEmpty(),
-                    starred = cursor.getInt(3),
-                    timesContacted = cursor.getInt(4),
+                    photoUri = cursor.getString(3)?.takeIf { it.isNotBlank() },
+                    starred = cursor.getInt(4),
+                    timesContacted = cursor.getInt(5),
                 )
             }
         }
         return found
     }
 
-    private fun entryOf(row: ContactRow) = ContactEntry(row.contactId, row.lookupKey, row.name, null)
+    private fun entryOf(row: ContactRow) = ContactEntry(
+        contactId = row.contactId,
+        lookupKey = row.lookupKey,
+        name = row.name,
+        number = null,
+        photoUri = row.photoUri,
+    )
 
     /**
      * Поиск по номеру равнозначен поиску по имени, поэтому номера нужны до ранжирования:
@@ -266,30 +275,14 @@ class DefaultContactRepository(context: Context) : ContactRepository {
     @SuppressLint("Range")
     override fun byLookupKeys(keys: List<String>): List<ContactEntry> {
         if (!hasPermission() || keys.isEmpty()) return emptyList()
-        val found = HashMap<String, Pair<Long, String>>(keys.size)
+        val found = HashMap<String, ContactRow>(keys.size)
         keys.chunked(SQLITE_BATCH_SIZE).forEach { chunk ->
             val selection = "${Contacts.LOOKUP_KEY} IN (${chunk.placeholders()}) AND $HAS_PHONE_ONLY"
-            context.contentResolver.query(
-                Contacts.CONTENT_URI,
-                arrayOf(Contacts._ID, Contacts.DISPLAY_NAME, Contacts.LOOKUP_KEY),
-                selection,
-                chunk.toTypedArray(),
-                null,
-            )?.use { cursor ->
-                while (cursor.moveToNext()) {
-                    found[cursor.getString(2)] = cursor.getLong(0) to cursor.getString(1)
-                }
+            baseRows(selection, chunk.toTypedArray(), chunk.size).forEach { row ->
+                found[row.lookupKey] = row
             }
         }
-        val rows = keys.mapNotNull { key ->
-            val hit = found[key] ?: return@mapNotNull null
-            ContactEntry(
-                contactId = hit.first,
-                name = hit.second,
-                lookupKey = key,
-                number = null,
-            )
-        }
+        val rows = keys.mapNotNull { key -> found[key]?.let(::entryOf) }
         return enrich(withNumbers(rows))
     }
 
@@ -302,7 +295,11 @@ class DefaultContactRepository(context: Context) : ContactRepository {
         if (!hasPermission()) return null
         val base = context.contentResolver.query(
             Contacts.CONTENT_URI,
-            arrayOf(Contacts.DISPLAY_NAME, Contacts.LOOKUP_KEY),
+            arrayOf(
+                Contacts.DISPLAY_NAME,
+                Contacts.LOOKUP_KEY,
+                Contacts.PHOTO_URI,
+            ),
             "${Contacts._ID} = ?",
             arrayOf(contactId.toString()),
             null,
@@ -313,6 +310,8 @@ class DefaultContactRepository(context: Context) : ContactRepository {
                 name = cursor.getString(0).orEmpty(),
                 lookupKey = cursor.getString(1).orEmpty(),
                 number = null,
+                photoUri = cursor.getString(2)?.takeIf { it.isNotBlank() },
+                phoneCount = 0,
             )
         } ?: return null
         val ids = listOf(contactId)

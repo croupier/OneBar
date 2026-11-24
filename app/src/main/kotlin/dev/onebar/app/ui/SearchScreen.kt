@@ -148,9 +148,22 @@ fun SearchScreen(
             favoritesMode = state.favoritesMode,
             favoritesEmpty = state.favApps.isEmpty() && state.favContactKeys.isEmpty(),
             focusRequester = focusRequester,
-            onValueChange = {
-                fieldValue = it
-                viewModel.onQueryChange(it.text)
+            onValueChange = { input ->
+                val text = input.text.trim()
+                val leadingTrim = input.text.length - input.text.trimStart().length
+                fun trimmedRange(range: TextRange) = TextRange(
+                    (range.min - leadingTrim).coerceIn(0, text.length),
+                    (range.max - leadingTrim).coerceIn(0, text.length),
+                )
+                val composition = input.composition
+                    ?.let(::trimmedRange)
+                    ?.takeUnless { it.collapsed }
+                fieldValue = TextFieldValue(
+                    text = text,
+                    selection = trimmedRange(input.selection),
+                    composition = composition,
+                )
+                viewModel.onQueryChange(text)
             },
             onToggleFavorites = viewModel::onToggleFavoritesMode,
             onFieldTap = {
@@ -401,8 +414,10 @@ private fun SearchBar(
                 )
             }
         }
-        IconButton(onClick = onClear) {
-            Icon(painter = painterResource(R.drawable.ic_close), contentDescription = stringResource(R.string.clear))
+        if (value.text.isNotBlank()) {
+            IconButton(onClick = onClear) {
+                Icon(painter = painterResource(R.drawable.ic_close), contentDescription = stringResource(R.string.clear))
+            }
         }
     }
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

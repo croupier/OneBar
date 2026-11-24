@@ -12,6 +12,7 @@ data class ContactEntry(
     val lookupKey: String,
     val name: String,
     val number: String?,
+    val photoUri: String? = null,
     /** Сколько телефонов у контакта: при нескольких выбор номера отдаём системному диалеру. */
     val phoneCount: Int = 1,
     /** Основной e-mail: по нему меню предлагает письмо наравне с мессенджерами. */

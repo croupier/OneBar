@@ -29,11 +29,13 @@ fun contact(
     note: String = "",
     address: String = "",
     numbers: List<String> = emptyList(),
+    photoUri: String? = null,
 ) = ContactEntry(
     contactId = id,
     lookupKey = lookupKey,
     name = name,
     number = number,
+    photoUri = photoUri,
     phoneCount = phoneCount,
     email = email,
     organization = organization,
