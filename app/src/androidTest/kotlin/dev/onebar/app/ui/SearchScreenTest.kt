@@ -70,9 +70,10 @@ class SearchScreenTest {
         suggestions: FakeSuggestions = FakeSuggestions(),
         history: FakeHistory = FakeHistory(),
         favorites: FakeFavorites = FakeFavorites(),
+        onOpenSettings: () -> Unit = {},
     ) {
         val viewModel = SearchViewModel(apps, contacts, suggestions, history, favorites)
-        ui.setContent { SearchScreen(viewModel = viewModel) }
+        ui.setContent { SearchScreen(viewModel = viewModel, onOpenSettings = onOpenSettings) }
     }
 
     @Test
@@ -87,6 +88,16 @@ class SearchScreenTest {
         ui.onNodeWithText("appmaps").assertExists()
         ui.onNodeWithText(str(R.string.contacts_title)).assertExists()
         ui.onNodeWithText("Ann").assertExists()
+    }
+
+    @Test
+    fun `шестеренка_открывает_настройки`() {
+        var opened = false
+        show(onOpenSettings = { opened = true })
+
+        ui.onNodeWithContentDescription(str(R.string.settings_title)).performClick()
+
+        assertTrue(opened)
     }
 
     @Test
