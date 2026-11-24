@@ -121,7 +121,9 @@ class SearchViewModel(
         viewModelScope.launch {
             combine(journal, favorites) { entries, favs -> blankQueryRows(entries, favs) }
                 .collect { rows ->
-                    _state.update { if (it.query.isBlank() && !it.favoritesMode) it.copy(contacts = rows) else it }
+                    _state.update {
+                        if (it.query.isBlank() && !it.favoritesMode && it.contactsGranted) it.copy(contacts = rows) else it
+                    }
                 }
         }
         loadContacts()
@@ -296,12 +298,13 @@ class SearchViewModel(
     }
 
     fun onContactsPermissionResult(granted: Boolean) {
-        _state.update { it.copy(contactsGranted = granted) }
-        if (granted) loadContacts()
+        updateContactsPermission(granted)
     }
 
-    /** Возврат в OneBar сбрасывает кэш приложений: установки и удаления видны сразу. */
+    /** Возврат перепроверяет доступ к контактам и сбрасывает кэш установок и удалений. */
     fun onScreenResumed() {
+        val contactsGranted = contacts.hasPermission()
+        if (contactsGranted != _state.value.contactsGranted) updateContactsPermission(contactsGranted)
         viewModelScope.launch {
             val snapshot = recent
             val refreshed = withContext(io) {
@@ -315,12 +318,27 @@ class SearchViewModel(
         }
     }
 
+    private fun updateContactsPermission(granted: Boolean) {
+        if (granted) {
+            _state.update { it.copy(contactsGranted = true) }
+            loadContacts()
+        } else {
+            clearContacts()
+        }
+    }
+
+    private fun clearContacts() {
+        contactsJob?.cancel()
+        contactsGeneration++
+        favorites.value = emptyList()
+        _menuEntry.value = null
+        _state.update { it.copy(contactsGranted = false, contacts = emptyList()) }
+    }
+
     private fun loadContacts() {
         contactsJob?.cancel()
         if (!contacts.hasPermission()) {
-            contactsGeneration++
-            favorites.value = emptyList()
-            _state.update { it.copy(contacts = emptyList()) }
+            clearContacts()
             return
         }
         val trimmed = _state.value.query.trim()
@@ -443,8 +461,7 @@ class SearchViewModel(
     }
 
     private companion object {
-        // С запасом на свёрнутую клавиатуру: два ряда плиток и до девяти строк контактов
-        // влезает без прокрутки, лишнее досказывается прокруткой самой панели.
+        // Лимит страницы поиска; длинный список контактов прокручивается внутри секции.
         const val LIMIT = 20
         const val DEBOUNCE_MS = 200L
     }

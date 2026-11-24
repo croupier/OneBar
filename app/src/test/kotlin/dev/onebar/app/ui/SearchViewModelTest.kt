@@ -355,6 +355,40 @@ class SearchViewModelTest {
     }
 
     @Test
+    fun `возврат после отзыва права очищает контакты меню и отложенный поиск`() = runTest(main.dispatcher) {
+        val entry = contact(1, "Ann")
+        val contacts = FakeContacts(known = listOf(entry))
+        val vm = viewModel(contacts = contacts)
+        advanceUntilIdle()
+        vm.onMenuOpen(entry)
+        vm.onQueryChange("ann")
+
+        contacts.granted = false
+        vm.onScreenResumed()
+
+        assertFalse(vm.state.value.contactsGranted)
+        assertTrue(vm.state.value.contacts.isEmpty())
+        assertNull(vm.menuEntry.value)
+        advanceUntilIdle()
+        assertFalse("ann" in contacts.searched)
+        assertTrue(vm.state.value.contacts.isEmpty())
+    }
+
+    @Test
+    fun `возврат после разрешения в настройках загружает контакты`() = runTest(main.dispatcher) {
+        val contacts = FakeContacts(granted = false, known = listOf(contact(1, "Ann")))
+        val vm = viewModel(contacts = contacts)
+        advanceUntilIdle()
+
+        contacts.granted = true
+        vm.onScreenResumed()
+        advanceUntilIdle()
+
+        assertTrue(vm.state.value.contactsGranted)
+        assertEquals(listOf("Ann"), vm.state.value.contacts.map { it.entry.name })
+    }
+
+    @Test
     fun `меню дозагружает почту контакта из журнала`() = runTest(main.dispatcher) {
         val contacts = FakeContacts(
             known = listOf(contact(1, "Ann")),

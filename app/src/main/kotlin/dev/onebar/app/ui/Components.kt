@@ -44,6 +44,7 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -354,6 +355,7 @@ fun AppItem(
                         .align(Alignment.TopStart)
                         .padding(1.dp)
                         .size(14.dp)
+                        .testTag("app-favorite-${app.packageName}")
                         .background(MaterialTheme.colorScheme.background, CircleShape),
                     tint = MaterialTheme.colorScheme.primary,
                 )

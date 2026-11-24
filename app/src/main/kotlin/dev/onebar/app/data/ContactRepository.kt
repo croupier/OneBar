@@ -101,11 +101,11 @@ class DefaultContactRepository(context: Context) : ContactRepository {
         favorites: Set<String>,
         favoritesOnly: Boolean,
     ): List<ContactEntry> {
-        if (!hasPermission() || limit <= 0) return emptyList()
+        if (!hasPermission() || limit <= 0 || (favoritesOnly && favorites.isEmpty())) return emptyList()
         val trimmed = query.trim()
         if (trimmed.isEmpty()) {
             val rows = baseRows(HAS_PHONE_ONLY, null, limit).map(::entryOf)
-            return enrich(rankContacts(rows, "", limit, favorites, favoritesOnly))
+            return withNumbers(rankContacts(rows, "", limit, favorites, favoritesOnly))
         }
 
         // LIKE у провайдера — только грубый фильтр: регистр он складывает по ASCII, а разницу
@@ -120,12 +120,16 @@ class DefaultContactRepository(context: Context) : ContactRepository {
         )
         val candidates = withPhoneNumbers(byName, trimmed, cap)
 
-        val ranked = rankContacts(candidates, trimmed, limit, favorites, favoritesOnly).toMutableList()
-        if (!favoritesOnly && ranked.size < limit) {
-            val extra = fieldRows(patterns, ranked.map { it.contactId }.toSet(), cap)
-            ranked += rankContacts(extra, trimmed, limit - ranked.size, favorites, favoritesOnly)
+        val ranked = rankContacts(candidates, trimmed, limit, favorites, favoritesOnly)
+        // Избранное может совпасть только с доп. полем, поэтому этот проход нужен и тогда,
+        // когда имя или номер уже заполнили лимит. Иначе такой контакт вообще не попал бы в выдачу.
+        val extra = if (ranked.size < limit || favorites.isNotEmpty()) {
+            fieldRows(patterns, ranked.map { it.contactId }.toSet(), cap)
+        } else {
+            emptyList()
         }
-        return enrich(withNumbers(ranked))
+        val combined = (candidates + extra).distinctBy { it.contactId }
+        return withNumbers(rankContacts(combined, trimmed, limit, favorites, favoritesOnly))
     }
 
     private val contactRowOrder = compareByDescending<ContactRow> { it.starred }
@@ -223,14 +227,16 @@ class DefaultContactRepository(context: Context) : ContactRepository {
 
     /**
      * Совпадения в доп. полях — одним запросом к Data: в DATA1 лежат и e-mail, и организация,
-     * и ник, и заметка, и адрес целиком; у Organization в DATA2 должность, её добавляем к названию
-     * компании, чтобы «разработчик» нашёл человека по строке «Иванов, разработчик».
+     * и ник, и заметка, и адрес целиком; у Organization в DATA2 должность, поэтому она участвует
+     * в отборе наравне с названием компании.
      */
     @SuppressLint("Range")
     private fun fieldRows(patterns: List<String>, exclude: Set<Long>, cap: Int): List<ContactEntry> {
         val mimes = EXTRA_FIELD_MIMES
-        val selection = "${Data.MIMETYPE} IN (${mimes.placeholders()}) AND ${likeClause(patterns, Data.DATA1)}"
-        val args = (mimes + patterns).toTypedArray()
+        val mimeFilter = "${Data.MIMETYPE} IN (${mimes.placeholders()})"
+        val selection = "($mimeFilter AND ${likeClause(patterns, Data.DATA1)}) OR " +
+            "(${Data.MIMETYPE} = ? AND ${likeClause(patterns, Data.DATA2)})"
+        val args = (mimes + patterns + Organization.CONTENT_ITEM_TYPE + patterns).toTypedArray()
         val values = HashMap<Long, MutableMap<String, MutableList<String>>>(cap)
         context.contentResolver.query(
             Data.CONTENT_URI,
@@ -283,7 +289,7 @@ class DefaultContactRepository(context: Context) : ContactRepository {
             }
         }
         val rows = keys.mapNotNull { key -> found[key]?.let(::entryOf) }
-        return enrich(withNumbers(rows))
+        return withNumbers(rows)
     }
 
     /**
@@ -322,14 +328,6 @@ class DefaultContactRepository(context: Context) : ContactRepository {
             email = emailsOf(ids)[contactId],
             messengers = profileRows(ids)[contactId].orEmpty(),
         )
-    }
-
-    /** Почта и профили мессенджеров одним запросом на страницу результатов: нужны только меню. */
-    private fun enrich(rows: List<ContactEntry>): List<ContactEntry> {
-        val ids = rows.map { it.contactId }
-        val emails = emailsOf(ids)
-        val profiles = profileRows(ids)
-        return rows.map { it.copy(email = emails[it.contactId], messengers = profiles[it.contactId].orEmpty()) }
     }
 
     /**

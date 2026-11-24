@@ -1,5 +1,8 @@
 package dev.onebar.app.ui
 
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertHasClickAction
@@ -37,6 +40,7 @@ import dev.onebar.app.testing.FakeSuggestions
 import dev.onebar.app.testing.app
 import dev.onebar.app.testing.contact
 import dev.onebar.app.testing.log
+import dev.onebar.app.ui.theme.OneBarTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -82,6 +86,32 @@ class SearchScreenTest {
         ui.onNodeWithText("appmaps").assertExists()
         ui.onNodeWithText(str(R.string.contacts_title)).assertExists()
         ui.onNodeWithText("Ann").assertExists()
+    }
+
+    @Test
+    fun `двухрядная_сетка_показывает_звезду_избранного_приложения`() {
+        val apps = (1..8).map { index -> app("com.$index", if (index == 1) "Maps" else "App $index") }
+        ui.setContent {
+            OneBarTheme {
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    AppsGridSection(
+                        apps = apps,
+                        columns = 4,
+                        rows = 2,
+                        favoritePackages = setOf("com.1"),
+                        onOpen = {},
+                        onMenu = {},
+                    )
+                }
+            }
+        }
+
+        ui.waitUntil(TIMEOUT) {
+            ui.onAllNodesWithTag("app-favorite-com.1", useUnmergedTree = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        ui.onNodeWithTag("app-favorite-com.1", useUnmergedTree = true).assertIsDisplayed()
+        ui.onNodeWithTag("app-favorite-com.2", useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test

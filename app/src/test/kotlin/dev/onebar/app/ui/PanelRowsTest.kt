@@ -15,50 +15,44 @@ class PanelRowsTest {
     private val withoutKeyboard = 807.dp
 
     @Test
-    fun `с клавиатурой плитки в один ряд и четыре контакта без внешнего скролла`() {
+    fun `с клавиатурой плитки в один ряд без внешнего скролла`() {
         val rows = panelRows(withKeyboard, hasApps = true, hasHistory = false, hasSuggestions = false)
         assertEquals(1, rows.appRows)
-        assertEquals(4, rows.contactRows)
         assertFalse(rows.scroll)
     }
 
     @Test
-    fun `без клавиатуры плитки в два ряда и контакты на весь остаток`() {
+    fun `без клавиатуры плитки в два ряда без внешнего скролла`() {
         val rows = panelRows(withoutKeyboard, hasApps = true, hasHistory = false, hasSuggestions = false)
         assertEquals(2, rows.appRows)
-        assertEquals(9, rows.contactRows)
         assertFalse(rows.scroll)
     }
 
     @Test
-    fun `веб подсказки забирают высоту контактов но не рядов плиток`() {
+    fun `веб подсказки не забирают второй ряд плиток`() {
         val rows = panelRows(withoutKeyboard, hasApps = true, hasHistory = false, hasSuggestions = true)
         assertEquals(2, rows.appRows)
-        assertEquals(6, rows.contactRows)
         assertFalse(rows.scroll)
     }
 
     @Test
-    fun `история запросов при клавиатуре теснит контакты до минимума и включает скролл`() {
+    fun `история запросов при клавиатуре включает внешний скролл`() {
         val rows = panelRows(withKeyboard, hasApps = true, hasHistory = true, hasSuggestions = false)
         assertEquals(1, rows.appRows)
-        assertEquals(3, rows.contactRows)
         assertTrue(rows.scroll)
     }
 
     @Test
-    fun `без приложений вся высота уходит контактам`() {
+    fun `без приложений ряд плиток не нужен`() {
         val rows = panelRows(withoutKeyboard, hasApps = false, hasHistory = false, hasSuggestions = false)
         assertEquals(0, rows.appRows)
-        assertEquals(12, rows.contactRows)
         assertFalse(rows.scroll)
     }
 
     @Test
-    fun `на низкой высоте минимум контактов всё равно виден и появляется скролл`() {
+    fun `на низкой высоте включается внешний скролл`() {
         val rows = panelRows(250.dp, hasApps = true, hasHistory = false, hasSuggestions = false)
         assertEquals(1, rows.appRows)
-        assertEquals(3, rows.contactRows)
         assertTrue(rows.scroll)
     }
 
@@ -68,7 +62,6 @@ class PanelRowsTest {
         // в нём блокам хватает места, и внешний скролл не нужен.
         val rows = panelRows(500.dp, hasApps = true, hasHistory = true, hasSuggestions = false)
         assertEquals(1, rows.appRows)
-        assertEquals(3, rows.contactRows)
         assertFalse(rows.scroll)
     }
 }

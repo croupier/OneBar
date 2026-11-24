@@ -4,12 +4,12 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * Сколько рядов показывать панелям. Клавиатура снимает с высоты почти половину экрана
+ * Геометрия панели: ряды плиток и нужна ли внешняя прокрутка. Клавиатура снимает почти половину экрана
  * (на Pixel 8a 402 dp из 914), поэтому число рядов нельзя задать одной константой:
  * два ряда плиток даём только когда контактам остаётся не меньше пяти строк, а внешний
  * скролл оставляем лишь тогда, когда не влезает даже минимум.
  */
-data class PanelRows(val appRows: Int, val contactRows: Int, val scroll: Boolean)
+data class PanelRows(val appRows: Int, val scroll: Boolean)
 
 /** Ряд плиток: сама плитка и вертикальные поля строки приложений. */
 val AppsRowHeight = AppItemHeight + 12.dp
@@ -43,7 +43,5 @@ internal fun panelRows(
     }
     val rest = available - fixed(appRows)
     val scroll = rest < minContacts
-    val contactRows =
-        if (scroll) MIN_CONTACT_ROWS else (rest / ROW_HEIGHT).toInt().coerceAtLeast(MIN_CONTACT_ROWS)
-    return PanelRows(appRows, contactRows, scroll)
+    return PanelRows(appRows, scroll)
 }
