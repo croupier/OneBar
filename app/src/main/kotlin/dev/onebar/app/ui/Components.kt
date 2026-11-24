@@ -338,6 +338,7 @@ fun ActionIcon(
         val button: Modifier = modifier
             .size(width = tileWidth, height = tileHeight)
             .clip(RoundedCornerShape(IconRadius))
+            .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(IconRadius))
             .clickable(onClick = onClick)
 
         Box(modifier = button, contentAlignment = Alignment.Center) {

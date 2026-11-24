@@ -159,21 +159,8 @@ fun SearchScreen(
             focusRequester = focusRequester,
             onOpenSettings = onOpenSettings,
             onValueChange = { input ->
-                val text = input.text.trim()
-                val leadingTrim = input.text.length - input.text.trimStart().length
-                fun trimmedRange(range: TextRange) = TextRange(
-                    (range.min - leadingTrim).coerceIn(0, text.length),
-                    (range.max - leadingTrim).coerceIn(0, text.length),
-                )
-                val composition = input.composition
-                    ?.let(::trimmedRange)
-                    ?.takeUnless { it.collapsed }
-                fieldValue = TextFieldValue(
-                    text = text,
-                    selection = trimmedRange(input.selection),
-                    composition = composition,
-                )
-                viewModel.onQueryChange(text)
+                fieldValue = input
+                viewModel.onQueryChange(input.text)
             },
             onToggleFavorites = viewModel::onToggleFavoritesMode,
             onFieldTap = {
