@@ -11,6 +11,7 @@ import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotFocused
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
@@ -112,6 +113,23 @@ class SearchScreenTest {
         }
         ui.onNodeWithTag("app-favorite-com.1", useUnmergedTree = true).assertIsDisplayed()
         ui.onNodeWithTag("app-favorite-com.2", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `реальный_экран_после_скрытия_клавиатуры_показывает_двухрядную_сетку`() {
+        val apps = (1..8).map { index -> app("com.$index", if (index == 1) "Maps" else "App $index") }
+        show(
+            apps = FakeApps(known = apps),
+            history = FakeHistory(recentApps = apps.map { it.packageName }),
+            favorites = FakeFavorites(apps = listOf("com.1")),
+        )
+
+        ui.waitUntilAtLeastOneExists(hasText("Maps"), TIMEOUT)
+        ui.onNode(hasSetTextAction()).performImeAction()
+        ui.waitUntilAtLeastOneExists(hasTestTag("apps-grid"), TIMEOUT)
+
+        ui.onNodeWithText("App 5").assertIsDisplayed()
+        ui.onNodeWithTag("app-favorite-com.1", useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test

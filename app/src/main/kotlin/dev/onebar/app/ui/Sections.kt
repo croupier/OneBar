@@ -46,6 +46,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -138,7 +139,11 @@ fun AppsGridSection(
     val usedRows = ((apps.size + columns - 1) / columns).coerceAtMost(rows).coerceAtLeast(1)
     LazyVerticalGrid(
         columns = GridCells.Fixed(columns),
-        modifier = Modifier.fillMaxWidth().height(AppsRowHeight * usedRows).padding(vertical = 6.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(AppsRowHeight * usedRows)
+            .padding(vertical = 6.dp)
+            .testTag("apps-grid"),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         items(apps, key = { it.packageName }) { app ->
