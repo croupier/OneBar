@@ -107,6 +107,10 @@ internal val LocalSwipeReveal = compositionLocalOf { 0f }
 
 /** Ширина строки в dp: к 30 % протяжки кнопки доходят до четверти ширины каждая. */
 internal val LocalSwipeRowWidth = compositionLocalOf { 0.dp }
+internal val LocalSwipeRowHeight = compositionLocalOf { 0.dp }
+
+/** null — обычная строка; 0..1 — финальное раскрытие выбранного действия на всю строку. */
+internal val LocalSwipeActionProgress = compositionLocalOf<Float?> { null }
 
 internal const val NAVIGATION_SWIPE_TAG = "navigation-swipe-screen"
 private const val NAVIGATION_SWIPE_THRESHOLD = 0.3f
@@ -425,31 +429,44 @@ private fun Labeled(
     content: @Composable (tileWidth: Dp, tileHeight: Dp, shown: Float) -> Unit,
 ) {
     val reveal = LocalSwipeReveal.current
-    if (caption == null) {
+    val actionProgress = LocalSwipeActionProgress.current
+    if (caption == null && actionProgress == null) {
         content(tileSize, tileSize, 0f)
         return
     }
     val rowWidth = LocalSwipeRowWidth.current
+    val rowHeight = LocalSwipeRowHeight.current
     val expanded = (reveal / CAPTION_FADE_END).coerceIn(0f, 1f)
     val shown = ((reveal - CAPTION_FADE_START) / (CAPTION_FADE_END - CAPTION_FADE_START)).coerceIn(0f, 1f)
-    val tileWidth = if (rowWidth > 0.dp) lerp(tileSize, rowWidth * 0.25f, expanded) else tileSize
-    val tileHeight = lerp(tileSize, tileSize - TileShrink, shown)
+    val tileWidth = when {
+        actionProgress != null && rowWidth > 0.dp -> lerp(rowWidth * 0.25f, rowWidth, actionProgress)
+        rowWidth > 0.dp -> lerp(tileSize, rowWidth * 0.25f, expanded)
+        else -> tileSize
+    }
+    val tileHeight = if (actionProgress != null && rowHeight > 0.dp) {
+        lerp(tileSize - TileShrink, rowHeight, actionProgress)
+    } else {
+        lerp(tileSize, tileSize - TileShrink, shown)
+    }
+    val iconShown = if (actionProgress != null) 1f - actionProgress else shown
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(CaptionGap * shown),
     ) {
-        content(tileWidth, tileHeight, shown)
-        Box(
-            modifier = Modifier.height(CaptionLine * shown).clipToBounds(),
-            contentAlignment = Alignment.BottomCenter,
-        ) {
-            Text(
-                text = caption,
-                modifier = Modifier.height(CaptionLine).alpha(shown),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-            )
+        content(tileWidth, tileHeight, iconShown)
+        if (caption != null) {
+            Box(
+                modifier = Modifier.height(CaptionLine * shown).clipToBounds(),
+                contentAlignment = Alignment.BottomCenter,
+            ) {
+                Text(
+                    text = caption,
+                    modifier = Modifier.height(CaptionLine).alpha(shown),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                )
+            }
         }
     }
 }

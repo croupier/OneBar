@@ -63,6 +63,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.onebar.app.R
 import dev.onebar.app.data.CommunicationKind
+import dev.onebar.app.data.ContactEntry
 import dev.onebar.app.data.DefaultAppRepository
 import dev.onebar.app.data.DefaultContactRepository
 import dev.onebar.app.data.DefaultFavoritesStore
@@ -84,6 +85,7 @@ fun SearchScreen(
         )
     },
     onOpenSettings: () -> Unit = {},
+    onCallEntry: (ContactEntry) -> Unit = { SearchActions.callEntry(context, it) },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val menuEntry by viewModel.menuEntry.collectAsStateWithLifecycle()
@@ -248,7 +250,7 @@ fun SearchScreen(
                         },
                         onCall = { entry ->
                             viewModel.onCommunication(CommunicationKind.CALL, entry)
-                            SearchActions.callEntry(context, entry)
+                            onCallEntry(entry)
                         },
                         onOpen = { entry ->
                             SearchActions.openContact(context, entry)
