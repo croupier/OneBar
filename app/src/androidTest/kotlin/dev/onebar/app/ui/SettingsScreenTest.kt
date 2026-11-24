@@ -15,8 +15,8 @@ import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
-import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
@@ -51,7 +51,7 @@ class SettingsScreenTest {
     }
 
     private fun swipeHorizontally(fraction: Float) {
-        val node = ui.onNodeWithTag(NAVIGATION_SWIPE_TAG)
+        val node = ui.onRoot()
         val bounds = node.fetchSemanticsNode().boundsInRoot
         val start = Offset(bounds.center.x, bounds.center.y)
         val end = Offset(bounds.center.x + bounds.width * fraction, bounds.center.y)
@@ -253,39 +253,13 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun `свайп_назад_менее_30_процентов_откатывается`() {
-        var finished = false
-        show(onBack = { finished = true })
-
-        swipeHorizontally(-0.2f)
-
-        assertFalse(finished)
-        ui.onNodeWithText(str(R.string.settings_title)).assertIsDisplayed()
-    }
-
-    @Test
-    fun `свайп_назад_более_30_процентов_завершает_экран`() {
+    fun `свайп_назад_не_завершает_экран`() {
         var finished = false
         show(onBack = { finished = true })
 
         swipeHorizontally(-0.4f)
 
-        assertTrue(finished)
-    }
-
-    @Test
-    fun `свайп_назад_с_изменениями_сначала_показывает_предупреждение`() {
-        var finished = false
-        show(onBack = { finished = true })
-        val translit = str(R.string.settings_search_translit)
-        scrollTo(translit)
-        ui.onNodeWithText(translit).performClick()
-
-        swipeHorizontally(-0.4f)
-
-        ui.waitUntilAtLeastOneExists(hasText(str(R.string.settings_unsaved_title)), 5_000L)
         assertFalse(finished)
-        ui.onNodeWithText(str(R.string.settings_cancel)).performClick()
         ui.onNodeWithText(str(R.string.settings_title)).assertIsDisplayed()
     }
 }

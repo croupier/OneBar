@@ -21,6 +21,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performSemanticsAction
@@ -69,7 +70,7 @@ class SearchScreenTest {
     private fun str(id: Int): String = context.getString(id)
 
     private fun swipeHorizontally(fraction: Float) {
-        val node = ui.onNodeWithTag(NAVIGATION_SWIPE_TAG)
+        val node = ui.onRoot()
         val bounds = node.fetchSemanticsNode().boundsInRoot
         val start = Offset(bounds.center.x, bounds.center.y)
         val end = Offset(bounds.center.x + bounds.width * fraction, bounds.center.y)
@@ -136,28 +137,18 @@ class SearchScreenTest {
     }
 
     @Test
-    fun `свайп_менее_30_процентов_откатывается`() {
+    fun `свайп_по_главному_экрану_не_открывает_настройки`() {
         var opened = false
         show(onOpenSettings = { opened = true })
 
-        swipeHorizontally(0.2f)
+        swipeHorizontally(0.4f)
 
         assertFalse(opened)
         ui.onNodeWithText(str(R.string.search_hint)).assertIsDisplayed()
     }
 
     @Test
-    fun `свайп_более_30_процентов_открывает_настройки`() {
-        var opened = false
-        show(onOpenSettings = { opened = true })
-
-        swipeHorizontally(0.4f)
-
-        assertTrue(opened)
-    }
-
-    @Test
-    fun `свайп_в_избранном_открывает_настройки`() {
+    fun `свайп_в_избранном_не_открывает_настройки`() {
         var opened = false
         show(
             apps = FakeApps(known = listOf(app("com.a", "Maps"))),
@@ -170,7 +161,7 @@ class SearchScreenTest {
 
         swipeHorizontally(0.4f)
 
-        assertTrue(opened)
+        assertFalse(opened)
     }
 
     @Test
@@ -433,17 +424,20 @@ class SearchScreenTest {
     }
 
     @Test
-    fun `свайп_вправо_по_свернутой_строке_открывает_настройки`() {
+    fun `свайп_вправо_по_свернутой_строке_ни_чего_не_меняет`() {
         var opened = false
         show(
             contacts = FakeContacts(known = listOf(contact(1, "Ann"))),
             onOpenSettings = { opened = true },
         )
         ui.waitUntilAtLeastOneExists(hasText("Ann"), TIMEOUT)
+        val collapsed = actionWidth("swipe-action-sms-contact:1")
 
         swipeRow("contact:1", 0.05f, 0.45f)
 
-        assertTrue(opened)
+        assertFalse(opened)
+        assertTrue(abs(actionWidth("swipe-action-sms-contact:1") - collapsed) < 1f)
+        ui.onNodeWithText(str(R.string.caption_call)).assertDoesNotExist()
     }
 
     @Test

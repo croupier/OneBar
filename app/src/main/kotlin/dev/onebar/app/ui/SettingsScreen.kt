@@ -127,25 +127,18 @@ fun SettingsScreen(onBack: () -> Unit) {
     }
 
     val hasUnsavedChanges = searchOptions != savedSearchOptions || saveHistory != savedSaveHistory
-    val navigationEnabled = !showLanguageDialog && !showThemeDialog &&
+    val backHandlerEnabled = !showLanguageDialog && !showThemeDialog &&
         !showClearHistoryDialog && !showUnsavedChangesDialog && infoTopic == null
     val requestBack = {
         if (hasUnsavedChanges) showUnsavedChangesDialog = true else onBack()
     }
-    BackHandler(enabled = navigationEnabled) {
+    BackHandler(enabled = backHandlerEnabled) {
         requestBack()
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .navigationSwipe(
-                swipeDirection = -1f,
-                enabled = navigationEnabled,
-                canNavigate = !hasUnsavedChanges,
-                onNavigate = onBack,
-                onNavigationBlocked = { showUnsavedChangesDialog = true },
-            )
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
             .imePadding(),

@@ -8,7 +8,7 @@ plugins {
 //   ломка публичного API → MAJOR; до фиксации API держим 0.x, 1.0.0 — первый релизный билд.
 //   Итерации одной задачи версию повторно не поднимают. versionCode — не semver: +1 на
 //   каждый раздаваемый билд.
-val appVersion = "0.6.0"
+val appVersion = "0.7.0"
 val appVersionCode = 19
 
 android {
