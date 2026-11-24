@@ -91,8 +91,8 @@ internal fun ContactsSection(
     state: SearchState,
     modifier: Modifier,
     swipeRows: SwipeRowController,
-    smsIcon: ImageBitmap?,
-    callIcon: ImageBitmap?,
+    smsIcon: HandlerIcon?,
+    callIcon: HandlerIcon?,
     onRequestPermission: () -> Unit,
     onSms: (ContactEntry) -> Unit,
     onCall: (ContactEntry) -> Unit,
@@ -180,8 +180,8 @@ private fun ContactRow(
     row: ContactRowUi,
     rowKey: String,
     swipeRows: SwipeRowController,
-    smsIcon: ImageBitmap?,
-    callIcon: ImageBitmap?,
+    smsIcon: HandlerIcon?,
+    callIcon: HandlerIcon?,
     favorite: Boolean,
     onSms: () -> Unit,
     onCall: () -> Unit,
@@ -206,7 +206,7 @@ private fun ContactRow(
         onTrigger = onCall,
         action = {
             ActionIcon(
-                handlerBitmap = callIcon,
+                handler = callIcon,
                 fallbackIcon = painterResource(R.drawable.ic_call),
                 contentDescription = stringResource(R.string.call_action),
                 onClick = onCall,
@@ -225,7 +225,7 @@ private fun ContactRow(
             Row(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 12.dp)
+                    .padding(start = 12.dp, end = 2.dp)
                     .combinedClickable(onClick = onOpen, onLongClick = onMenu),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -270,26 +270,28 @@ private fun ContactRow(
                 }
 
                 if (canAct) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         ActionIcon(
-                            handlerBitmap = smsIcon,
+                            handler = smsIcon,
                             fallbackIcon = painterResource(R.drawable.ic_sms),
                             contentDescription = stringResource(R.string.sms_action),
                             onClick = onSms,
                             modifier = Modifier.testTag("swipe-action-sms-$rowKey"),
+                            plateModifier = Modifier.testTag("swipe-plate-sms-$rowKey"),
                             caption = if (labels) stringResource(R.string.caption_sms) else null,
                         )
                         ActionIcon(
-                            handlerBitmap = callIcon,
+                            handler = callIcon,
                             fallbackIcon = painterResource(R.drawable.ic_call),
                             contentDescription = stringResource(R.string.call_action),
                             onClick = onCall,
                             modifier = Modifier.testTag("swipe-action-call-$rowKey"),
+                            plateModifier = Modifier.testTag("swipe-plate-call-$rowKey"),
                             caption = if (labels) stringResource(R.string.caption_call) else null,
                         )
                     }
                 } else {
-                    Spacer(Modifier.width(SWIPE_ACTION_SIZE * 2 + 2.dp))
+                    Spacer(Modifier.width(SWIPE_ACTION_SIZE * 2 + 10.dp))
                 }
             }
         }

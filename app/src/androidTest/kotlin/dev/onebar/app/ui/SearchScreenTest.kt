@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertHeightIsAtLeast
@@ -91,11 +92,17 @@ class SearchScreenTest {
         ui.waitForIdle()
     }
 
-    private fun actionWidth(tag: String): Float =
-        ui.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot.width
+    private fun actionWidth(tag: String, unmerged: Boolean = false): Float {
+        val node = if (unmerged) ui.onNodeWithTag(tag, useUnmergedTree = true) else ui.onNodeWithTag(tag)
+        return node.fetchSemanticsNode().boundsInRoot.width
+    }
 
-    private fun actionHeight(tag: String): Float =
-        ui.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot.height
+    private fun actionHeight(tag: String, unmerged: Boolean = false): Float {
+        val node = if (unmerged) ui.onNodeWithTag(tag, useUnmergedTree = true) else ui.onNodeWithTag(tag)
+        return node.fetchSemanticsNode().boundsInRoot.height
+    }
+
+    private fun nodeBounds(tag: String): Rect = ui.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
 
     private fun show(
         apps: FakeApps = FakeApps(),
@@ -336,6 +343,13 @@ class SearchScreenTest {
         assertEquals(collapsedHeight, actionHeight("swipe-action-yandex-web:maps"), 1f)
         assertEquals(collapsedHeight, actionHeight("swipe-action-google-web:maps"), 1f)
 
+        val smsBox = nodeBounds("swipe-action-sms-contact:1")
+        val callBox = nodeBounds("swipe-action-call-contact:1")
+        val yandexBox = nodeBounds("swipe-action-yandex-web:maps")
+        val googleBox = nodeBounds("swipe-action-google-web:maps")
+        assertEquals(googleBox.left - yandexBox.right, callBox.left - smsBox.right, 1f)
+        assertEquals(googleBox.right, callBox.right, 1f)
+
         swipeRow("contact:1", 0.95f, 0.55f)
         val expected = ui.onNodeWithTag("swipe-row-contact:1")
             .fetchSemanticsNode().boundsInRoot.width * 0.25f
@@ -424,19 +438,21 @@ class SearchScreenTest {
     }
 
     @Test
-    fun `раскрытая_плитка_смс_держит_высоту_тайла`() {
+    fun `подложка_плитки_смс_заполняет_тайл_при_протяжке`() {
         show(contacts = FakeContacts(known = listOf(contact(1, "Ann"))))
         ui.waitUntilAtLeastOneExists(hasText("Ann"), TIMEOUT)
         val tile = "swipe-action-sms-contact:1"
+        val plate = "swipe-plate-sms-contact:1"
         val collapsed = actionWidth(tile)
 
         swipeRow("contact:1", 0.95f, 0.55f)
 
         ui.waitUntil(TIMEOUT) { actionWidth(tile) > collapsed }
-        val iconHeight = ui.onNodeWithContentDescription(str(R.string.sms_action), useUnmergedTree = true)
-            .fetchSemanticsNode().boundsInRoot.height
-
-        assertTrue(abs(iconHeight - actionHeight(tile)) < 1f)
+        assertEquals(actionWidth(tile), actionWidth(plate, unmerged = true), 1f)
+        assertEquals(actionHeight(tile), actionHeight(plate, unmerged = true), 1f)
+        val glyph = ui.onNodeWithContentDescription(str(R.string.sms_action), useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        assertEquals(glyph.width, glyph.height, 1f)
     }
 
     @Test
