@@ -10,14 +10,10 @@ import android.graphics.drawable.AdaptiveIconDrawable
 import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.provider.ContactsContract
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,15 +28,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.compositionLocalOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -52,12 +42,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -71,15 +56,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
 import androidx.core.graphics.drawable.toBitmap
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.onebar.app.R
 import dev.onebar.app.data.LaunchableApp
 import java.io.InputStream
-import kotlin.math.abs
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 val ROW_HEIGHT = 64.dp
@@ -111,100 +91,6 @@ internal val LocalSwipeRowHeight = compositionLocalOf { 0.dp }
 
 /** null — обычная строка; 0..1 — финальное раскрытие выбранного действия на всю строку. */
 internal val LocalSwipeActionProgress = compositionLocalOf<Float?> { null }
-
-internal const val NAVIGATION_SWIPE_TAG = "navigation-swipe-screen"
-private const val NAVIGATION_SWIPE_THRESHOLD = 0.3f
-private const val NAVIGATION_SETTLE_MILLIS = 180
-
-@Composable
-internal fun Modifier.navigationSwipe(
-    swipeDirection: Float,
-    enabled: Boolean,
-    canNavigate: Boolean,
-    onNavigate: () -> Unit,
-    onNavigationBlocked: () -> Unit,
-): Modifier {
-    val offset = remember { Animatable(0f) }
-    val scope = rememberCoroutineScope()
-    var width by remember { mutableFloatStateOf(0f) }
-    val currentCanNavigate by rememberUpdatedState(canNavigate)
-    val currentOnNavigate by rememberUpdatedState(onNavigate)
-    val currentOnNavigationBlocked by rememberUpdatedState(onNavigationBlocked)
-    val lifecycleOwner = LocalLifecycleOwner.current
-
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_STOP || event == Lifecycle.Event.ON_RESUME) {
-                scope.launch { offset.snapTo(0f) }
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-
-    return this
-        .clipToBounds()
-        .testTag(NAVIGATION_SWIPE_TAG)
-        .onSizeChanged { width = it.width.toFloat() }
-        .then(
-            if (enabled) {
-                Modifier.pointerInput(swipeDirection) {
-                    awaitEachGesture {
-                        val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Main)
-                        var active = false
-                        var completed = false
-                        var totalDrag = 0f
-                        while (true) {
-                            val event = awaitPointerEvent(PointerEventPass.Main)
-                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                            if (change.isConsumed) return@awaitEachGesture
-                            if (change.changedToUpIgnoreConsumed()) {
-                                completed = true
-                                break
-                            }
-                            if (!change.pressed) break
-                            val dragAmount = change.positionChange().x
-                            totalDrag += dragAmount
-                            if (!active && abs(totalDrag) > viewConfiguration.touchSlop) {
-                                if (totalDrag * swipeDirection <= 0f) return@awaitEachGesture
-                                active = true
-                                scope.launch { offset.stop() }
-                            }
-                            if (active) {
-                                change.consume()
-                                if (width > 0f) {
-                                    scope.launch {
-                                        offset.snapTo(
-                                            (totalDrag * swipeDirection).coerceIn(0f, width),
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        if (active) {
-                            val passedThreshold = width > 0f &&
-                                totalDrag * swipeDirection >= width * NAVIGATION_SWIPE_THRESHOLD
-                            scope.launch {
-                                if (completed && passedThreshold && currentCanNavigate) {
-                                    offset.animateTo(
-                                        width * swipeDirection,
-                                        tween(NAVIGATION_SETTLE_MILLIS),
-                                    )
-                                    currentOnNavigate()
-                                } else {
-                                    offset.animateTo(0f, tween(NAVIGATION_SETTLE_MILLIS))
-                                    if (completed && passedThreshold) currentOnNavigationBlocked()
-                                }
-                            }
-                        }
-                    }
-                }
-            } else {
-                Modifier
-            },
-        )
-        .graphicsLayer { translationX = offset.value }
-}
 
 /** На столько плитка становится ниже, когда под ней появляется подпись. */
 private val TileShrink = 8.dp

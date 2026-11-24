@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
-import androidx.core.app.ActivityOptionsCompat
 import dev.onebar.app.ui.SearchScreen
 import dev.onebar.app.ui.theme.OneBarTheme
 
@@ -23,12 +22,7 @@ class MainActivity : ComponentActivity() {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     SearchScreen(
                         onOpenSettings = {
-                            val options = ActivityOptionsCompat.makeCustomAnimation(
-                                this,
-                                R.anim.slide_in_left,
-                                R.anim.slide_out_right,
-                            )
-                            startActivity(Intent(this, SettingsActivity::class.java), options.toBundle())
+                            startActivity(Intent(this, SettingsActivity::class.java))
                         },
                     )
                 }
