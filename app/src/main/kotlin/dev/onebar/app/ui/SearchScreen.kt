@@ -34,7 +34,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -47,7 +49,9 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -65,7 +69,6 @@ import dev.onebar.app.data.MessengerRepository
 
 @Composable
 fun SearchScreen(
-    onClose: () -> Unit,
     context: Context = LocalContext.current,
     viewModel: SearchViewModel = viewModel {
         SearchViewModel(
@@ -84,6 +87,13 @@ fun SearchScreen(
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
+    var fieldValue by remember { mutableStateOf(TextFieldValue(state.query)) }
+
+    LaunchedEffect(state.query) {
+        if (fieldValue.text != state.query) {
+            fieldValue = TextFieldValue(state.query, selection = TextRange(state.query.length))
+        }
+    }
 
     val smsIcon = rememberHandlerIcon(Intent.ACTION_SENDTO, "smsto:")
     val callIcon = rememberHandlerIcon(Intent.ACTION_DIAL, "tel:")
@@ -121,11 +131,14 @@ fun SearchScreen(
             .imePadding(),
     ) {
         SearchBar(
-            query = state.query,
+            value = fieldValue,
             favoritesMode = state.favoritesMode,
             favoritesEmpty = state.favApps.isEmpty() && state.favContactKeys.isEmpty(),
             focusRequester = focusRequester,
-            onQueryChange = viewModel::onQueryChange,
+            onValueChange = {
+                fieldValue = it
+                viewModel.onQueryChange(it.text)
+            },
             onToggleFavorites = viewModel::onToggleFavoritesMode,
             onFieldTap = {
                 focusRequester.requestFocus()
@@ -137,8 +150,11 @@ fun SearchScreen(
                 focusManager.clearFocus()
                 keyboard?.hide()
             },
-            onClearOrClose = {
-                if (state.query.isEmpty()) onClose() else viewModel.onQueryChange("")
+            onClear = {
+                fieldValue = TextFieldValue("")
+                if (state.query.isNotEmpty()) viewModel.onQueryChange("")
+                focusRequester.requestFocus()
+                keyboard?.show()
             },
         )
 
@@ -226,7 +242,12 @@ fun SearchScreen(
                     }
                     WebSuggestionsSection(
                         state = state,
-                        onPick = viewModel::onQueryChange,
+                        onPick = { text ->
+                            fieldValue = TextFieldValue(text, selection = TextRange(text.length))
+                            viewModel.onQueryChange(text)
+                            focusRequester.requestFocus()
+                            keyboard?.show()
+                        },
                         onSearch = { engine, text ->
                             SearchActions.webSearch(context, engine, text)
                         },
@@ -306,15 +327,15 @@ fun SearchScreen(
 
 @Composable
 private fun SearchBar(
-    query: String,
+    value: TextFieldValue,
     favoritesMode: Boolean,
     favoritesEmpty: Boolean,
     focusRequester: FocusRequester,
-    onQueryChange: (String) -> Unit,
+    onValueChange: (TextFieldValue) -> Unit,
     onToggleFavorites: () -> Unit,
     onFieldTap: () -> Unit,
     onImeSearch: () -> Unit,
-    onClearOrClose: () -> Unit,
+    onClear: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(start = 6.dp, end = 6.dp, top = 8.dp, bottom = 4.dp),
@@ -334,8 +355,8 @@ private fun SearchBar(
         }
         Box(modifier = Modifier.weight(1f)) {
             BasicTextField(
-                value = query,
-                onValueChange = onQueryChange,
+                value = value,
+                onValueChange = onValueChange,
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(focusRequester),
@@ -345,7 +366,7 @@ private fun SearchBar(
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { onImeSearch() }),
                 decorationBox = { inner ->
-                    if (query.isEmpty()) {
+                    if (value.text.isEmpty()) {
                         Text(
                             text = stringResource(R.string.search_hint),
                             style = MaterialTheme.typography.headlineSmall,
@@ -359,7 +380,7 @@ private fun SearchBar(
             )
             // Пустое поле перекрываем прозрачным слоем: BasicTextField сам поглощает тап ради
             // установки курсора, и без слоя историю было бы не вызвать.
-            if (query.isEmpty()) {
+            if (value.text.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .matchParentSize()
@@ -367,8 +388,8 @@ private fun SearchBar(
                 )
             }
         }
-        IconButton(onClick = onClearOrClose) {
-            Icon(painter = painterResource(R.drawable.ic_close), contentDescription = stringResource(R.string.close))
+        IconButton(onClick = onClear) {
+            Icon(painter = painterResource(R.drawable.ic_close), contentDescription = stringResource(R.string.clear))
         }
     }
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

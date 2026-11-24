@@ -19,7 +19,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             OneBarTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    SearchScreen(onClose = { finish() })
+                    SearchScreen()
                 }
             }
         }
