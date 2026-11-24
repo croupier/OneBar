@@ -29,6 +29,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.onebar.app.R
 import dev.onebar.app.ui.theme.OneBarTheme
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -59,11 +60,21 @@ class SettingsScreenTest {
         ui.waitForIdle()
     }
 
-    private fun show(onBack: () -> Unit = {}) {
+    private fun show(
+        onBack: () -> Unit = {},
+        saveHistory: Boolean = true,
+        onSaveHistory: suspend (Boolean) -> Unit = {},
+        onClearHistory: suspend () -> Unit = {},
+    ) {
         ui.setContent {
             OneBarTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    SettingsScreen(onBack = onBack)
+                    SettingsScreen(
+                        onBack = onBack,
+                        saveHistory = saveHistory,
+                        onSaveHistory = onSaveHistory,
+                        onClearHistory = onClearHistory,
+                    )
                 }
             }
         }
@@ -153,7 +164,8 @@ class SettingsScreenTest {
 
     @Test
     fun `очистка_истории_открывает_подтверждение_и_закрывается_кнопками`() {
-        show()
+        var clearCount = 0
+        show(onClearHistory = { clearCount++ })
         val clearButton = str(R.string.settings_history_clear)
 
         scrollTo(clearButton)
@@ -161,10 +173,56 @@ class SettingsScreenTest {
         ui.onNodeWithText(str(R.string.settings_history_clear_title)).assertExists()
         ui.onNodeWithText(str(R.string.settings_cancel)).performClick()
         ui.onNodeWithText(str(R.string.settings_history_clear_title)).assertDoesNotExist()
+        assertEquals(0, clearCount)
 
         ui.onNodeWithText(clearButton).performClick()
         ui.onNodeWithText(str(R.string.settings_clear)).performClick()
         ui.onNodeWithText(str(R.string.settings_history_clear_title)).assertDoesNotExist()
+        assertEquals(1, clearCount)
+        ui.waitUntilAtLeastOneExists(hasText(str(R.string.settings_history_cleared_message)), 5_000L)
+    }
+
+    @Test
+    fun `сохранённая_настройка_показывает_выключенную_историю`() {
+        show(saveHistory = false)
+
+        scrollTo(str(R.string.settings_history_save))
+        ui.onNodeWithText(str(R.string.settings_history_save)).assertIsOff()
+    }
+
+    @Test
+    fun `галочка_истории_применяется_только_по_кнопке_сохранить`() {
+        val saved = mutableListOf<Boolean>()
+        show(onSaveHistory = { saved += it })
+        val label = str(R.string.settings_history_save)
+
+        scrollTo(label)
+        ui.onNodeWithText(label).assertIsOn().performClick()
+        ui.onNodeWithText(label).assertIsOff()
+        assertTrue(saved.isEmpty())
+
+        scrollTo(str(R.string.settings_save))
+        ui.onNodeWithText(str(R.string.settings_save)).performClick()
+
+        assertEquals(listOf(false), saved)
+        ui.waitUntilAtLeastOneExists(hasText(str(R.string.settings_saved_message)), 5_000L)
+    }
+
+    @Test
+    fun `сохранить_при_выходе_применяет_галочку_истории`() {
+        var finished = false
+        val saved = mutableListOf<Boolean>()
+        show(onBack = { finished = true }, onSaveHistory = { saved += it })
+        val label = str(R.string.settings_history_save)
+
+        scrollTo(label)
+        ui.onNodeWithText(label).performClick()
+        ui.onNodeWithContentDescription(str(R.string.settings_back)).performClick()
+        ui.onNodeWithText(str(R.string.settings_unsaved_title)).assertExists()
+        ui.onNodeWithText(str(R.string.settings_yes)).performClick()
+
+        assertTrue(finished)
+        assertEquals(listOf(false), saved)
     }
 
     @Test

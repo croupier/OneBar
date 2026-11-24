@@ -94,6 +94,7 @@
     <string name="settings_history_clear">Очистить историю</string>
     <string name="settings_history_clear_title">Очистить историю поиска?</string>
     <string name="settings_history_clear_message">Все сохранённые поисковые запросы будут удалены.</string>
+    <string name="settings_history_cleared_message">История поиска очищена</string>
     <string name="settings_clear">Очистить</string>
     <string name="settings_cancel">Отмена</string>
     <string name="settings_about">О приложении</string>

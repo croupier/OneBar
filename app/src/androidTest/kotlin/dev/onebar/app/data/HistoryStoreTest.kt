@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -42,6 +43,7 @@ class HistoryStoreTest {
         assertTrue(store.recentApps.first().isEmpty())
         assertTrue(store.communications.first().isEmpty())
         assertTrue(store.queries.first().isEmpty())
+        assertTrue(store.saveHistory.first())
     }
 
     @Test
@@ -130,6 +132,45 @@ class HistoryStoreTest {
         store.pushQuery("   ")
 
         assertEquals(listOf("молоко"), store.queries.first())
+    }
+
+    @Test
+    fun `история_запросов_хранит_не_больше_двадцати`() = runBlocking {
+        (1..25).forEach { store.pushQuery("запрос $it") }
+
+        val kept = store.queries.first()
+        assertEquals(20, kept.size)
+        assertEquals("запрос 25", kept.first())
+    }
+
+    @Test
+    fun `выключенная_история_скрывает_старое_и_не_пишет_новое`() = runBlocking {
+        store.pushQuery("кофе")
+        store.setSaveHistory(false)
+        store.pushQuery("пицца")
+
+        assertFalse(store.saveHistory.first())
+        assertTrue(store.queries.first().isEmpty())
+
+        store.setSaveHistory(true)
+        assertEquals(listOf("кофе"), store.queries.first())
+    }
+
+    @Test
+    fun `очистка_удаляет_только_поисковые_запросы`() = runBlocking {
+        val communication = entry(7, CommunicationKind.CALL, 1L)
+        store.pushRecentApp("com.a")
+        store.pushCommunication(communication)
+        store.pushQuery("кофе")
+        store.setSaveHistory(false)
+
+        store.clearQueries()
+        store.setSaveHistory(true)
+
+        assertTrue(store.queries.first().isEmpty())
+        assertEquals(listOf("com.a"), store.recentApps.first())
+        assertEquals(listOf(communication), store.communications.first())
+        assertTrue(store.saveHistory.first())
     }
 
     @Test
