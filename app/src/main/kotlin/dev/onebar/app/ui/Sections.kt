@@ -113,12 +113,6 @@ internal fun ContactsSection(
     if (state.contacts.isEmpty()) return
 
     Column(modifier = modifier) {
-        Text(
-            text = stringResource(R.string.contacts_title),
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp),
-        )
         LazyColumn(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(CONTACT_ROW_GAP),

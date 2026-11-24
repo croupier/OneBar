@@ -58,10 +58,10 @@ class PanelRowsTest {
 
     @Test
     fun `второго ряда нет если после него остаётся меньше пяти строк контактов`() {
-        // 500 dp: с историей два ряда плиток оставляют 127 dp под контакты — берём один ряд,
-        // в нём блокам хватает места, и внешний скролл не нужен.
+        // 500 dp: с историей два ряда плиток оставляют 108 dp под контакты — берём один ряд,
+        // но заголовка контактов и трёх строк в него уже не помещаются, поэтому включаем скролл.
         val rows = panelRows(500.dp, hasApps = true, hasHistory = true, hasSuggestions = false)
         assertEquals(1, rows.appRows)
-        assertFalse(rows.scroll)
+        assertTrue(rows.scroll)
     }
 }

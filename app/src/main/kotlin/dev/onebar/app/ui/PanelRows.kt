@@ -14,7 +14,7 @@ data class PanelRows(val appRows: Int, val scroll: Boolean)
 /** Ряд плиток: сама плитка и вертикальные поля строки приложений. */
 val AppsRowHeight = AppItemHeight + 12.dp
 
-private val DividerHeight = 1.dp
+val SectionDividerHeight = 20.dp
 private const val MIN_CONTACT_ROWS = 3
 private const val SIDE_LIST_ROWS = 3
 
@@ -29,13 +29,13 @@ internal fun panelRows(
 ): PanelRows {
     // Высота блоков, которые не растут: плитки, история запросов, веб-подсказки.
     fun fixed(appRows: Int): Dp {
-        val apps = if (hasApps && appRows > 0) AppsRowHeight * appRows + DividerHeight else 0.dp
+        val apps = if (hasApps && appRows > 0) AppsRowHeight * appRows + SectionDividerHeight else 0.dp
         val history = if (hasHistory) ROW_HEIGHT * SIDE_LIST_ROWS else 0.dp
-        val suggestions = if (hasSuggestions) ROW_HEIGHT * SIDE_LIST_ROWS + DividerHeight else 0.dp
+        val suggestions = if (hasSuggestions) ROW_HEIGHT * SIDE_LIST_ROWS + SectionDividerHeight else 0.dp
         return apps + history + suggestions
     }
 
-    val minContacts = ROW_HEIGHT * MIN_CONTACT_ROWS
+    val minContacts = ROW_HEIGHT * MIN_CONTACT_ROWS + SectionDividerHeight
     val appRows = when {
         !hasApps -> 0
         available - fixed(2) >= ROW_HEIGHT * APP_GRID_MIN_CONTACT_ROWS -> 2
