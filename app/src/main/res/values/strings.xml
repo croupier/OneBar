@@ -94,6 +94,7 @@
     <string name="settings_history_clear">Clear history</string>
     <string name="settings_history_clear_title">Clear search history?</string>
     <string name="settings_history_clear_message">All saved search queries will be removed.</string>
+    <string name="settings_history_cleared_message">Search history cleared</string>
     <string name="settings_clear">Clear</string>
     <string name="settings_cancel">Cancel</string>
     <string name="settings_about">About</string>

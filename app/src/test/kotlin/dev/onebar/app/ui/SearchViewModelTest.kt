@@ -194,6 +194,36 @@ class SearchViewModelTest {
     }
 
     @Test
+    fun `выключенная история скрывает старые запросы и не пишет новые`() = runTest(main.dispatcher) {
+        val history = FakeHistory(queries = listOf("кофе"), saveHistory = false)
+        val vm = viewModel(history = history)
+        advanceUntilIdle()
+        assertTrue(vm.state.value.queries.isEmpty())
+
+        vm.onQuerySubmitted("пицца")
+        advanceUntilIdle()
+        assertTrue(history.pushedQueries.isEmpty())
+
+        history.setSaveHistory(true)
+        advanceUntilIdle()
+        assertEquals(listOf("кофе"), vm.state.value.queries)
+    }
+
+    @Test
+    fun `очистка истории сразу убирает запросы с главного экрана`() = runTest(main.dispatcher) {
+        val history = FakeHistory(queries = listOf("кофе", "пицца"))
+        val vm = viewModel(history = history)
+        advanceUntilIdle()
+        vm.onHistoryRequested()
+        assertEquals(listOf("кофе", "пицца"), vm.state.value.queries)
+
+        history.clearQueries()
+        advanceUntilIdle()
+
+        assertTrue(vm.state.value.queries.isEmpty())
+    }
+
+    @Test
     fun `подсказки приходят после дебаунса и без дублей`() = runTest(main.dispatcher) {
         val vm = viewModel(
             suggestions = FakeSuggestions(
