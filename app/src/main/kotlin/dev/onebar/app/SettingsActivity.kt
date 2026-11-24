@@ -19,9 +19,14 @@ class SettingsActivity : ComponentActivity() {
         setContent {
             OneBarTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    SettingsScreen(onBack = { finish() })
+                    SettingsScreen(onBack = { finishWithAnimation() })
                 }
             }
         }
+    }
+
+    private fun finishWithAnimation() {
+        finish()
+        overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
     }
 }

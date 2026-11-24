@@ -84,6 +84,9 @@
     <string name="settings_no">No</string>
     <string name="settings_defaults">Defaults</string>
     <string name="settings_save">Save</string>
+    <string name="settings_saved_message">Settings saved</string>
+    <string name="settings_defaults_message">Default values restored</string>
+    <string name="settings_no_changes_message">No changes</string>
     <string name="settings_history">Search history</string>
     <string name="settings_history_save">Save search history</string>
     <string name="settings_history_clear">Clear history</string>

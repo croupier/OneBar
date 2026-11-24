@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -35,6 +36,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -42,6 +46,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -60,6 +65,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import dev.onebar.app.R
+import kotlinx.coroutines.launch
 
 private enum class LanguageOption {
     SYSTEM,
@@ -108,95 +114,139 @@ fun SettingsScreen(onBack: () -> Unit) {
     var showUnsavedChangesDialog by rememberSaveable { mutableStateOf(false) }
     var infoTopic by rememberSaveable { mutableStateOf<InfoTopic?>(null) }
     var feedback by rememberSaveable { mutableStateOf("") }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val savedMessage = stringResource(R.string.settings_saved_message)
+    val defaultsMessage = stringResource(R.string.settings_defaults_message)
+    val noChangesMessage = stringResource(R.string.settings_no_changes_message)
+    val notify: (String) -> Unit = { message ->
+        scope.launch {
+            snackbarHostState.currentSnackbarData?.dismiss()
+            snackbarHostState.showSnackbar(message = message, duration = SnackbarDuration.Short)
+        }
+    }
 
     val hasUnsavedChanges = searchOptions != savedSearchOptions || saveHistory != savedSaveHistory
+    val navigationEnabled = !showLanguageDialog && !showThemeDialog &&
+        !showClearHistoryDialog && !showUnsavedChangesDialog && infoTopic == null
     val requestBack = {
         if (hasUnsavedChanges) showUnsavedChangesDialog = true else onBack()
     }
-    BackHandler(enabled = hasUnsavedChanges && !showUnsavedChangesDialog) {
-        showUnsavedChangesDialog = true
+    BackHandler(enabled = navigationEnabled) {
+        requestBack()
     }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
+            .navigationSwipe(
+                swipeDirection = -1f,
+                enabled = navigationEnabled,
+                canNavigate = !hasUnsavedChanges,
+                onNavigate = onBack,
+                onNavigationBlocked = { showUnsavedChangesDialog = true },
+            )
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
             .imePadding(),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(onClick = requestBack) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_arrow_back),
-                    contentDescription = stringResource(R.string.settings_back),
-                )
-            }
-            Text(
-                text = stringResource(R.string.settings_title),
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(start = 4.dp),
-            )
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
-        LazyColumn(
-            modifier = Modifier.fillMaxWidth().weight(1f),
-            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            item {
-                SettingsCard(title = stringResource(R.string.settings_appearance)) {
-                    ChoiceRow(
-                        label = stringResource(R.string.settings_language),
-                        value = language.label(),
-                        onClick = { showLanguageDialog = true },
-                    )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    ChoiceRow(
-                        label = stringResource(R.string.settings_theme),
-                        value = theme.label(),
-                        onClick = { showThemeDialog = true },
+        Column(modifier = Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = requestBack) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_arrow_back),
+                        contentDescription = stringResource(R.string.settings_back),
                     )
                 }
-            }
-            item {
-                SearchSettingsCard(
-                    options = searchOptions,
-                    onOptionsChange = { searchOptions = it },
-                    onInfoClick = { infoTopic = it },
-                    onDefaults = { searchOptions = SearchOptions() },
-                    onSave = { savedSearchOptions = searchOptions },
+                Text(
+                    text = stringResource(R.string.settings_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(start = 4.dp),
                 )
             }
-            item {
-                SettingsCard(title = stringResource(R.string.settings_history)) {
-                    SettingsCheckbox(
-                        label = stringResource(R.string.settings_history_save),
-                        checked = saveHistory,
-                        onCheckedChange = { saveHistory = it },
-                        onInfoClick = { infoTopic = InfoTopic.HISTORY_SAVE },
-                    )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    OutlinedButton(
-                        onClick = { showClearHistoryDialog = true },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text(stringResource(R.string.settings_history_clear))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                item {
+                    SettingsCard(title = stringResource(R.string.settings_appearance)) {
+                        ChoiceRow(
+                            label = stringResource(R.string.settings_language),
+                            value = language.label(),
+                            onClick = { showLanguageDialog = true },
+                        )
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        ChoiceRow(
+                            label = stringResource(R.string.settings_theme),
+                            value = theme.label(),
+                            onClick = { showThemeDialog = true },
+                        )
                     }
                 }
-            }
-            item { AboutCard() }
-            item {
-                FeedbackCard(
-                    message = feedback,
-                    onMessageChange = { feedback = it },
-                    onSend = {},
-                )
+                item {
+                    SearchSettingsCard(
+                        options = searchOptions,
+                        onOptionsChange = { searchOptions = it },
+                        onInfoClick = { infoTopic = it },
+                        onDefaults = {
+                            val defaults = SearchOptions()
+                            if (searchOptions != defaults) {
+                                searchOptions = defaults
+                                notify(defaultsMessage)
+                            } else {
+                                notify(noChangesMessage)
+                            }
+                        },
+                        onSave = {
+                            if (searchOptions != savedSearchOptions || saveHistory != savedSaveHistory) {
+                                savedSearchOptions = searchOptions
+                                savedSaveHistory = saveHistory
+                                notify(savedMessage)
+                            } else {
+                                notify(noChangesMessage)
+                            }
+                        },
+                    )
+                }
+                item {
+                    SettingsCard(title = stringResource(R.string.settings_history)) {
+                        SettingsCheckbox(
+                            label = stringResource(R.string.settings_history_save),
+                            checked = saveHistory,
+                            onCheckedChange = { saveHistory = it },
+                            onInfoClick = { infoTopic = InfoTopic.HISTORY_SAVE },
+                        )
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        OutlinedButton(
+                            onClick = { showClearHistoryDialog = true },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(stringResource(R.string.settings_history_clear))
+                        }
+                    }
+                }
+                item { AboutCard() }
+                item {
+                    FeedbackCard(
+                        message = feedback,
+                        onMessageChange = { feedback = it },
+                        onSend = {},
+                    )
+                }
             }
         }
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding(),
+        )
     }
 
     if (showLanguageDialog) {

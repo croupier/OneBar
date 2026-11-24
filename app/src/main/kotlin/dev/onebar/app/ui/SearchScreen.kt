@@ -140,6 +140,13 @@ fun SearchScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .navigationSwipe(
+                swipeDirection = 1f,
+                enabled = menuEntry == null && menuApp == null && !state.favoritesHint,
+                canNavigate = true,
+                onNavigate = onOpenSettings,
+                onNavigationBlocked = {},
+            )
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
             .imePadding(),
