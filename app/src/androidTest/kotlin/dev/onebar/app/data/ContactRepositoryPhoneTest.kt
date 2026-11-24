@@ -51,7 +51,9 @@ class ContactRepositoryPhoneTest {
             sortOrder: String?,
         ) = MatrixCursor(projection.orEmpty()).apply {
             when (uri) {
-                ContactsContract.Contacts.CONTENT_URI -> addRow(arrayOf<Any>("Ann", "lookup-$CONTACT_ID"))
+                ContactsContract.Contacts.CONTENT_URI -> addRow(
+                    arrayOf<Any?>("Ann", "lookup-$CONTACT_ID", null),
+                )
                 Phone.CONTENT_URI -> {
                     phoneProjection = projection?.toList()
                     addRow(arrayOf<Any>(CONTACT_ID, MOBILE_NUMBER, 0, 0, Phone.TYPE_MOBILE))

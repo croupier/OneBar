@@ -11,6 +11,8 @@ import dev.onebar.app.data.FavoritesStore
 import dev.onebar.app.data.HistoryStore
 import dev.onebar.app.data.LaunchableApp
 import dev.onebar.app.data.SuggestRepository
+import dev.onebar.app.data.rankApps
+import dev.onebar.app.data.rankContacts
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -83,6 +85,7 @@ class SearchViewModel(
     private var appsJob: Job? = null
     private var contactsJob: Job? = null
     private var suggestionsJob: Job? = null
+    @Volatile private var appsGeneration: Long = 0L
     private val contactsMutex = Mutex()
     @Volatile private var contactsGeneration: Long = 0L
 
@@ -104,13 +107,15 @@ class SearchViewModel(
         viewModelScope.launch {
             favoritesStore.apps.collect { packages ->
                 _state.update { it.copy(favApps = packages) }
-                reloadBlankApps()
+                val current = _state.value
+                if (current.query.isNotBlank()) loadApps(current.query.trim()) else reloadBlankApps()
             }
         }
         viewModelScope.launch {
             favoritesStore.contacts.collect { keys ->
                 _state.update { it.copy(favContactKeys = keys) }
-                reloadBlankContacts()
+                val current = _state.value
+                if (current.query.isNotBlank()) loadContacts() else reloadBlankContacts()
             }
         }
         viewModelScope.launch {
@@ -133,6 +138,7 @@ class SearchViewModel(
     /** Обход PackageManager занимает сотни миллисекунд, поэтому вне главного потока. */
     private fun loadApps(trimmed: String) {
         appsJob?.cancel()
+        val generation = ++appsGeneration
         val favoritesMode = _state.value.favoritesMode
         if (trimmed.isEmpty()) {
             if (favoritesMode) reloadBlankApps() else _state.update { it.copy(apps = recent) }
@@ -148,7 +154,9 @@ class SearchViewModel(
                 favoritesOnly = favoritesMode,
             )
             _state.update {
-                if (it.query.trim() == trimmed && it.favoritesMode == favoritesMode) it.copy(apps = found) else it
+                if (generation == appsGeneration && it.query.trim() == trimmed && it.favoritesMode == favoritesMode) {
+                    it.copy(apps = found)
+                } else it
             }
         }
     }
@@ -158,9 +166,12 @@ class SearchViewModel(
         val s = _state.value
         if (!s.favoritesMode || s.query.isNotBlank()) return
         appsJob?.cancel()
+        val generation = ++appsGeneration
         appsJob = viewModelScope.launch(io) {
             val fav = apps.byPackages(_state.value.favApps)
-            _state.update { if (it.favoritesMode && it.query.isBlank()) it.copy(apps = fav) else it }
+            _state.update {
+                if (generation == appsGeneration && it.favoritesMode && it.query.isBlank()) it.copy(apps = fav) else it
+            }
         }
     }
 
@@ -181,10 +192,38 @@ class SearchViewModel(
     }
 
     fun onToggleFavoriteApp(app: LaunchableApp) {
+        val current = _state.value
+        if (current.query.isNotBlank()) {
+            val packages = if (app.packageName in current.favApps) current.favApps - app.packageName
+            else current.favApps + app.packageName
+            val favorites = packages.toSet()
+            // Локальный пересчёт меняет строку сразу; emission хранилища запустит точный поиск.
+            _state.update {
+                it.copy(
+                    favApps = packages,
+                    apps = rankApps(it.apps, it.query.trim(), it.apps.size, favorites, it.favoritesMode),
+                )
+            }
+        }
         viewModelScope.launch { favoritesStore.toggleApp(app.packageName) }
     }
 
     fun onToggleFavoriteContact(entry: ContactEntry) {
+        val current = _state.value
+        if (current.query.isNotBlank()) {
+            val keys = if (entry.lookupKey in current.favContactKeys) current.favContactKeys - entry.lookupKey
+            else current.favContactKeys + entry.lookupKey
+            val favorites = keys.toSet()
+            _state.update {
+                val byId = it.contacts.associateBy { row -> row.entry.contactId }
+                val entries = it.contacts.map { row -> row.entry }
+                val ranked = rankContacts(entries, it.query.trim(), entries.size, favorites, it.favoritesMode)
+                it.copy(
+                    favContactKeys = keys,
+                    contacts = ranked.map { contact -> byId[contact.contactId] ?: ContactRowUi(contact) },
+                )
+            }
+        }
         viewModelScope.launch { favoritesStore.toggleContact(entry.lookupKey) }
     }
 

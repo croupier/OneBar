@@ -412,6 +412,78 @@ class SearchViewModelTest {
     }
 
     @Test
+    fun `избранное приложение сразу пересчитывается и повторно ищется`() = runTest(main.dispatcher) {
+        val apps = FakeApps(known = listOf(app("com.a", "Maps"), app("com.b", "appmaps")))
+        val vm = viewModel(apps = apps)
+        advanceUntilIdle()
+        vm.onQueryChange("map")
+        advanceUntilIdle()
+        assertEquals(listOf("com.a", "com.b"), vm.state.value.apps.map { it.packageName })
+        apps.matched.clear()
+
+        vm.onToggleFavoriteApp(app("com.b", "appmaps"))
+
+        assertEquals(listOf("com.b", "com.a"), vm.state.value.apps.map { it.packageName })
+        advanceUntilIdle()
+        assertEquals(listOf("map"), apps.matched)
+    }
+
+    @Test
+    fun `удаление приложения из избранного сразу убирает его из непустого запроса`() = runTest(main.dispatcher) {
+        val apps = FakeApps(known = listOf(app("com.a", "Maps"), app("com.b", "appmaps")))
+        val vm = viewModel(apps = apps, favorites = FakeFavorites(apps = listOf("com.b")))
+        advanceUntilIdle()
+        vm.onToggleFavoritesMode()
+        vm.onQueryChange("map")
+        advanceUntilIdle()
+        assertEquals(listOf("com.b"), vm.state.value.apps.map { it.packageName })
+        apps.matched.clear()
+
+        vm.onToggleFavoriteApp(app("com.b", "appmaps"))
+
+        assertTrue(vm.state.value.apps.isEmpty())
+        advanceUntilIdle()
+        assertTrue(vm.state.value.apps.isEmpty())
+        assertEquals(listOf("map"), apps.matched)
+    }
+
+    @Test
+    fun `избранный контакт сразу пересчитывается и повторно ищется`() = runTest(main.dispatcher) {
+        val contacts = FakeContacts(known = listOf(contact(1, "Ann"), contact(2, "Anna")))
+        val vm = viewModel(contacts = contacts)
+        advanceUntilIdle()
+        vm.onQueryChange("ann")
+        advanceUntilIdle()
+        assertEquals(listOf("Ann", "Anna"), vm.state.value.contacts.map { it.entry.name })
+        contacts.searched.clear()
+
+        vm.onToggleFavoriteContact(contact(2, "Anna"))
+
+        assertEquals(listOf("Anna", "Ann"), vm.state.value.contacts.map { it.entry.name })
+        advanceUntilIdle()
+        assertEquals(listOf("ann"), contacts.searched)
+    }
+
+    @Test
+    fun `удаление контакта из избранного сразу убирает его из непустого запроса`() = runTest(main.dispatcher) {
+        val contacts = FakeContacts(known = listOf(contact(1, "Ann"), contact(2, "Anna")))
+        val vm = viewModel(contacts = contacts, favorites = FakeFavorites(contacts = listOf("lookup-2")))
+        advanceUntilIdle()
+        vm.onToggleFavoritesMode()
+        vm.onQueryChange("ann")
+        advanceUntilIdle()
+        assertEquals(listOf("Anna"), vm.state.value.contacts.map { it.entry.name })
+        contacts.searched.clear()
+
+        vm.onToggleFavoriteContact(contact(2, "Anna"))
+
+        assertTrue(vm.state.value.contacts.isEmpty())
+        advanceUntilIdle()
+        assertTrue(vm.state.value.contacts.isEmpty())
+        assertEquals(listOf("ann"), contacts.searched)
+    }
+
+    @Test
     fun `возврат на экран сбрасывает кэш приложений`() = runTest(main.dispatcher) {
         val apps = FakeApps(known = listOf(app("com.a", "A")))
         val vm = viewModel(apps = apps, history = FakeHistory(recentApps = listOf("com.a")))
