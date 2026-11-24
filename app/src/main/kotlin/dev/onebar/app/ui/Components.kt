@@ -127,6 +127,45 @@ internal fun iconBitmap(source: Drawable): ImageBitmap {
     return bitmap.asImageBitmap()
 }
 
+/**
+ * Иконка приложения-обработчика, разложенная на слои: подложка растягивается вместе с тайлом,
+ * глиф остаётся квадратным. Без такого разделения плитке СМС/звонка нечего расширять — иконка
+ * и есть плитка, — поэтому при протяжке она отставала от бейджей Я/G, у которых растёт плашка.
+ */
+class HandlerIcon(
+    val plateBitmap: ImageBitmap?,
+    val plateColor: Color?,
+    val glyph: ImageBitmap?,
+)
+
+/** Один слой адаптивной иконки на холсте 108×108; передний план рисуется с увеличением. */
+private fun layerBitmap(layer: Drawable?, scale: Float): ImageBitmap? {
+    if (layer == null) return null
+    val bitmap = Bitmap.createBitmap(ICON_PX, ICON_PX, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    canvas.scale(scale, scale, ICON_PX / 2f, ICON_PX / 2f)
+    layer.setBounds(0, 0, ICON_PX, ICON_PX)
+    layer.draw(canvas)
+    return bitmap.asImageBitmap()
+}
+
+/** Цвет угла неадаптивной иконки: у таких иконок подложка — ровно он. */
+private fun edgeColor(bitmap: Bitmap): Color {
+    val corners = listOf(
+        3 to 3,
+        bitmap.width - 4 to 3,
+        3 to bitmap.height - 4,
+        bitmap.width - 4 to bitmap.height - 4,
+    ).map { bitmap.getPixel(it.first, it.second) }
+    val painted = corners.map { Color(it) }.filter { it.alpha > 0.5f }
+    if (painted.isEmpty()) return Color.Transparent
+    val size = painted.size
+    val red = painted.sumOf { it.red.toDouble() } / size
+    val green = painted.sumOf { it.green.toDouble() } / size
+    val blue = painted.sumOf { it.blue.toDouble() } / size
+    return Color(red.toFloat(), green.toFloat(), blue.toFloat())
+}
+
 @Composable
 fun AppIcon(packageName: String, modifier: Modifier = Modifier) {
     val packageManager = LocalContext.current.packageManager
@@ -213,43 +252,86 @@ private fun openContactPhoto(context: Context, contactUri: Uri): InputStream? =
     ContactsContract.Contacts.openContactPhotoInputStream(context.contentResolver, contactUri, false)
         ?: ContactsContract.Contacts.openContactPhotoInputStream(context.contentResolver, contactUri, true)
 
+/**
+ * Плитка действия: подложка заполняет весь тайл и тянется по ширине вместе с протяжкой, а
+ * содержимое ([content]) держит сторону тайла и чуть уменьшается к раскрытию подписи. Один и тот
+ * же код рисует и брендовый бейдж, и иконку обработчика — поэтому СМС/звонок и Я/G меняются
+ * одинаково.
+ */
+@Composable
+private fun ActionTile(
+    plateBitmap: ImageBitmap?,
+    plateColor: Color?,
+    label: String?,
+    caption: String?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    plateModifier: Modifier = Modifier,
+    content: @Composable (side: Dp, scale: Float) -> Unit,
+) {
+    Labeled(caption = caption, tileSize = SWIPE_ACTION_SIZE) { tileWidth, tileHeight, shown ->
+        Box(
+            modifier = modifier
+                .size(width = tileWidth, height = tileHeight)
+                .then(if (label != null) Modifier.semantics { contentDescription = label } else Modifier)
+                .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) {
+            when {
+                plateBitmap != null -> Image(
+                    bitmap = plateBitmap,
+                    contentDescription = null,
+                    modifier = plateModifier.fillMaxSize().clip(RoundedCornerShape(IconRadius)),
+                    contentScale = ContentScale.FillBounds,
+                )
+
+                plateColor != null -> Box(
+                    modifier = plateModifier.fillMaxSize().background(plateColor, RoundedCornerShape(IconRadius)),
+                )
+            }
+            content(minOf(tileWidth, tileHeight), 1f - shown / 6f)
+        }
+    }
+}
+
 @Composable
 fun ActionIcon(
-    handlerBitmap: ImageBitmap?,
+    handler: HandlerIcon?,
     fallbackIcon: Painter,
     contentDescription: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    plateModifier: Modifier = Modifier,
     caption: String? = null,
     tint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
 ) {
-    Labeled(caption = caption, tileSize = SWIPE_ACTION_SIZE) { tileWidth, tileHeight, _ ->
-        // Плитка действия совпадает с брендовым бейджем: окна-подложки нет, иконка сама и есть
-        // плитка. Сторона берётся по меньшей из сторон тайла, поэтому при протяжке иконка держит
-        // высоту тайла и не уменьшается вслед за буквой Я/G.
-        val side = minOf(tileWidth, tileHeight)
-        Box(
-            modifier = modifier
-                .size(width = tileWidth, height = tileHeight)
-                .clickable(onClick = onClick),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (handlerBitmap != null) {
-                Image(
-                    bitmap = handlerBitmap,
-                    contentDescription = contentDescription,
-                    modifier = Modifier
-                        .size(side)
-                        .clip(RoundedCornerShape(IconRadius)),
-                )
-            } else {
-                Icon(
-                    painter = fallbackIcon,
-                    contentDescription = contentDescription,
-                    modifier = Modifier.size(side),
-                    tint = tint,
-                )
-            }
+    ActionTile(
+        plateBitmap = handler?.plateBitmap,
+        plateColor = handler?.plateColor,
+        label = null,
+        caption = caption,
+        onClick = onClick,
+        modifier = modifier,
+        plateModifier = plateModifier,
+    ) { side, scale ->
+        val glyph = handler?.glyph
+        val layer = Modifier.graphicsLayer {
+            scaleX = scale
+            scaleY = scale
+        }
+        if (glyph != null) {
+            Image(
+                bitmap = glyph,
+                contentDescription = contentDescription,
+                modifier = Modifier.size(side).then(layer),
+            )
+        } else {
+            Icon(
+                painter = fallbackIcon,
+                contentDescription = contentDescription,
+                modifier = Modifier.size(side).then(layer),
+                tint = tint,
+            )
         }
     }
 }
@@ -259,16 +341,25 @@ fun ActionIcon(
  * пользователь видит тот же значок, что в лаунчере, а не нарисованный глиф.
  */
 @Composable
-fun rememberHandlerBitmap(action: String, uri: String): ImageBitmap? {
+fun rememberHandlerIcon(action: String, uri: String): HandlerIcon? {
     val context = LocalContext.current.applicationContext
-    return remember(action, uri) { handlerIcon(context, action, uri)?.let(::iconBitmap) }
+    return remember(action, uri) { handlerIcon(context, action, uri) }
 }
 
-private fun handlerIcon(context: Context, action: String, uri: String): Drawable? {
+private fun handlerIcon(context: Context, action: String, uri: String): HandlerIcon? {
     val pm = context.packageManager
     val resolved = runCatching { pm.resolveActivity(Intent(action, Uri.parse(uri)), 0) }.getOrNull()
-    return runCatching { resolved?.loadIcon(pm) }.getOrNull()?.also {
-        it.setBounds(0, 0, it.intrinsicWidth, it.intrinsicHeight)
+    val drawable = runCatching { resolved?.loadIcon(pm) }.getOrNull() ?: return null
+    drawable.setBounds(0, 0, drawable.intrinsicWidth, drawable.intrinsicHeight)
+    return if (drawable is AdaptiveIconDrawable) {
+        HandlerIcon(
+            plateBitmap = layerBitmap(drawable.background, 1f),
+            plateColor = null,
+            glyph = layerBitmap(drawable.foreground, FOREGROUND_SCALE),
+        )
+    } else {
+        val bitmap = runCatching { drawable.toBitmap(ICON_PX, ICON_PX) }.getOrNull() ?: return null
+        HandlerIcon(plateBitmap = null, plateColor = edgeColor(bitmap), glyph = bitmap.asImageBitmap())
     }
 }
 
@@ -282,26 +373,23 @@ fun BrandBadge(
     modifier: Modifier = Modifier,
     caption: String? = null,
 ) {
-    Labeled(caption = caption, tileSize = SWIPE_ACTION_SIZE) { tileWidth, tileHeight, shown ->
-        Box(
-            modifier = modifier
-                .size(width = tileWidth, height = tileHeight)
-                .background(badgeBackground, RoundedCornerShape(IconRadius))
-                .semantics { contentDescription = label }
-                .clickable(onClick = onClick),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = letter,
-                color = badgeContentColor,
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.graphicsLayer {
-                    val scale = 1f - shown / 6f
-                    scaleX = scale
-                    scaleY = scale
-                },
-            )
-        }
+    ActionTile(
+        plateBitmap = null,
+        plateColor = badgeBackground,
+        label = label,
+        caption = caption,
+        onClick = onClick,
+        modifier = modifier,
+    ) { _, scale ->
+        Text(
+            text = letter,
+            color = badgeContentColor,
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            },
+        )
     }
 }
 

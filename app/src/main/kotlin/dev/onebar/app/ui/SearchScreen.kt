@@ -113,8 +113,8 @@ fun SearchScreen(
         }
     }
 
-    val smsIcon = rememberHandlerBitmap(Intent.ACTION_SENDTO, "smsto:")
-    val callIcon = rememberHandlerBitmap(Intent.ACTION_DIAL, "tel:")
+    val smsIcon = rememberHandlerIcon(Intent.ACTION_SENDTO, "smsto:")
+    val callIcon = rememberHandlerIcon(Intent.ACTION_DIAL, "tel:")
 
     val contactsPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
