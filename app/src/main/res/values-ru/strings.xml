@@ -15,7 +15,9 @@
     <!-- Sections -->
     <string name="caption_sms">СМС</string>
     <string name="caption_call">Звонок</string>
-    <string name="contacts_title">Все контакты</string>
+    <string name="apps_title">Приложения</string>
+    <string name="contacts_title">Контакты</string>
+    <string name="web_search_title">Веб-поиск</string>
     <string name="contacts_denied">Доступ к контактам не разрешён</string>
     <string name="allow">Разрешить</string>
     <string name="sms_action">Написать СМС</string>

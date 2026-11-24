@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -202,6 +203,7 @@ fun SearchScreen(
                     .then(if (rows.scroll) Modifier.verticalScroll(rememberScrollState()) else Modifier),
             ) {
                 if (state.apps.isNotEmpty()) {
+                    SectionDivider(stringResource(R.string.apps_title))
                     if (rows.appRows > 1) {
                         AppsGridSection(
                             apps = state.apps,
@@ -226,7 +228,6 @@ fun SearchScreen(
                             }
                         }
                     }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
 
                 if (showHistory) {
@@ -236,6 +237,10 @@ fun SearchScreen(
                 if (favoritesBlank) {
                     FavoritesEmptyHint()
                 } else {
+                    val hasContacts = !state.contactsGranted || state.contacts.isNotEmpty()
+                    if (hasContacts) {
+                        SectionDivider(stringResource(R.string.contacts_title))
+                    }
                     ContactsSection(
                         state = state,
                         modifier = if (rows.scroll) Modifier.fillMaxWidth().height(ROW_HEIGHT * 3)
@@ -265,7 +270,7 @@ fun SearchScreen(
                     }
 
                     if (state.suggestions.isNotEmpty()) {
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        SectionDivider(stringResource(R.string.web_search_title))
                     }
                     WebSuggestionsSection(
                         state = state,
@@ -437,7 +442,29 @@ private fun SearchBar(
             )
         }
     }
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+}
+
+@Composable
+private fun SectionDivider(title: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .defaultMinSize(minHeight = SectionDividerHeight),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant,
+            modifier = Modifier.fillMaxWidth().align(Alignment.Center),
+        )
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .padding(start = 14.dp, end = 8.dp)
+                .background(MaterialTheme.colorScheme.background),
+        )
+    }
 }
 
 /** Пустое избранное: тот же каркас, вместо списков — подсказка про долгое нажатие. */

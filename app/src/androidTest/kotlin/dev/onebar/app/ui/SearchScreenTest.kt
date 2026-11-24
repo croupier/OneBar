@@ -120,7 +120,8 @@ class SearchScreenTest {
 
         ui.waitUntilAtLeastOneExists(hasText("Maps"), TIMEOUT)
         ui.onNodeWithText("appmaps").assertExists()
-        ui.onNodeWithText(str(R.string.contacts_title)).assertExists()
+        ui.onNodeWithText(str(R.string.apps_title)).assertExists()
+        assertEquals(1, ui.onAllNodesWithText(str(R.string.contacts_title)).fetchSemanticsNodes().size)
         ui.onNodeWithText("Ann").assertExists()
     }
 
@@ -535,6 +536,7 @@ class SearchScreenTest {
         ui.onNode(hasSetTextAction()).performTextInput("коф")
 
         ui.waitUntilAtLeastOneExists(hasText("кофе в зёрнах"), TIMEOUT)
+        assertEquals(1, ui.onAllNodesWithText(str(R.string.web_search_title)).fetchSemanticsNodes().size)
         val suggestion = ui.onNodeWithText("кофе в зёрнах")
         suggestion.assertHasClickAction()
         assertEquals(listOf("коф"), suggestions.asked)
