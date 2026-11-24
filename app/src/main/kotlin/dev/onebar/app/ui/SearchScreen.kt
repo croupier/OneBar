@@ -83,6 +83,7 @@ fun SearchScreen(
             favoritesStore = DefaultFavoritesStore(context.applicationContext),
         )
     },
+    onOpenSettings: () -> Unit = {},
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val menuEntry by viewModel.menuEntry.collectAsStateWithLifecycle()
@@ -148,6 +149,7 @@ fun SearchScreen(
             favoritesMode = state.favoritesMode,
             favoritesEmpty = state.favApps.isEmpty() && state.favContactKeys.isEmpty(),
             focusRequester = focusRequester,
+            onOpenSettings = onOpenSettings,
             onValueChange = { input ->
                 val text = input.text.trim()
                 val leadingTrim = input.text.length - input.text.trimStart().length
@@ -358,6 +360,7 @@ private fun SearchBar(
     favoritesMode: Boolean,
     favoritesEmpty: Boolean,
     focusRequester: FocusRequester,
+    onOpenSettings: () -> Unit,
     onValueChange: (TextFieldValue) -> Unit,
     onToggleFavorites: () -> Unit,
     onFieldTap: () -> Unit,
@@ -368,16 +371,11 @@ private fun SearchBar(
         modifier = Modifier.fillMaxWidth().padding(start = 6.dp, end = 6.dp, top = 8.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Звезда гаснет, когда в избранном пусто: вход всё равно открыт — там подсказка.
-        IconButton(
-            onClick = onToggleFavorites,
-            modifier = Modifier.alpha(if (favoritesEmpty && !favoritesMode) 0.4f else 1f),
-        ) {
+        IconButton(onClick = onOpenSettings) {
             Icon(
-                painter = painterResource(if (favoritesMode) R.drawable.ic_star else R.drawable.ic_star_border),
-                contentDescription = stringResource(R.string.favorites),
-                tint = if (favoritesMode) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.onSurfaceVariant,
+                painter = painterResource(R.drawable.ic_settings),
+                contentDescription = stringResource(R.string.settings_title),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         Box(modifier = Modifier.weight(1f)) {
@@ -386,6 +384,7 @@ private fun SearchBar(
                 onValueChange = onValueChange,
                 modifier = Modifier
                     .fillMaxWidth()
+                    .padding(end = if (value.text.isNotBlank()) 48.dp else 0.dp)
                     .focusRequester(focusRequester),
                 singleLine = true,
                 textStyle = MaterialTheme.typography.headlineSmall.copy(color = MaterialTheme.colorScheme.onBackground),
@@ -414,11 +413,29 @@ private fun SearchBar(
                         .pointerInput(Unit) { detectTapGestures { onFieldTap() } },
                 )
             }
-        }
-        if (value.text.isNotBlank()) {
-            IconButton(onClick = onClear) {
-                Icon(painter = painterResource(R.drawable.ic_close), contentDescription = stringResource(R.string.clear))
+            if (value.text.isNotBlank()) {
+                IconButton(
+                    onClick = onClear,
+                    modifier = Modifier.align(Alignment.CenterEnd),
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_close),
+                        contentDescription = stringResource(R.string.clear),
+                    )
+                }
             }
+        }
+        // Звезда гаснет, когда в избранном пусто: вход всё равно открыт — там подсказка.
+        IconButton(
+            onClick = onToggleFavorites,
+            modifier = Modifier.alpha(if (favoritesEmpty && !favoritesMode) 0.4f else 1f),
+        ) {
+            Icon(
+                painter = painterResource(if (favoritesMode) R.drawable.ic_star else R.drawable.ic_star_border),
+                contentDescription = stringResource(R.string.favorites),
+                tint = if (favoritesMode) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

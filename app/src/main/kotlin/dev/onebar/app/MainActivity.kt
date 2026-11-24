@@ -1,5 +1,6 @@
 package dev.onebar.app
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -19,7 +20,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             OneBarTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    SearchScreen()
+                    SearchScreen(
+                        onOpenSettings = { startActivity(Intent(this, SettingsActivity::class.java)) },
+                    )
                 }
             }
         }

@@ -8,8 +8,8 @@ plugins {
 //   ломка публичного API → MAJOR; до фиксации API держим 0.x, 1.0.0 — первый релизный билд.
 //   Итерации одной задачи версию повторно не поднимают. versionCode — не semver: +1 на
 //   каждый раздаваемый билд.
-val appVersion = "0.3.5"
-val appVersionCode = 14
+val appVersion = "0.4.0"
+val appVersionCode = 15
 
 android {
   namespace = "dev.onebar.app"
