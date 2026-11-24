@@ -4,6 +4,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotFocused
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasSetTextAction
@@ -22,6 +23,8 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.text.TextRange
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.onebar.app.R
@@ -64,7 +67,7 @@ class SearchScreenTest {
         favorites: FakeFavorites = FakeFavorites(),
     ) {
         val viewModel = SearchViewModel(apps, contacts, suggestions, history, favorites)
-        ui.setContent { SearchScreen(onClose = {}, viewModel = viewModel) }
+        ui.setContent { SearchScreen(viewModel = viewModel) }
     }
 
     @Test
@@ -232,7 +235,69 @@ class SearchScreenTest {
 
         suggestion.performSemanticsAction(SemanticsActions.OnClick)
 
-        ui.onNode(hasSetTextAction()).assertTextEquals("кофе в зёрнах")
+        val field = ui.onNode(hasSetTextAction())
+        field.assertTextEquals("кофе в зёрнах")
+        field.assertIsFocused()
+        assertEquals(
+            TextRange("кофе в зёрнах".length),
+            field.fetchSemanticsNode().config[SemanticsProperties.TextSelectionRange],
+        )
+    }
+
+    @Test
+    fun `выбор_совпадающей_подсказки_переводит_курсор_в_конец`() {
+        val text = "кофе"
+        show(suggestions = FakeSuggestions(replies = mapOf(text to listOf(text))))
+        val field = ui.onNode(hasSetTextAction())
+
+        field.performTextInput(text)
+        ui.waitUntilAtLeastOneExists(hasText(text) and !hasSetTextAction(), TIMEOUT)
+        field.performSemanticsAction(SemanticsActions.SetSelection) { setSelection ->
+            setSelection(0, 0, false)
+        }
+        assertEquals(
+            TextRange.Zero,
+            field.fetchSemanticsNode().config[SemanticsProperties.TextSelectionRange],
+        )
+
+        ui.onNode(hasText(text) and !hasSetTextAction()).performSemanticsAction(SemanticsActions.OnClick)
+
+        field.assertIsFocused()
+        assertEquals(
+            TextRange(text.length),
+            field.fetchSemanticsNode().config[SemanticsProperties.TextSelectionRange],
+        )
+    }
+
+    @Test
+    fun `крестик_очищает_запрос_и_оставляет_фокус_в_поле`() {
+        show()
+        val field = ui.onNode(hasSetTextAction())
+
+        field.performTextInput("кофе")
+        ui.onNodeWithContentDescription(str(R.string.clear)).performClick()
+
+        field.assertIsFocused()
+        assertEquals(
+            "",
+            field.fetchSemanticsNode().config[SemanticsProperties.EditableText].text,
+        )
+        assertEquals(
+            TextRange.Zero,
+            field.fetchSemanticsNode().config[SemanticsProperties.TextSelectionRange],
+        )
+    }
+
+    @Test
+    fun `крестик_в_пустом_поле_возвращает_фокус`() {
+        show()
+        val field = ui.onNode(hasSetTextAction())
+        field.performImeAction()
+        field.assertIsNotFocused()
+
+        ui.onNodeWithContentDescription(str(R.string.clear)).performClick()
+
+        field.assertIsFocused()
     }
 
     @Test
@@ -261,7 +326,7 @@ class SearchScreenTest {
         field.performImeAction()
         ui.waitUntil(TIMEOUT) { history.pushedQueries.isNotEmpty() }
 
-        ui.onNodeWithContentDescription(str(R.string.close)).performClick()
+        ui.onNodeWithContentDescription(str(R.string.clear)).performClick()
         field.performClick()
 
         ui.waitUntilAtLeastOneExists(hasText("кофе"), TIMEOUT)

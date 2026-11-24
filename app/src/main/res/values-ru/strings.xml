@@ -8,6 +8,7 @@
 
     <!-- Search bar -->
     <string name="search_hint">Поиск</string>
+    <string name="clear">Очистить</string>
     <string name="close">Закрыть</string>
     <string name="favorites">Избранное</string>
 
