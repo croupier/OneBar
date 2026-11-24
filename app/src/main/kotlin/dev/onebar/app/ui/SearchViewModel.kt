@@ -205,7 +205,7 @@ class SearchViewModel(
 
     fun onCommunication(kind: CommunicationKind, entry: ContactEntry) {
         val number = entry.number ?: return
-        viewModelScope.launch {
+        viewModelScope.launch(io) {
             history.pushCommunication(
                 CommunicationEntry(
                     kind = kind,
@@ -216,6 +216,10 @@ class SearchViewModel(
                     timestamp = System.currentTimeMillis(),
                 )
             )
+            val full = contacts.details(entry.contactId)
+            if (full != null) {
+                favorites.update { current -> (listOf(full) + current).distinctBy { it.contactId } }
+            }
         }
     }
 
@@ -264,11 +268,14 @@ class SearchViewModel(
         }
         contactsJob = viewModelScope.launch(io) {
             if (trimmed.isEmpty()) {
+                val entries = journal.value
                 val found = contacts.search("", LIMIT)
-                favorites.value = found
+                val recent = contacts.byLookupKeys(entries.map { it.lookupKey }.distinct().filter { it.isNotBlank() })
+                val cached = (found + recent).distinctBy { it.contactId }
+                favorites.value = cached
                 // После выхода из избранного StateFlow может не эмитить: список тот же, а
                 // состояние контактов там осталось фильтрованным. Перезаписываем напрямую.
-                val rows = blankQueryRows(journal.value, found)
+                val rows = blankQueryRows(entries, cached)
                 _state.update {
                     if (it.query.isBlank() && !it.favoritesMode) it.copy(contacts = rows) else it
                 }
@@ -305,12 +312,15 @@ class SearchViewModel(
     private fun blankQueryRows(
         entries: List<CommunicationEntry>,
         favs: List<ContactEntry>,
-    ): List<ContactRowUi> =
-        (entries.map { logRow(it) } + favs.map { ContactRowUi(it) })
+    ): List<ContactRowUi> {
+        val byId = favs.associateBy { it.contactId }
+        return (entries.map { logRow(it, byId[it.contactId]) } + favs.map { ContactRowUi(it) })
             .distinctBy { it.entry.contactId }
+    }
 
-    private fun logRow(entry: CommunicationEntry): ContactRowUi = ContactRowUi(
-        entry = ContactEntry(entry.contactId, entry.lookupKey, entry.name, entry.number),
+    private fun logRow(entry: CommunicationEntry, contact: ContactEntry?): ContactRowUi = ContactRowUi(
+        entry = contact?.copy(name = entry.name, number = entry.number)
+            ?: ContactEntry(entry.contactId, entry.lookupKey, entry.name, entry.number),
         logKind = entry.kind,
         logTime = formatTime(entry.timestamp),
     )
