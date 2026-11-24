@@ -6,7 +6,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,17 +34,22 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -63,12 +69,27 @@ import dev.onebar.app.ui.theme.googleBadgeBackground
 import dev.onebar.app.ui.theme.googleBadgeContent
 import dev.onebar.app.ui.theme.yandexBadgeBackground
 import dev.onebar.app.ui.theme.yandexBadgeContent
+import kotlin.math.abs
 import kotlinx.coroutines.launch
 
+internal class SwipeRowController {
+    var activeKey by mutableStateOf<String?>(null)
+        private set
+
+    fun activate(key: String) {
+        activeKey = key
+    }
+
+    fun clear(key: String) {
+        if (activeKey == key) activeKey = null
+    }
+}
+
 @Composable
-fun ContactsSection(
+internal fun ContactsSection(
     state: SearchState,
     modifier: Modifier,
+    swipeRows: SwipeRowController,
     smsIcon: ImageBitmap?,
     callIcon: ImageBitmap?,
     onRequestPermission: () -> Unit,
@@ -100,11 +121,13 @@ fun ContactsSection(
         LazyColumn(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(CONTACT_ROW_GAP),
-            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = CONTACT_LIST_BOTTOM),
+            contentPadding = PaddingValues(bottom = CONTACT_LIST_BOTTOM),
         ) {
-            items(state.contacts, key = { it.entry.contactId }) { row ->
+            items(state.contacts, key = { "contact:${it.entry.contactId}" }) { row ->
                 ContactRow(
                     row = row,
+                    rowKey = "contact:${row.entry.contactId}",
+                    swipeRows = swipeRows,
                     smsIcon = smsIcon,
                     callIcon = callIcon,
                     favorite = !state.favoritesMode && row.entry.lookupKey in state.favContactKeys,
@@ -160,6 +183,8 @@ fun AppsGridSection(
 @Composable
 private fun ContactRow(
     row: ContactRowUi,
+    rowKey: String,
+    swipeRows: SwipeRowController,
     smsIcon: ImageBitmap?,
     callIcon: ImageBitmap?,
     favorite: Boolean,
@@ -179,10 +204,11 @@ private fun ContactRow(
         }
         else -> row.entry.number.orEmpty()
     }
-    SwipeableRow(enabled = canAct, onTrigger = onCall) { labels ->
+    SwipeableRow(rowKey = rowKey, swipeRows = swipeRows, enabled = canAct, onTrigger = onCall) { labels ->
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .padding(horizontal = 12.dp)
                 .height(CONTACT_ROW_HEIGHT)
                 .clip(RoundedCornerShape(CONTACT_CARD_RADIUS))
                 .background(contactCardColor()),
@@ -241,6 +267,7 @@ private fun ContactRow(
                             fallbackIcon = painterResource(R.drawable.ic_sms),
                             contentDescription = stringResource(R.string.sms_action),
                             onClick = onSms,
+                            modifier = Modifier.testTag("swipe-action-sms-$rowKey"),
                             caption = if (labels) stringResource(R.string.caption_sms) else null,
                         )
                         ActionIcon(
@@ -248,11 +275,12 @@ private fun ContactRow(
                             fallbackIcon = painterResource(R.drawable.ic_call),
                             contentDescription = stringResource(R.string.call_action),
                             onClick = onCall,
+                            modifier = Modifier.testTag("swipe-action-call-$rowKey"),
                             caption = if (labels) stringResource(R.string.caption_call) else null,
                         )
                     }
                 } else {
-                    Spacer(Modifier.width(CONTACT_ACTION_SIZE * 2 + 2.dp))
+                    Spacer(Modifier.width(SWIPE_ACTION_SIZE * 2 + 2.dp))
                 }
             }
         }
@@ -263,32 +291,43 @@ private fun ContactRow(
  * Свайп справа налево по строке: протяжка плавно, за пальцем, расширяет кнопки до 25 %
  * ширины строки каждая, под ними проступают подписи. Меньше 30 % — строка возвращается,
  * от 30 % — кнопки остаются раскрытыми, за 50 % ширины выполняется правое действие.
+ * Обратный ход от 30 % закрывает строку; свайп по другой строке закрывает предыдущую.
  * Сама строка не сдвигается; при возвращении в приложение она сбрасывается в исходное состояние.
  */
 @Composable
 private fun SwipeableRow(
+    rowKey: String,
+    swipeRows: SwipeRowController,
     enabled: Boolean,
     onTrigger: () -> Unit,
     content: @Composable (labels: Boolean) -> Unit,
 ) {
     var width by remember { mutableIntStateOf(0) }
-    var labels by remember { mutableStateOf(false) }
-    // 0f — покой, 1f — протяжка до порога действия; во время жеста значение ставится сразу.
+    // 0f — покой, 1f — протяжка до порога действия; во время жеста значение ставит сразу.
     val reveal = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
     val rowWidth = with(density) { width.toDp() }
+    val isActive = swipeRows.activeKey == rowKey
+    val currentIsActive by rememberUpdatedState(isActive)
+
+    LaunchedEffect(isActive) {
+        if (!isActive && reveal.value != 0f) reveal.animateTo(0f, settle())
+    }
 
     val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
+    DisposableEffect(lifecycleOwner, rowKey) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                labels = false
+                swipeRows.clear(rowKey)
                 scope.launch { reveal.snapTo(0f) }
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            swipeRows.clear(rowKey)
+        }
     }
 
     CompositionLocalProvider(
@@ -298,41 +337,86 @@ private fun SwipeableRow(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .testTag("swipe-row-$rowKey")
                 .onSizeChanged { width = it.width }
-                .pointerInput(enabled) {
+                .pointerInput(rowKey, swipeRows, enabled) {
                     if (!enabled) return@pointerInput
-                    detectHorizontalDragGestures(
-                        onHorizontalDrag = { _, amount ->
+                    awaitEachGesture {
+                        val down = awaitFirstDown(
+                            requireUnconsumed = false,
+                            pass = PointerEventPass.Main,
+                        )
+                        var dragging = false
+                        var reversing = false
+                        var completed = false
+                        var totalDrag = 0f
+                        var verticalDrag = 0f
+                        var reverseTravel = 0f
+                        while (true) {
+                            val event = awaitPointerEvent(PointerEventPass.Main)
+                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                            if (change.changedToUpIgnoreConsumed()) {
+                                completed = true
+                                if (dragging) change.consume()
+                                break
+                            }
+                            if (!change.pressed || change.isConsumed) break
+                            val dragAmount = change.positionChange()
+                            totalDrag += dragAmount.x
+                            verticalDrag += dragAmount.y
+                            if (!dragging) {
+                                if (abs(totalDrag) <= viewConfiguration.touchSlop &&
+                                    abs(verticalDrag) <= viewConfiguration.touchSlop
+                                ) {
+                                    continue
+                                }
+                                if (abs(verticalDrag) > abs(totalDrag)) return@awaitEachGesture
+                                reversing = totalDrag > 0f
+                                if (reversing && !currentIsActive) return@awaitEachGesture
+                                if (reversing) reverseTravel = totalDrag - dragAmount.x
+                                dragging = true
+                                swipeRows.activate(rowKey)
+                            }
+                            if (reversing) reverseTravel += dragAmount.x.coerceAtLeast(0f)
+                            change.consume()
                             val full = width * TRIGGER
                             if (full > 0f) {
-                                val pulled = (reveal.value * full - amount).coerceIn(0f, full)
+                                val pulled = (reveal.value * full - dragAmount.x).coerceIn(0f, full)
                                 scope.launch { reveal.snapTo(pulled / full) }
                             }
-                        },
-                        onDragEnd = {
-                            val full = width * TRIGGER
-                            val pulled = reveal.value * full
-                            val minDrag = width * LABEL_TRIGGER
-                            when {
-                                full > 0f && pulled >= full -> {
-                                    labels = false
-                                    scope.launch { reveal.animateTo(0f, settle()) }
-                                    onTrigger()
-                                }
-                                pulled >= minDrag -> {
-                                    labels = true
-                                    scope.launch { reveal.animateTo(SETTLED, settle()) }
-                                }
-                                else -> scope.launch { reveal.animateTo(if (labels) SETTLED else 0f, settle()) }
+                        }
+                        if (!dragging) return@awaitEachGesture
+                        if (!completed) {
+                            if (currentIsActive) {
+                                scope.launch { reveal.animateTo(SETTLED, settle()) }
+                            } else {
+                                swipeRows.clear(rowKey)
                             }
-                        },
-                        onDragCancel = {
-                            scope.launch { reveal.animateTo(if (labels) SETTLED else 0f, settle()) }
-                        },
-                    )
+                            return@awaitEachGesture
+                        }
+                        val full = width * TRIGGER
+                        val pulled = reveal.value * full
+                        val minDrag = width * LABEL_TRIGGER
+                        when {
+                            reversing && reverseTravel >= minDrag -> swipeRows.clear(rowKey)
+                            full > 0f && pulled >= full -> {
+                                swipeRows.clear(rowKey)
+                                onTrigger()
+                            }
+                            reversing -> {
+                                swipeRows.activate(rowKey)
+                                scope.launch { reveal.animateTo(SETTLED, settle()) }
+                            }
+                            pulled >= minDrag -> {
+                                swipeRows.activate(rowKey)
+                                scope.launch { reveal.animateTo(SETTLED, settle()) }
+                            }
+                            else -> swipeRows.clear(rowKey)
+                        }
+                    }
                 },
         ) {
-            content(labels || reveal.value > 0f)
+            content(isActive || reveal.value > 0f)
         }
     }
 }
@@ -401,17 +485,20 @@ private fun HistoryRow(
 }
 
 @Composable
-fun WebSuggestionsSection(
+internal fun WebSuggestionsSection(
     state: SearchState,
+    swipeRows: SwipeRowController,
     onPick: (String) -> Unit,
     onSearch: (WebEngine, String) -> Unit,
 ) {
     if (state.suggestions.isEmpty()) return
 
     LazyColumn(modifier = Modifier.fillMaxWidth().height(ROW_HEIGHT * 3)) {
-        items(state.suggestions, key = { it }) { suggestion ->
+        items(state.suggestions, key = { "web:$it" }) { suggestion ->
             WebRow(
                 text = suggestion,
+                rowKey = "web:$suggestion",
+                swipeRows = swipeRows,
                 onPick = { onPick(suggestion) },
                 onSearch = { engine -> onSearch(engine, suggestion) },
             )
@@ -422,10 +509,12 @@ fun WebSuggestionsSection(
 @Composable
 private fun WebRow(
     text: String,
+    rowKey: String,
+    swipeRows: SwipeRowController,
     onPick: () -> Unit,
     onSearch: (WebEngine) -> Unit,
 ) {
-    SwipeableRow(enabled = true, onTrigger = { onSearch(WebEngine.GOOGLE) }) { labels ->
+    SwipeableRow(rowKey = rowKey, swipeRows = swipeRows, enabled = true, onTrigger = { onSearch(WebEngine.GOOGLE) }) { labels ->
         Row(
             modifier = Modifier.fillMaxWidth().height(ROW_HEIGHT).padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -448,6 +537,7 @@ private fun WebRow(
                 badgeContentColor = yandexBadgeContent,
                 label = stringResource(R.string.search_yandex),
                 onClick = { onSearch(WebEngine.YANDEX) },
+                modifier = Modifier.testTag("swipe-action-yandex-$rowKey"),
                 caption = if (labels) "Яндекс" else null,
             )
             BrandBadge(
@@ -456,6 +546,7 @@ private fun WebRow(
                 badgeContentColor = googleBadgeContent,
                 label = stringResource(R.string.search_google),
                 onClick = { onSearch(WebEngine.GOOGLE) },
+                modifier = Modifier.testTag("swipe-action-google-$rowKey"),
                 caption = if (labels) "Google" else null,
             )
         }

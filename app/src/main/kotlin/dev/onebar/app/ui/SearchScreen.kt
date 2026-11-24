@@ -90,6 +90,7 @@ fun SearchScreen(
     val menuApp by viewModel.menuApp.collectAsStateWithLifecycle()
     val messengerRepository = remember(context.applicationContext) { MessengerRepository(context.applicationContext) }
     val focusRequester = remember { FocusRequester() }
+    val swipeRows = remember { SwipeRowController() }
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -250,6 +251,7 @@ fun SearchScreen(
                         state = state,
                         modifier = if (rows.scroll) Modifier.fillMaxWidth().height(ROW_HEIGHT * 3)
                         else Modifier.fillMaxWidth().weight(1f),
+                        swipeRows = swipeRows,
                         smsIcon = smsIcon,
                         callIcon = callIcon,
                         onRequestPermission = { contactsPermission.launch(Manifest.permission.READ_CONTACTS) },
@@ -278,6 +280,7 @@ fun SearchScreen(
                     }
                     WebSuggestionsSection(
                         state = state,
+                        swipeRows = swipeRows,
                         onPick = { text ->
                             fieldValue = TextFieldValue(text, selection = TextRange(text.length))
                             viewModel.onQueryChange(text)

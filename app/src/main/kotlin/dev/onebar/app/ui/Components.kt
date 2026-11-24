@@ -88,7 +88,7 @@ private const val ICON_PX = 96
 val CONTACT_ROW_HEIGHT = 68.dp
 val CONTACT_ROW_GAP = 2.dp
 val CONTACT_AVATAR_SIZE = 36.dp
-val CONTACT_ACTION_SIZE = 48.dp
+val SWIPE_ACTION_SIZE = 48.dp
 val CONTACT_ACTION_ICON_SIZE = 28.dp
 val CONTACT_CARD_RADIUS = 16.dp
 val CONTACT_HEADER_HEIGHT = 36.dp
@@ -146,13 +146,14 @@ internal fun Modifier.navigationSwipe(
             if (enabled) {
                 Modifier.pointerInput(swipeDirection) {
                     awaitEachGesture {
-                        val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                        val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Main)
                         var active = false
                         var completed = false
                         var totalDrag = 0f
                         while (true) {
-                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                            val event = awaitPointerEvent(PointerEventPass.Main)
                             val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                            if (change.isConsumed) return@awaitEachGesture
                             if (change.changedToUpIgnoreConsumed()) {
                                 completed = true
                                 break
@@ -203,8 +204,8 @@ internal fun Modifier.navigationSwipe(
 
 /** На столько плитка становится ниже, когда под ней появляется подпись. */
 private val TileShrink = 8.dp
-private val CaptionLine = 14.dp
-private val CaptionGap = 2.dp
+private val CaptionLine = 18.dp
+private val CaptionGap = 4.dp
 
 /** Подпись начинает проступать не с первого пикселя протяжки и доходит до готовности к 0,6. */
 private const val CAPTION_FADE_START = 0.25f
@@ -333,7 +334,7 @@ fun ActionIcon(
     caption: String? = null,
     tint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
 ) {
-    Labeled(caption = caption, tileSize = CONTACT_ACTION_SIZE) { tileWidth, tileHeight, shown ->
+    Labeled(caption = caption, tileSize = SWIPE_ACTION_SIZE) { tileWidth, tileHeight, shown ->
         val button: Modifier = modifier
             .size(width = tileWidth, height = tileHeight)
             .clip(RoundedCornerShape(IconRadius))
@@ -352,7 +353,7 @@ fun ActionIcon(
                 Icon(
                     painter = fallbackIcon,
                     contentDescription = contentDescription,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(lerp(20.dp, 16.dp, shown)),
                     tint = tint,
                 )
             }
@@ -388,7 +389,7 @@ fun BrandBadge(
     modifier: Modifier = Modifier,
     caption: String? = null,
 ) {
-    Labeled(caption = caption) { tileWidth, tileHeight, _ ->
+    Labeled(caption = caption, tileSize = SWIPE_ACTION_SIZE) { tileWidth, tileHeight, shown ->
         Box(
             modifier = modifier
                 .size(width = tileWidth, height = tileHeight)
@@ -397,7 +398,16 @@ fun BrandBadge(
                 .clickable(onClick = onClick),
             contentAlignment = Alignment.Center,
         ) {
-            Text(text = letter, color = badgeContentColor, style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = letter,
+                color = badgeContentColor,
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.graphicsLayer {
+                    val scale = 1f - shown / 6f
+                    scaleX = scale
+                    scaleY = scale
+                },
+            )
         }
     }
 }
