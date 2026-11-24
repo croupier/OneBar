@@ -6,6 +6,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotFocused
@@ -29,6 +30,7 @@ import androidx.compose.ui.test.swipe
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.onebar.app.R
@@ -48,6 +50,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import kotlin.math.abs
 
 /**
  * Экран целиком на фейковых источниках: данные задаёт тест, а не телефон, поэтому проверки
@@ -73,6 +76,22 @@ class SearchScreenTest {
         node.performTouchInput { swipe(start, end, durationMillis = 300) }
         ui.waitForIdle()
     }
+
+    private fun swipeRow(rowKey: String, startFraction: Float, endFraction: Float) {
+        val node = ui.onNodeWithTag("swipe-row-$rowKey")
+        val bounds = node.fetchSemanticsNode().boundsInRoot
+        node.performTouchInput {
+            swipe(
+                start = Offset(bounds.width * startFraction, bounds.height / 2f),
+                end = Offset(bounds.width * endFraction, bounds.height / 2f),
+                durationMillis = 300,
+            )
+        }
+        ui.waitForIdle()
+    }
+
+    private fun actionWidth(tag: String): Float =
+        ui.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot.width
 
     private fun show(
         apps: FakeApps = FakeApps(),
@@ -301,6 +320,130 @@ class SearchScreenTest {
 
         ui.waitUntilAtLeastOneExists(hasText(str(R.string.caption_call)), TIMEOUT)
         assertTrue(history.pushedCommunications.isEmpty())
+    }
+
+    @Test
+    fun `все_четыре_действия_свайпа_расширяются_одинаково`() {
+        show(
+            contacts = FakeContacts(known = listOf(contact(1, "Map"))),
+            suggestions = FakeSuggestions(replies = mapOf("map" to listOf("maps"))),
+        )
+        ui.onNode(hasSetTextAction()).performTextInput("map")
+        ui.waitUntilAtLeastOneExists(hasText("Map"), TIMEOUT)
+        ui.waitUntilAtLeastOneExists(hasText("maps"), TIMEOUT)
+        ui.onNode(hasSetTextAction()).performImeAction()
+        ui.waitForIdle()
+
+        swipeRow("contact:1", 0.95f, 0.55f)
+        val expected = ui.onNodeWithTag("swipe-row-contact:1")
+            .fetchSemanticsNode().boundsInRoot.width * 0.25f
+        ui.waitUntil(TIMEOUT) { abs(actionWidth("swipe-action-sms-contact:1") - expected) < 1f }
+        val sms = actionWidth("swipe-action-sms-contact:1")
+        val call = actionWidth("swipe-action-call-contact:1")
+        assertEquals(expected, sms, 1f)
+        assertEquals(sms, call, 1f)
+        ui.onNodeWithText(str(R.string.caption_sms)).assertHeightIsAtLeast(18.dp)
+        ui.onNodeWithText(str(R.string.caption_call)).assertHeightIsAtLeast(18.dp)
+
+        swipeRow("web:maps", 0.95f, 0.55f)
+        ui.waitUntil(TIMEOUT) { abs(actionWidth("swipe-action-yandex-web:maps") - expected) < 1f }
+        val yandex = actionWidth("swipe-action-yandex-web:maps")
+        val google = actionWidth("swipe-action-google-web:maps")
+        assertEquals(sms, yandex, 1f)
+        assertEquals(yandex, google, 1f)
+        ui.onNodeWithText("Яндекс").assertHeightIsAtLeast(18.dp)
+        ui.onNodeWithText("Google").assertHeightIsAtLeast(18.dp)
+    }
+
+    @Test
+    fun `свайп_по_другой_строке_закрывает_предыдущую`() {
+        show(
+            contacts = FakeContacts(
+                known = listOf(contact(1, "Ann"), contact(2, "Bob")),
+            ),
+        )
+        ui.waitUntilAtLeastOneExists(hasText("Ann"), TIMEOUT)
+        ui.waitUntilAtLeastOneExists(hasText("Bob"), TIMEOUT)
+        val collapsed = actionWidth("swipe-action-sms-contact:1")
+
+        swipeRow("contact:1", 0.95f, 0.55f)
+        ui.waitUntil(TIMEOUT) { actionWidth("swipe-action-sms-contact:1") > collapsed }
+        swipeRow("contact:2", 0.95f, 0.55f)
+
+        ui.waitUntil(TIMEOUT) {
+            abs(actionWidth("swipe-action-sms-contact:1") - collapsed) < 1f &&
+                actionWidth("swipe-action-sms-contact:2") > collapsed &&
+                ui.onAllNodesWithText(str(R.string.caption_call)).fetchSemanticsNodes().size == 1
+        }
+        assertEquals(collapsed, actionWidth("swipe-action-sms-contact:1"), 1f)
+    }
+
+    @Test
+    fun `обратный_свайп_на_30_процентов_закрывает_строку_без_настроек`() {
+        var opened = false
+        show(
+            contacts = FakeContacts(known = listOf(contact(1, "Ann"))),
+            onOpenSettings = { opened = true },
+        )
+        ui.waitUntilAtLeastOneExists(hasText("Ann"), TIMEOUT)
+        val collapsed = actionWidth("swipe-action-sms-contact:1")
+        swipeRow("contact:1", 0.95f, 0.55f)
+        ui.waitUntil(TIMEOUT) { actionWidth("swipe-action-sms-contact:1") > collapsed }
+
+        swipeRow("contact:1", 0.05f, 0.40f)
+
+        ui.waitUntil(TIMEOUT) { abs(actionWidth("swipe-action-sms-contact:1") - collapsed) < 1f }
+        assertFalse(opened)
+        ui.onNodeWithText(str(R.string.caption_call)).assertDoesNotExist()
+    }
+
+    @Test
+    fun `обратный_свайп_менее_30_процентов_возвращает_раскрытый_вид`() {
+        var opened = false
+        show(
+            contacts = FakeContacts(known = listOf(contact(1, "Ann"))),
+            onOpenSettings = { opened = true },
+        )
+        ui.waitUntilAtLeastOneExists(hasText("Ann"), TIMEOUT)
+        val collapsed = actionWidth("swipe-action-sms-contact:1")
+        swipeRow("contact:1", 0.95f, 0.55f)
+        ui.waitUntil(TIMEOUT) { actionWidth("swipe-action-sms-contact:1") > collapsed }
+        val expanded = actionWidth("swipe-action-sms-contact:1")
+
+        swipeRow("contact:1", 0.05f, 0.25f)
+
+        ui.waitUntil(TIMEOUT) { abs(actionWidth("swipe-action-sms-contact:1") - expanded) < 1f }
+        assertFalse(opened)
+        ui.onNodeWithText(str(R.string.caption_call)).assertIsDisplayed()
+    }
+
+    @Test
+    fun `свайп_вправо_по_свернутой_строке_открывает_настройки`() {
+        var opened = false
+        show(
+            contacts = FakeContacts(known = listOf(contact(1, "Ann"))),
+            onOpenSettings = { opened = true },
+        )
+        ui.waitUntilAtLeastOneExists(hasText("Ann"), TIMEOUT)
+
+        swipeRow("contact:1", 0.05f, 0.45f)
+
+        assertTrue(opened)
+    }
+
+    @Test
+    fun `свайп_за_50_процентов_по_прежнему_вызывает_звонок`() {
+        val history = FakeHistory()
+        show(
+            contacts = FakeContacts(known = listOf(contact(1, "Ann"))),
+            history = history,
+        )
+        ui.waitUntilAtLeastOneExists(hasText("Ann"), TIMEOUT)
+
+        swipeRow("contact:1", 0.95f, 0.35f)
+
+        ui.waitUntil(TIMEOUT) { history.pushedCommunications.isNotEmpty() }
+        assertEquals(CommunicationKind.CALL, history.pushedCommunications.single().kind)
     }
 
     @Test
