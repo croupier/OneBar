@@ -105,7 +105,9 @@ class SearchScreenTest {
         onOpenSettings: () -> Unit = {},
     ) {
         val viewModel = SearchViewModel(apps, contacts, suggestions, history, favorites)
-        ui.setContent { SearchScreen(viewModel = viewModel, onOpenSettings = onOpenSettings) }
+        ui.setContent {
+            SearchScreen(viewModel = viewModel, onOpenSettings = onOpenSettings, onCallEntry = {})
+        }
     }
 
     @Test
@@ -453,6 +455,48 @@ class SearchScreenTest {
         ui.waitUntilAtLeastOneExists(hasText("Ann"), TIMEOUT)
 
         swipeRow("contact:1", 0.95f, 0.35f)
+
+        ui.waitUntil(TIMEOUT) { history.pushedCommunications.isNotEmpty() }
+        assertEquals(CommunicationKind.CALL, history.pushedCommunications.single().kind)
+    }
+
+    @Test
+    fun `полный_свайп_растягивает_звонок_на_всю_строку_перед_запуском`() {
+        val history = FakeHistory()
+        show(
+            contacts = FakeContacts(known = listOf(contact(1, "Ann"))),
+            history = history,
+        )
+        ui.waitUntilAtLeastOneExists(hasText("Ann"), TIMEOUT)
+        val row = ui.onNodeWithTag("swipe-row-contact:1")
+        val bounds = row.fetchSemanticsNode().boundsInRoot
+        val call = "swipe-action-call-contact:1"
+
+        try {
+            row.performTouchInput {
+                swipe(
+                    start = Offset(width * 0.95f, height / 2f),
+                    end = Offset(width * 0.35f, height / 2f),
+                    durationMillis = 300,
+                )
+            }
+            ui.mainClock.autoAdvance = false
+            ui.mainClock.advanceTimeBy(80)
+            val growingWidth = actionWidth(call)
+            assertTrue(
+                "growing=$growingWidth quarter=${bounds.width * 0.25f} row=${bounds.width}",
+                growingWidth >= bounds.width * 0.25f - 1f,
+            )
+            assertTrue(growingWidth < bounds.width)
+
+            ui.mainClock.advanceTimeBy(160)
+            assertEquals(bounds.width, actionWidth(call), 1f)
+            assertEquals(bounds.height, actionHeight(call), 1f)
+            assertTrue(history.pushedCommunications.isEmpty())
+            ui.mainClock.advanceTimeBy(120)
+        } finally {
+            ui.mainClock.autoAdvance = true
+        }
 
         ui.waitUntil(TIMEOUT) { history.pushedCommunications.isNotEmpty() }
         assertEquals(CommunicationKind.CALL, history.pushedCommunications.single().kind)

@@ -70,6 +70,7 @@ import dev.onebar.app.ui.theme.googleBadgeContent
 import dev.onebar.app.ui.theme.yandexBadgeBackground
 import dev.onebar.app.ui.theme.yandexBadgeContent
 import kotlin.math.abs
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 internal class SwipeRowController {
@@ -204,7 +205,21 @@ private fun ContactRow(
         }
         else -> row.entry.number.orEmpty()
     }
-    SwipeableRow(rowKey = rowKey, swipeRows = swipeRows, enabled = canAct, onTrigger = onCall) { labels ->
+    SwipeableRow(
+        rowKey = rowKey,
+        swipeRows = swipeRows,
+        enabled = canAct,
+        onTrigger = onCall,
+        action = {
+            ActionIcon(
+                handlerBitmap = callIcon,
+                fallbackIcon = painterResource(R.drawable.ic_call),
+                contentDescription = stringResource(R.string.call_action),
+                onClick = onCall,
+                modifier = Modifier.testTag("swipe-action-call-$rowKey"),
+            )
+        },
+    ) { labels ->
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -300,16 +315,22 @@ private fun SwipeableRow(
     swipeRows: SwipeRowController,
     enabled: Boolean,
     onTrigger: () -> Unit,
+    action: @Composable () -> Unit,
     content: @Composable (labels: Boolean) -> Unit,
 ) {
     var width by remember { mutableIntStateOf(0) }
+    var height by remember { mutableIntStateOf(0) }
     // 0f — покой, 1f — протяжка до порога действия; во время жеста значение ставит сразу.
     val reveal = remember { Animatable(0f) }
+    val actionProgress = remember { Animatable(0f) }
+    var triggered by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
     val rowWidth = with(density) { width.toDp() }
+    val rowHeight = with(density) { height.toDp() }
     val isActive = swipeRows.activeKey == rowKey
     val currentIsActive by rememberUpdatedState(isActive)
+    val currentOnTrigger by rememberUpdatedState(onTrigger)
 
     LaunchedEffect(isActive) {
         if (!isActive && reveal.value != 0f) reveal.animateTo(0f, settle())
@@ -320,7 +341,11 @@ private fun SwipeableRow(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 swipeRows.clear(rowKey)
-                scope.launch { reveal.snapTo(0f) }
+                triggered = false
+                scope.launch {
+                    actionProgress.snapTo(0f)
+                    reveal.snapTo(0f)
+                }
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -333,12 +358,18 @@ private fun SwipeableRow(
     CompositionLocalProvider(
         LocalSwipeReveal provides reveal.value,
         LocalSwipeRowWidth provides rowWidth,
+        LocalSwipeRowHeight provides rowHeight,
+        LocalSwipeActionProgress provides actionProgress.value.takeIf { triggered },
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .then(if (rowHeight > 0.dp) Modifier.height(rowHeight) else Modifier)
                 .testTag("swipe-row-$rowKey")
-                .onSizeChanged { width = it.width }
+                .onSizeChanged {
+                    width = it.width
+                    height = it.height
+                }
                 .pointerInput(rowKey, swipeRows, enabled) {
                     if (!enabled) return@pointerInput
                     awaitEachGesture {
@@ -399,9 +430,15 @@ private fun SwipeableRow(
                         val minDrag = width * LABEL_TRIGGER
                         when {
                             reversing && reverseTravel >= minDrag -> swipeRows.clear(rowKey)
-                            full > 0f && pulled >= full -> {
+                            full > 0f && pulled >= full -> scope.launch {
+                                triggered = true
+                                actionProgress.animateTo(1f, settle())
+                                delay(ACTION_HOLD_MS)
+                                currentOnTrigger()
+                                triggered = false
                                 swipeRows.clear(rowKey)
-                                onTrigger()
+                                actionProgress.snapTo(0f)
+                                reveal.snapTo(0f)
                             }
                             reversing -> {
                                 swipeRows.activate(rowKey)
@@ -416,7 +453,13 @@ private fun SwipeableRow(
                     }
                 },
         ) {
-            content(isActive || reveal.value > 0f)
+            if (triggered) {
+                Box(modifier = Modifier.matchParentSize(), contentAlignment = Alignment.CenterEnd) {
+                    action()
+                }
+            } else {
+                content(isActive || reveal.value > 0f)
+            }
         }
     }
 }
@@ -430,6 +473,7 @@ private const val TRIGGER = 0.5f
 /** Доля порога действия, на которой кнопки остаются подписанными: 30 % / 50 % = 0,6. */
 private const val SETTLED = LABEL_TRIGGER / TRIGGER
 private const val SETTLE_MS = 220
+private const val ACTION_HOLD_MS = 100L
 
 @Composable
 fun SearchHistorySection(
@@ -514,7 +558,22 @@ private fun WebRow(
     onPick: () -> Unit,
     onSearch: (WebEngine) -> Unit,
 ) {
-    SwipeableRow(rowKey = rowKey, swipeRows = swipeRows, enabled = true, onTrigger = { onSearch(WebEngine.GOOGLE) }) { labels ->
+    SwipeableRow(
+        rowKey = rowKey,
+        swipeRows = swipeRows,
+        enabled = true,
+        onTrigger = { onSearch(WebEngine.GOOGLE) },
+        action = {
+            BrandBadge(
+                letter = "G",
+                badgeBackground = googleBadgeBackground,
+                badgeContentColor = googleBadgeContent,
+                label = stringResource(R.string.search_google),
+                onClick = { onSearch(WebEngine.GOOGLE) },
+                modifier = Modifier.testTag("swipe-action-google-$rowKey"),
+            )
+        },
+    ) { labels ->
         Row(
             modifier = Modifier.fillMaxWidth().height(ROW_HEIGHT).padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
