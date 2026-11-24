@@ -53,6 +53,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.lerp
 import androidx.core.graphics.drawable.toBitmap
 import dev.onebar.app.R
 import dev.onebar.app.data.LaunchableApp
@@ -83,8 +84,11 @@ val IconRadius = 12.dp
  */
 internal val LocalSwipeReveal = compositionLocalOf { 0f }
 
-/** На сколько расширяется плитка кнопки при полной протяжке. */
-private val TileGrow = 20.dp
+/** Ширина строки в dp: к 30 % протяжки кнопки доходят до четверти ширины каждая. */
+internal val LocalSwipeRowWidth = compositionLocalOf { 0.dp }
+
+/** На столько плитка становится ниже, когда под ней появляется подпись. */
+private val TileShrink = 8.dp
 private val CaptionLine = 14.dp
 private val CaptionGap = 2.dp
 
@@ -215,23 +219,19 @@ fun ActionIcon(
     caption: String? = null,
     tint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
 ) {
-    val reveal = LocalSwipeReveal.current
-    Labeled(caption = caption, tileSize = CONTACT_ACTION_SIZE) { tileWidth ->
+    Labeled(caption = caption, tileSize = CONTACT_ACTION_SIZE) { tileWidth, tileHeight, shown ->
         val button: Modifier = modifier
-            .size(width = tileWidth, height = CONTACT_ACTION_SIZE)
+            .size(width = tileWidth, height = tileHeight)
             .clip(RoundedCornerShape(IconRadius))
             .clickable(onClick = onClick)
 
-        Box(
-            modifier = button.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = reveal)),
-            contentAlignment = Alignment.Center,
-        ) {
+        Box(modifier = button, contentAlignment = Alignment.Center) {
             if (handlerBitmap != null) {
                 Image(
                     bitmap = handlerBitmap,
                     contentDescription = contentDescription,
                     modifier = Modifier
-                        .size(CONTACT_ACTION_ICON_SIZE)
+                        .size(lerp(CONTACT_ACTION_ICON_SIZE, CONTACT_ACTION_ICON_SIZE - 4.dp, shown))
                         .clip(RoundedCornerShape(8.dp)),
                 )
             } else {
@@ -274,10 +274,10 @@ fun BrandBadge(
     modifier: Modifier = Modifier,
     caption: String? = null,
 ) {
-    Labeled(caption = caption) { tileWidth ->
+    Labeled(caption = caption) { tileWidth, tileHeight, _ ->
         Box(
             modifier = modifier
-                .size(width = tileWidth, height = AppItemSize)
+                .size(width = tileWidth, height = tileHeight)
                 .background(badgeBackground, RoundedCornerShape(IconRadius))
                 .semantics { contentDescription = label }
                 .clickable(onClick = onClick),
@@ -290,25 +290,30 @@ fun BrandBadge(
 
 /**
  * Кнопка с подписью снизу. Пока строку тянут свайпом, ширина плитки и подпись следуют за
- * протяжкой ([LocalSwipeReveal]): плитка расширяется, подпись выезжает из-под неё и проступает.
+ * протяжкой ([LocalSwipeReveal]): к 30 % ширины плитка доходит до четверти строки, подпись
+ * выезжает из-под неё и проступает, а высота плитки уменьшается, чтобы подпись не обрезалась.
  */
 @Composable
 private fun Labeled(
     caption: String?,
     tileSize: Dp = AppItemSize,
-    content: @Composable (tileWidth: Dp) -> Unit,
+    content: @Composable (tileWidth: Dp, tileHeight: Dp, shown: Float) -> Unit,
 ) {
     val reveal = LocalSwipeReveal.current
     if (caption == null) {
-        content(tileSize)
+        content(tileSize, tileSize, 0f)
         return
     }
+    val rowWidth = LocalSwipeRowWidth.current
+    val expanded = (reveal / CAPTION_FADE_END).coerceIn(0f, 1f)
     val shown = ((reveal - CAPTION_FADE_START) / (CAPTION_FADE_END - CAPTION_FADE_START)).coerceIn(0f, 1f)
+    val tileWidth = if (rowWidth > 0.dp) lerp(tileSize, rowWidth * 0.25f, expanded) else tileSize
+    val tileHeight = lerp(tileSize, tileSize - TileShrink, shown)
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(CaptionGap * shown),
     ) {
-        content(tileSize + TileGrow * reveal)
+        content(tileWidth, tileHeight, shown)
         Box(
             modifier = Modifier.height(CaptionLine * shown).clipToBounds(),
             contentAlignment = Alignment.BottomCenter,

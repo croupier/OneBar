@@ -43,9 +43,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -260,10 +260,10 @@ private fun ContactRow(
 }
 
 /**
- * Свайп справа налево по строке: протяжка плавно, за пальцем, раскрывает кнопки — плитка
- * расширяется, под ней проступает подпись. Отпущено меньше чем на 30 dp — строка возвращается;
- * дальше кнопки остаются раскрытыми, а за 50 % ширины сразу выполняется правое действие.
- * При возвращении в приложение строка сбрасывается в исходное состояние.
+ * Свайп справа налево по строке: протяжка плавно, за пальцем, расширяет кнопки до 25 %
+ * ширины строки каждая, под ними проступают подписи. Меньше 30 % — строка возвращается,
+ * от 30 % — кнопки остаются раскрытыми, за 50 % ширины выполняется правое действие.
+ * Сама строка не сдвигается; при возвращении в приложение она сбрасывается в исходное состояние.
  */
 @Composable
 private fun SwipeableRow(
@@ -276,6 +276,8 @@ private fun SwipeableRow(
     // 0f — покой, 1f — протяжка до порога действия; во время жеста значение ставится сразу.
     val reveal = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    val rowWidth = with(density) { width.toDp() }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -289,15 +291,16 @@ private fun SwipeableRow(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    CompositionLocalProvider(LocalSwipeReveal provides reveal.value) {
+    CompositionLocalProvider(
+        LocalSwipeReveal provides reveal.value,
+        LocalSwipeRowWidth provides rowWidth,
+    ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .onSizeChanged { width = it.width }
-                .graphicsLayer { translationX = -width * ROW_SHIFT * reveal.value }
                 .pointerInput(enabled) {
                     if (!enabled) return@pointerInput
-                    val minDrag = MIN_DRAG_DP.dp.toPx()
                     detectHorizontalDragGestures(
                         onHorizontalDrag = { _, amount ->
                             val full = width * TRIGGER
@@ -309,6 +312,7 @@ private fun SwipeableRow(
                         onDragEnd = {
                             val full = width * TRIGGER
                             val pulled = reveal.value * full
+                            val minDrag = width * LABEL_TRIGGER
                             when {
                                 full > 0f && pulled >= full -> {
                                     labels = false
@@ -336,14 +340,11 @@ private fun SwipeableRow(
 /** Доводка строки после отпускания: без пружинного перелёта, иначе кнопка «прыгает» за край. */
 private fun settle() = tween<Float>(SETTLE_MS, easing = FastOutSlowInEasing)
 
-private const val MIN_DRAG_DP = 30
+private const val LABEL_TRIGGER = 0.3f
 private const val TRIGGER = 0.5f
 
-/** Доля раскрытия, на которой строка остаётся подписанной: подписи к этому моменту уже видны. */
-private const val SETTLED = 0.6f
-
-/** Насколько ширина строки она уходит влево следом за пальцем. */
-private const val ROW_SHIFT = 0.06f
+/** Доля порога действия, на которой кнопки остаются подписанными: 30 % / 50 % = 0,6. */
+private const val SETTLED = LABEL_TRIGGER / TRIGGER
 private const val SETTLE_MS = 220
 
 @Composable
