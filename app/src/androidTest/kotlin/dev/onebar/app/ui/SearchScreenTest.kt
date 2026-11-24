@@ -43,6 +43,7 @@ import dev.onebar.app.testing.contact
 import dev.onebar.app.testing.log
 import dev.onebar.app.ui.theme.OneBarTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -63,6 +64,15 @@ class SearchScreenTest {
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
 
     private fun str(id: Int): String = context.getString(id)
+
+    private fun swipeHorizontally(fraction: Float) {
+        val node = ui.onNodeWithTag(NAVIGATION_SWIPE_TAG)
+        val bounds = node.fetchSemanticsNode().boundsInRoot
+        val start = Offset(bounds.center.x, bounds.center.y)
+        val end = Offset(bounds.center.x + bounds.width * fraction, bounds.center.y)
+        node.performTouchInput { swipe(start, end, durationMillis = 300) }
+        ui.waitForIdle()
+    }
 
     private fun show(
         apps: FakeApps = FakeApps(),
@@ -96,6 +106,44 @@ class SearchScreenTest {
         show(onOpenSettings = { opened = true })
 
         ui.onNodeWithContentDescription(str(R.string.settings_title)).performClick()
+
+        assertTrue(opened)
+    }
+
+    @Test
+    fun `свайп_менее_30_процентов_откатывается`() {
+        var opened = false
+        show(onOpenSettings = { opened = true })
+
+        swipeHorizontally(0.2f)
+
+        assertFalse(opened)
+        ui.onNodeWithText(str(R.string.search_hint)).assertIsDisplayed()
+    }
+
+    @Test
+    fun `свайп_более_30_процентов_открывает_настройки`() {
+        var opened = false
+        show(onOpenSettings = { opened = true })
+
+        swipeHorizontally(0.4f)
+
+        assertTrue(opened)
+    }
+
+    @Test
+    fun `свайп_в_избранном_открывает_настройки`() {
+        var opened = false
+        show(
+            apps = FakeApps(known = listOf(app("com.a", "Maps"))),
+            history = FakeHistory(recentApps = listOf("com.a")),
+            favorites = FakeFavorites(apps = listOf("com.a")),
+            onOpenSettings = { opened = true },
+        )
+        ui.waitUntilAtLeastOneExists(hasText("Maps"), TIMEOUT)
+        ui.onNodeWithContentDescription(str(R.string.favorites)).performClick()
+
+        swipeHorizontally(0.4f)
 
         assertTrue(opened)
     }

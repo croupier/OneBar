@@ -84,6 +84,9 @@
     <string name="settings_no">Нет</string>
     <string name="settings_defaults">По умолчанию</string>
     <string name="settings_save">Сохранить</string>
+    <string name="settings_saved_message">Настройки сохранены</string>
+    <string name="settings_defaults_message">Восстановлены значения по умолчанию</string>
+    <string name="settings_no_changes_message">Нет изменений</string>
     <string name="settings_history">История поиска</string>
     <string name="settings_history_save">Сохранять историю</string>
     <string name="settings_history_clear">Очистить историю</string>
