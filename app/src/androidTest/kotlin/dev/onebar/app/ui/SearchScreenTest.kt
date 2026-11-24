@@ -424,6 +424,22 @@ class SearchScreenTest {
     }
 
     @Test
+    fun `раскрытая_плитка_смс_держит_высоту_тайла`() {
+        show(contacts = FakeContacts(known = listOf(contact(1, "Ann"))))
+        ui.waitUntilAtLeastOneExists(hasText("Ann"), TIMEOUT)
+        val tile = "swipe-action-sms-contact:1"
+        val collapsed = actionWidth(tile)
+
+        swipeRow("contact:1", 0.95f, 0.55f)
+
+        ui.waitUntil(TIMEOUT) { actionWidth(tile) > collapsed }
+        val iconHeight = ui.onNodeWithContentDescription(str(R.string.sms_action), useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot.height
+
+        assertTrue(abs(iconHeight - actionHeight(tile)) < 1f)
+    }
+
+    @Test
     fun `свайп_вправо_по_свернутой_строке_ни_чего_не_меняет`() {
         var opened = false
         show(

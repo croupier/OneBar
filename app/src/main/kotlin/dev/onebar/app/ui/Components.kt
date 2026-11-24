@@ -223,11 +223,10 @@ fun ActionIcon(
     caption: String? = null,
     tint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
 ) {
-    Labeled(caption = caption, tileSize = SWIPE_ACTION_SIZE) { tileWidth, tileHeight, shown ->
-        // Плитка действия совпадает с брендовым бейджем: окна-подложки нет, глиф сам и есть
-        // плитка. Сторона берётся по меньшей из сторон тайла, чтобы вытянутое при протяжке
-        // окно не растягивало квадратную иконку, а масштаб тот же, что у буквы Я/G.
-        val scale = 1f - shown / 6f
+    Labeled(caption = caption, tileSize = SWIPE_ACTION_SIZE) { tileWidth, tileHeight, _ ->
+        // Плитка действия совпадает с брендовым бейджем: окна-подложки нет, иконка сама и есть
+        // плитка. Сторона берётся по меньшей из сторон тайла, поэтому при протяжке иконка держит
+        // высоту тайла и не уменьшается вслед за буквой Я/G.
         val side = minOf(tileWidth, tileHeight)
         Box(
             modifier = modifier
@@ -241,22 +240,13 @@ fun ActionIcon(
                     contentDescription = contentDescription,
                     modifier = Modifier
                         .size(side)
-                        .clip(RoundedCornerShape(IconRadius))
-                        .graphicsLayer {
-                            scaleX = scale
-                            scaleY = scale
-                        },
+                        .clip(RoundedCornerShape(IconRadius)),
                 )
             } else {
                 Icon(
                     painter = fallbackIcon,
                     contentDescription = contentDescription,
-                    modifier = Modifier
-                        .size(side)
-                        .graphicsLayer {
-                            scaleX = scale
-                            scaleY = scale
-                        },
+                    modifier = Modifier.size(side),
                     tint = tint,
                 )
             }
