@@ -454,8 +454,8 @@ private fun SectionDivider(title: String) {
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier
-                .padding(start = 14.dp, end = 8.dp)
-                .background(MaterialTheme.colorScheme.background),
+                .background(MaterialTheme.colorScheme.background)
+                .padding(start = 14.dp, end = 12.dp),
         )
     }
 }
