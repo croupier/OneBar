@@ -122,6 +122,7 @@ private enum class InfoTopic(val titleRes: Int, val textRes: Int) {
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
+    initialLanguageSelection: Boolean = false,
     language: LanguageOption = LanguageOption.SYSTEM,
     theme: ThemeOption = ThemeOption.SYSTEM,
     onLanguageChange: (LanguageOption) -> Unit = {},
@@ -133,16 +134,26 @@ fun SettingsScreen(
     val typography = MaterialTheme.typography
     val compactTypography = remember(typography) { typography.withLineHeightRatio(1.2f) }
     MaterialTheme(typography = compactTypography) {
-        SettingsScreenContent(
-            onBack = onBack,
-            language = language,
-            theme = theme,
-            onLanguageChange = onLanguageChange,
-            onThemeChange = onThemeChange,
-            saveHistory = saveHistory,
-            onSaveHistory = onSaveHistory,
-            onClearHistory = onClearHistory,
-        )
+        if (initialLanguageSelection) {
+            BackHandler(enabled = true) {}
+            LanguageChoiceDialog(
+                language = language,
+                onSelect = { onLanguageChange(LanguageOption.entries[it]) },
+                onDismiss = {},
+                dismissible = false,
+            )
+        } else {
+            SettingsScreenContent(
+                onBack = onBack,
+                language = language,
+                theme = theme,
+                onLanguageChange = onLanguageChange,
+                onThemeChange = onThemeChange,
+                saveHistory = saveHistory,
+                onSaveHistory = onSaveHistory,
+                onClearHistory = onClearHistory,
+            )
+        }
     }
 }
 
@@ -308,14 +319,8 @@ private fun SettingsScreenContent(
     }
 
     if (showLanguageDialog) {
-        ChoiceDialog(
-            title = stringResource(R.string.settings_language),
-            options = listOf(
-                stringResource(R.string.settings_language_system),
-                stringResource(R.string.settings_language_russian),
-                stringResource(R.string.settings_language_english),
-            ),
-            selected = language.ordinal,
+        LanguageChoiceDialog(
+            language = language,
             onSelect = {
                 onLanguageChange(LanguageOption.entries[it])
                 showLanguageDialog = false
@@ -559,15 +564,41 @@ private fun ChoiceRow(
 }
 
 @Composable
+private fun LanguageChoiceDialog(
+    language: LanguageOption,
+    onSelect: (Int) -> Unit,
+    onDismiss: () -> Unit,
+    dismissible: Boolean = true,
+) {
+    ChoiceDialog(
+        title = stringResource(R.string.settings_language),
+        options = listOf(
+            stringResource(R.string.settings_language_system),
+            stringResource(R.string.settings_language_russian),
+            stringResource(R.string.settings_language_english),
+        ),
+        selected = language.ordinal,
+        onSelect = onSelect,
+        onDismiss = onDismiss,
+        dismissible = dismissible,
+    )
+}
+
+@Composable
 private fun ChoiceDialog(
     title: String,
     options: List<String>,
     selected: Int,
     onSelect: (Int) -> Unit,
     onDismiss: () -> Unit,
+    dismissible: Boolean = true,
 ) {
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (dismissible) onDismiss() },
+        properties = DialogProperties(
+            dismissOnBackPress = dismissible,
+            dismissOnClickOutside = dismissible,
+        ),
         title = { Text(title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -591,7 +622,9 @@ private fun ChoiceDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.settings_cancel)) }
+            if (dismissible) {
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.settings_cancel)) }
+            }
         },
     )
 }

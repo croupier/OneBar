@@ -37,6 +37,7 @@ import dev.onebar.app.data.ThemeOption
 import dev.onebar.app.ui.theme.OneBarTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -68,6 +69,7 @@ class SettingsScreenTest {
 
     private fun show(
         onBack: () -> Unit = {},
+        initialLanguageSelection: Boolean = false,
         language: LanguageOption = LanguageOption.SYSTEM,
         theme: ThemeOption = ThemeOption.SYSTEM,
         onLanguageChange: (LanguageOption) -> Unit = {},
@@ -83,6 +85,7 @@ class SettingsScreenTest {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     SettingsScreen(
                         onBack = onBack,
+                        initialLanguageSelection = initialLanguageSelection,
                         language = selectedLanguage,
                         theme = selectedTheme,
                         onLanguageChange = {
@@ -129,6 +132,27 @@ class SettingsScreenTest {
 
         ui.onNodeWithText(str(R.string.settings_cancel)).assertDoesNotExist()
         ui.onNodeWithText(str(R.string.settings_language_russian)).assertExists()
+        assertEquals(LanguageOption.RUSSIAN, selected)
+    }
+
+    @Test
+    fun `первый_запуск_сразу_открывает_выбор_и_не_закрывается_назад`() {
+        var selected: LanguageOption? = null
+        show(
+            initialLanguageSelection = true,
+            language = LanguageOption.ENGLISH,
+            onLanguageChange = { selected = it },
+        )
+
+        ui.onNodeWithText(str(R.string.settings_language)).assertIsDisplayed()
+        ui.onNodeWithText(str(R.string.settings_cancel)).assertDoesNotExist()
+        ui.onNodeWithText(str(R.string.settings_title)).assertDoesNotExist()
+
+        pressBack()
+        ui.onNodeWithText(str(R.string.settings_language)).assertIsDisplayed()
+        assertNull(selected)
+
+        ui.onNodeWithText(str(R.string.settings_language_russian)).performClick()
         assertEquals(LanguageOption.RUSSIAN, selected)
     }
 
