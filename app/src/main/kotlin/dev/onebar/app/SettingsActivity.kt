@@ -12,6 +12,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.onebar.app.data.DefaultHistoryStore
 import dev.onebar.app.data.LanguageOption
 import dev.onebar.app.ui.SettingsScreen
 import dev.onebar.app.ui.theme.OneBarTheme
@@ -21,11 +22,13 @@ class SettingsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        val history = DefaultHistoryStore(applicationContext)
         enableEdgeToEdge()
         val appearanceStore = (application as OneBarApplication).appearanceStore
         setContent {
             val theme by appearanceStore.theme.collectAsStateWithLifecycle()
             OneBarTheme(theme = theme) {
+                val saveHistory by history.saveHistory.collectAsStateWithLifecycle(initialValue = true)
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     SettingsScreen(
                         onBack = { finish() },
@@ -36,6 +39,9 @@ class SettingsActivity : AppCompatActivity() {
                             appearanceStore.setTheme(it)
                             AppCompatDelegate.setDefaultNightMode(it.toNightMode())
                         },
+                        saveHistory = saveHistory,
+                        onSaveHistory = { enabled -> history.setSaveHistory(enabled) },
+                        onClearHistory = { history.clearQueries() },
                     )
                 }
             }

@@ -44,6 +44,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -125,6 +126,9 @@ fun SettingsScreen(
     theme: ThemeOption = ThemeOption.SYSTEM,
     onLanguageChange: (LanguageOption) -> Unit = {},
     onThemeChange: (ThemeOption) -> Unit = {},
+    saveHistory: Boolean = true,
+    onSaveHistory: suspend (Boolean) -> Unit = {},
+    onClearHistory: suspend () -> Unit = {},
 ) {
     val typography = MaterialTheme.typography
     val compactTypography = remember(typography) { typography.withLineHeightRatio(1.2f) }
@@ -135,6 +139,9 @@ fun SettingsScreen(
             theme = theme,
             onLanguageChange = onLanguageChange,
             onThemeChange = onThemeChange,
+            saveHistory = saveHistory,
+            onSaveHistory = onSaveHistory,
+            onClearHistory = onClearHistory,
         )
     }
 }
@@ -146,11 +153,14 @@ private fun SettingsScreenContent(
     theme: ThemeOption,
     onLanguageChange: (LanguageOption) -> Unit,
     onThemeChange: (ThemeOption) -> Unit,
+    saveHistory: Boolean,
+    onSaveHistory: suspend (Boolean) -> Unit,
+    onClearHistory: suspend () -> Unit,
 ) {
     var searchOptions by rememberSaveable(stateSaver = SearchOptionsSaver) { mutableStateOf(SearchOptions()) }
     var savedSearchOptions by rememberSaveable(stateSaver = SearchOptionsSaver) { mutableStateOf(SearchOptions()) }
-    var saveHistory by rememberSaveable { mutableStateOf(true) }
-    var savedSaveHistory by remember { mutableStateOf(true) }
+    var editedSaveHistory by rememberSaveable { mutableStateOf(saveHistory) }
+    var savedSaveHistory by rememberSaveable { mutableStateOf(saveHistory) }
     var showLanguageDialog by rememberSaveable { mutableStateOf(false) }
     var showThemeDialog by rememberSaveable { mutableStateOf(false) }
     var showClearHistoryDialog by rememberSaveable { mutableStateOf(false) }
@@ -162,14 +172,34 @@ private fun SettingsScreenContent(
     val savedMessage = stringResource(R.string.settings_saved_message)
     val defaultsMessage = stringResource(R.string.settings_defaults_message)
     val noChangesMessage = stringResource(R.string.settings_no_changes_message)
+    val historyClearedMessage = stringResource(R.string.settings_history_cleared_message)
     val notify: (String) -> Unit = { message ->
         scope.launch {
             snackbarHostState.currentSnackbarData?.dismiss()
             snackbarHostState.showSnackbar(message = message, duration = SnackbarDuration.Short)
         }
     }
+    val saveChanges: suspend () -> Unit = {
+        if (searchOptions != savedSearchOptions || editedSaveHistory != savedSaveHistory) {
+            if (editedSaveHistory != savedSaveHistory) {
+                onSaveHistory(editedSaveHistory)
+                savedSaveHistory = editedSaveHistory
+            }
+            savedSearchOptions = searchOptions
+            notify(savedMessage)
+        } else {
+            notify(noChangesMessage)
+        }
+    }
 
-    val hasUnsavedChanges = searchOptions != savedSearchOptions || saveHistory != savedSaveHistory
+    LaunchedEffect(saveHistory) {
+        if (editedSaveHistory == savedSaveHistory && saveHistory != savedSaveHistory) {
+            editedSaveHistory = saveHistory
+            savedSaveHistory = saveHistory
+        }
+    }
+
+    val hasUnsavedChanges = searchOptions != savedSearchOptions || editedSaveHistory != savedSaveHistory
     val backHandlerEnabled = !showLanguageDialog && !showThemeDialog &&
         !showClearHistoryDialog && !showUnsavedChangesDialog && infoTopic == null
     val requestBack = {
@@ -239,23 +269,15 @@ private fun SettingsScreenContent(
                                 notify(noChangesMessage)
                             }
                         },
-                        onSave = {
-                            if (searchOptions != savedSearchOptions || saveHistory != savedSaveHistory) {
-                                savedSearchOptions = searchOptions
-                                savedSaveHistory = saveHistory
-                                notify(savedMessage)
-                            } else {
-                                notify(noChangesMessage)
-                            }
-                        },
+                        onSave = { scope.launch { saveChanges() } },
                     )
                 }
                 item {
                     SettingsCard(title = stringResource(R.string.settings_history)) {
                         SettingsCheckbox(
                             label = stringResource(R.string.settings_history_save),
-                            checked = saveHistory,
-                            onCheckedChange = { saveHistory = it },
+                            checked = editedSaveHistory,
+                            onCheckedChange = { editedSaveHistory = it },
                             onInfoClick = { infoTopic = InfoTopic.HISTORY_SAVE },
                         )
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -330,7 +352,13 @@ private fun SettingsScreenContent(
             title = { Text(stringResource(R.string.settings_history_clear_title)) },
             text = { Text(stringResource(R.string.settings_history_clear_message)) },
             confirmButton = {
-                TextButton(onClick = { showClearHistoryDialog = false }) {
+                TextButton(onClick = {
+                    showClearHistoryDialog = false
+                    scope.launch {
+                        onClearHistory()
+                        notify(historyClearedMessage)
+                    }
+                }) {
                     Text(stringResource(R.string.settings_clear))
                 }
             },
@@ -345,9 +373,10 @@ private fun SettingsScreenContent(
         UnsavedChangesDialog(
             onSave = {
                 showUnsavedChangesDialog = false
-                savedSearchOptions = searchOptions
-                savedSaveHistory = saveHistory
-                onBack()
+                scope.launch {
+                    saveChanges()
+                    onBack()
+                }
             },
             onDiscard = {
                 showUnsavedChangesDialog = false

@@ -13,6 +13,7 @@ import dev.onebar.app.data.rankApps
 import dev.onebar.app.data.rankContacts
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 
 fun app(packageName: String, label: String = packageName, description: String = "") =
     LaunchableApp(packageName, label, description)
@@ -122,10 +123,12 @@ class FakeHistory(
     recentApps: List<String> = emptyList(),
     communications: List<CommunicationEntry> = emptyList(),
     queries: List<String> = emptyList(),
+    saveHistory: Boolean = true,
 ) : HistoryStore {
     private val _recentApps = MutableStateFlow(recentApps)
     private val _communications = MutableStateFlow(communications)
     private val _queries = MutableStateFlow(queries)
+    private val _saveHistory = MutableStateFlow(saveHistory)
 
     val pushedQueries: MutableList<String> = mutableListOf()
     val pushedApps: MutableList<String> = mutableListOf()
@@ -134,7 +137,10 @@ class FakeHistory(
 
     override val recentApps: Flow<List<String>> = _recentApps
     override val communications: Flow<List<CommunicationEntry>> = _communications
-    override val queries: Flow<List<String>> = _queries
+    override val queries: Flow<List<String>> = combine(_queries, _saveHistory) { queries, enabled ->
+        if (enabled) queries else emptyList()
+    }
+    override val saveHistory: Flow<Boolean> = _saveHistory
 
     override suspend fun pushRecentApp(packageName: String) {
         pushedApps += packageName
@@ -154,9 +160,17 @@ class FakeHistory(
 
     override suspend fun pushQuery(text: String) {
         val query = text.trim()
-        if (query.isEmpty()) return
+        if (query.isEmpty() || !_saveHistory.value) return
         pushedQueries += query
         _queries.value = listOf(query) + _queries.value.filter { it != query }
+    }
+
+    override suspend fun setSaveHistory(enabled: Boolean) {
+        _saveHistory.value = enabled
+    }
+
+    override suspend fun clearQueries() {
+        _queries.value = emptyList()
     }
 }
 

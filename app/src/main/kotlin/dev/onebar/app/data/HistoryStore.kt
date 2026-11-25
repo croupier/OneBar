@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -27,6 +28,8 @@ interface HistoryStore {
 
     val queries: Flow<List<String>>
 
+    val saveHistory: Flow<Boolean>
+
     suspend fun pushRecentApp(packageName: String)
 
     suspend fun pushCommunication(entry: CommunicationEntry)
@@ -35,6 +38,10 @@ interface HistoryStore {
     suspend fun removeCommunications(contactId: Long)
 
     suspend fun pushQuery(text: String)
+
+    suspend fun setSaveHistory(enabled: Boolean)
+
+    suspend fun clearQueries()
 }
 
 class DefaultHistoryStore internal constructor(private val store: DataStore<Preferences>) : HistoryStore {
@@ -50,7 +57,11 @@ class DefaultHistoryStore internal constructor(private val store: DataStore<Pref
     }
 
     override val queries: Flow<List<String>> = store.data.map { prefs ->
-        readQueries(prefs)
+        if (prefs[KEY_SAVE_HISTORY] == false) emptyList() else readQueries(prefs)
+    }
+
+    override val saveHistory: Flow<Boolean> = store.data.map { prefs ->
+        prefs[KEY_SAVE_HISTORY] ?: true
     }
 
     override suspend fun pushRecentApp(packageName: String) {
@@ -88,9 +99,18 @@ class DefaultHistoryStore internal constructor(private val store: DataStore<Pref
         val query = text.trim()
         if (query.isEmpty()) return
         store.edit { prefs ->
+            if (prefs[KEY_SAVE_HISTORY] == false) return@edit
             val updated = listOf(query) + readQueries(prefs).filter { it != query }
             prefs[KEY_QUERIES] = JSONArray(updated.take(MAX_QUERIES)).toString()
         }
+    }
+
+    override suspend fun setSaveHistory(enabled: Boolean) {
+        store.edit { prefs -> prefs[KEY_SAVE_HISTORY] = enabled }
+    }
+
+    override suspend fun clearQueries() {
+        store.edit { prefs -> prefs.remove(KEY_QUERIES) }
     }
 
     private fun readCommunications(prefs: Preferences): List<CommunicationEntry> {
@@ -135,5 +155,6 @@ class DefaultHistoryStore internal constructor(private val store: DataStore<Pref
         val KEY_RECENT_APPS = stringPreferencesKey("recent_apps")
         val KEY_COMMUNICATIONS = stringPreferencesKey("communications")
         val KEY_QUERIES = stringPreferencesKey("queries")
+        val KEY_SAVE_HISTORY = booleanPreferencesKey("save_history")
     }
 }
