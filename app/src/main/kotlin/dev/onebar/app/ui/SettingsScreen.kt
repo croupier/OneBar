@@ -42,11 +42,13 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -59,25 +61,16 @@ import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import dev.onebar.app.R
+import dev.onebar.app.data.LanguageOption
+import dev.onebar.app.data.ThemeOption
 import kotlinx.coroutines.launch
-
-private enum class LanguageOption {
-    SYSTEM,
-    RUSSIAN,
-    ENGLISH,
-}
-
-private enum class ThemeOption {
-    SYSTEM,
-    LIGHT,
-    DARK,
-}
 
 private data class SearchOptions(
     val favoritesFirst: Boolean = true,
@@ -87,6 +80,31 @@ private data class SearchOptions(
     val yo: Boolean = true,
     val translit: Boolean = true,
     val extraFields: Boolean = true,
+)
+
+private val SearchOptionsSaver = listSaver<SearchOptions, Boolean>(
+    save = {
+        listOf(
+            it.favoritesFirst,
+            it.prefix,
+            it.contains,
+            it.phone,
+            it.yo,
+            it.translit,
+            it.extraFields,
+        )
+    },
+    restore = {
+        SearchOptions(
+            favoritesFirst = it[0],
+            prefix = it[1],
+            contains = it[2],
+            phone = it[3],
+            yo = it[4],
+            translit = it[5],
+            extraFields = it[6],
+        )
+    },
 )
 
 private enum class InfoTopic(val titleRes: Int, val textRes: Int) {
@@ -101,11 +119,36 @@ private enum class InfoTopic(val titleRes: Int, val textRes: Int) {
 }
 
 @Composable
-fun SettingsScreen(onBack: () -> Unit) {
-    var language by rememberSaveable { mutableStateOf(LanguageOption.SYSTEM) }
-    var theme by rememberSaveable { mutableStateOf(ThemeOption.SYSTEM) }
-    var searchOptions by remember { mutableStateOf(SearchOptions()) }
-    var savedSearchOptions by remember { mutableStateOf(SearchOptions()) }
+fun SettingsScreen(
+    onBack: () -> Unit,
+    language: LanguageOption = LanguageOption.SYSTEM,
+    theme: ThemeOption = ThemeOption.SYSTEM,
+    onLanguageChange: (LanguageOption) -> Unit = {},
+    onThemeChange: (ThemeOption) -> Unit = {},
+) {
+    val typography = MaterialTheme.typography
+    val compactTypography = remember(typography) { typography.withLineHeightRatio(1.2f) }
+    MaterialTheme(typography = compactTypography) {
+        SettingsScreenContent(
+            onBack = onBack,
+            language = language,
+            theme = theme,
+            onLanguageChange = onLanguageChange,
+            onThemeChange = onThemeChange,
+        )
+    }
+}
+
+@Composable
+private fun SettingsScreenContent(
+    onBack: () -> Unit,
+    language: LanguageOption,
+    theme: ThemeOption,
+    onLanguageChange: (LanguageOption) -> Unit,
+    onThemeChange: (ThemeOption) -> Unit,
+) {
+    var searchOptions by rememberSaveable(stateSaver = SearchOptionsSaver) { mutableStateOf(SearchOptions()) }
+    var savedSearchOptions by rememberSaveable(stateSaver = SearchOptionsSaver) { mutableStateOf(SearchOptions()) }
     var saveHistory by rememberSaveable { mutableStateOf(true) }
     var savedSaveHistory by remember { mutableStateOf(true) }
     var showLanguageDialog by rememberSaveable { mutableStateOf(false) }
@@ -252,7 +295,7 @@ fun SettingsScreen(onBack: () -> Unit) {
             ),
             selected = language.ordinal,
             onSelect = {
-                language = LanguageOption.values()[it]
+                onLanguageChange(LanguageOption.entries[it])
                 showLanguageDialog = false
             },
             onDismiss = { showLanguageDialog = false },
@@ -268,7 +311,7 @@ fun SettingsScreen(onBack: () -> Unit) {
             ),
             selected = theme.ordinal,
             onSelect = {
-                theme = ThemeOption.values()[it]
+                onThemeChange(ThemeOption.entries[it])
                 showThemeDialog = false
             },
             onDismiss = { showThemeDialog = false },
@@ -432,22 +475,23 @@ private fun SettingsCard(
     title: String,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Card(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(CONTACT_CARD_RADIUS),
-        colors = CardDefaults.cardColors(containerColor = contactCardColor()),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(CONTACT_ROW_GAP),
+        SectionDivider(title)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(CONTACT_CARD_RADIUS),
+            colors = CardDefaults.cardColors(containerColor = contactCardColor()),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            content()
+            Column(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(CONTACT_ROW_GAP),
+            ) {
+                content()
+            }
         }
     }
 }
@@ -761,4 +805,25 @@ private fun ThemeOption.label(): String = stringResource(
         ThemeOption.LIGHT -> R.string.settings_theme_light
         ThemeOption.DARK -> R.string.settings_theme_dark
     }
+)
+
+private fun TextStyle.withLineHeightRatio(ratio: Float): TextStyle =
+    copy(lineHeight = fontSize * ratio)
+
+private fun Typography.withLineHeightRatio(ratio: Float): Typography = copy(
+    displayLarge = displayLarge.withLineHeightRatio(ratio),
+    displayMedium = displayMedium.withLineHeightRatio(ratio),
+    displaySmall = displaySmall.withLineHeightRatio(ratio),
+    headlineLarge = headlineLarge.withLineHeightRatio(ratio),
+    headlineMedium = headlineMedium.withLineHeightRatio(ratio),
+    headlineSmall = headlineSmall.withLineHeightRatio(ratio),
+    titleLarge = titleLarge.withLineHeightRatio(ratio),
+    titleMedium = titleMedium.withLineHeightRatio(ratio),
+    titleSmall = titleSmall.withLineHeightRatio(ratio),
+    bodyLarge = bodyLarge.withLineHeightRatio(ratio),
+    bodyMedium = bodyMedium.withLineHeightRatio(ratio),
+    bodySmall = bodySmall.withLineHeightRatio(ratio),
+    labelLarge = labelLarge.withLineHeightRatio(ratio),
+    labelMedium = labelMedium.withLineHeightRatio(ratio),
+    labelSmall = labelSmall.withLineHeightRatio(ratio),
 )

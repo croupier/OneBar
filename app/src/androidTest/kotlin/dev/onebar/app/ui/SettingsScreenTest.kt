@@ -2,6 +2,10 @@ package dev.onebar.app.ui
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -28,7 +32,10 @@ import androidx.test.espresso.Espresso.pressBack
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.onebar.app.R
+import dev.onebar.app.data.LanguageOption
+import dev.onebar.app.data.ThemeOption
 import dev.onebar.app.ui.theme.OneBarTheme
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -59,11 +66,31 @@ class SettingsScreenTest {
         ui.waitForIdle()
     }
 
-    private fun show(onBack: () -> Unit = {}) {
+    private fun show(
+        onBack: () -> Unit = {},
+        language: LanguageOption = LanguageOption.SYSTEM,
+        theme: ThemeOption = ThemeOption.SYSTEM,
+        onLanguageChange: (LanguageOption) -> Unit = {},
+        onThemeChange: (ThemeOption) -> Unit = {},
+    ) {
         ui.setContent {
-            OneBarTheme {
+            var selectedLanguage by remember { mutableStateOf(language) }
+            var selectedTheme by remember { mutableStateOf(theme) }
+            OneBarTheme(theme = selectedTheme) {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    SettingsScreen(onBack = onBack)
+                    SettingsScreen(
+                        onBack = onBack,
+                        language = selectedLanguage,
+                        theme = selectedTheme,
+                        onLanguageChange = {
+                            selectedLanguage = it
+                            onLanguageChange(it)
+                        },
+                        onThemeChange = {
+                            selectedTheme = it
+                            onThemeChange(it)
+                        },
+                    )
                 }
             }
         }
@@ -87,14 +114,29 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun `выбор_языка_меняет_только_значение_в_интерфейсе`() {
-        show()
+    fun `выбор_языка_обновляет_интерфейс_и_передаёт_выбор`() {
+        var selected: LanguageOption? = null
+        show(onLanguageChange = { selected = it })
 
         ui.onNode(hasText(str(R.string.settings_language)) and hasClickAction()).performClick()
         ui.onNodeWithText(str(R.string.settings_language_russian)).performClick()
 
         ui.onNodeWithText(str(R.string.settings_cancel)).assertDoesNotExist()
         ui.onNodeWithText(str(R.string.settings_language_russian)).assertExists()
+        assertEquals(LanguageOption.RUSSIAN, selected)
+    }
+
+    @Test
+    fun `выбор_темы_обновляет_интерфейс_и_передаёт_выбор`() {
+        var selected: ThemeOption? = null
+        show(onThemeChange = { selected = it })
+
+        ui.onNode(hasText(str(R.string.settings_theme)) and hasClickAction()).performClick()
+        ui.onNodeWithText(str(R.string.settings_theme_dark)).performClick()
+
+        ui.onNodeWithText(str(R.string.settings_cancel)).assertDoesNotExist()
+        ui.onNodeWithText(str(R.string.settings_theme_dark)).assertExists()
+        assertEquals(ThemeOption.DARK, selected)
     }
 
     @Test
