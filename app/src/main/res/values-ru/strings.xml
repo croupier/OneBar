@@ -106,5 +106,6 @@
     <string name="settings_feedback_notice">Ниже будет обезличенная отладочная информация. Вы можете её удалить, но без неё будет сложнее помочь. Напишите в начале письма ваше сообщение.</string>
     <string name="settings_feedback_debug">Отладочная информация</string>
     <string name="settings_feedback_send">Отправить письмо</string>
+    <string name="settings_feedback_no_mail_app">Почтовое приложение не найдено</string>
     <string name="settings_debug">OneBar %1$s\n%2$s %3$s\nAndroid %4$s (API %5$d)</string>
 </resources>
