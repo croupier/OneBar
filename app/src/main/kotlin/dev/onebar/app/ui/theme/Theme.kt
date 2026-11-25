@@ -16,12 +16,14 @@
 
 package dev.onebar.app.ui.theme
 
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import dev.onebar.app.data.ThemeOption
 
 // Схемы собраны по всем ролям, а не только по primary: UI читает surfaceVariant (фон чипов
 // иконок), onSurfaceVariant (их tint), outlineVariant (разделители) и background, поэтому
@@ -106,9 +108,20 @@ private val DarkColorScheme: ColorScheme = darkColorScheme(
 // темой seed Green #006200 просто перекрывался бы системной схемой на Android 12+.
 @Composable
 fun OneBarTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    theme: ThemeOption = ThemeOption.SYSTEM,
     content: @Composable () -> Unit,
 ) {
+    val darkTheme = when (theme) {
+        ThemeOption.SYSTEM -> isSystemInDarkTheme()
+        ThemeOption.LIGHT -> false
+        ThemeOption.DARK -> true
+    }
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
     MaterialTheme(colorScheme = colorScheme, typography = Typography, content = content)
+}
+
+internal fun ThemeOption.toNightMode(): Int = when (this) {
+    ThemeOption.SYSTEM -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+    ThemeOption.LIGHT -> AppCompatDelegate.MODE_NIGHT_NO
+    ThemeOption.DARK -> AppCompatDelegate.MODE_NIGHT_YES
 }

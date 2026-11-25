@@ -438,7 +438,7 @@ private fun SearchBar(
 }
 
 @Composable
-private fun SectionDivider(title: String) {
+internal fun SectionDivider(title: String) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
