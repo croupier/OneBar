@@ -20,6 +20,14 @@ class MainActivity : AppCompatActivity() {
 
         enableEdgeToEdge()
         val appearanceStore = (application as OneBarApplication).appearanceStore
+        if (appearanceStore.requiresLanguageSelection) {
+            startActivity(
+                Intent(this, SettingsActivity::class.java)
+                    .putExtra(SettingsActivity.EXTRA_FIRST_RUN_LANGUAGE, true),
+            )
+            finish()
+            return
+        }
         setContent {
             val theme by appearanceStore.theme.collectAsStateWithLifecycle()
             OneBarTheme(theme = theme) {

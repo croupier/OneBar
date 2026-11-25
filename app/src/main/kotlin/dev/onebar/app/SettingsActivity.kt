@@ -1,5 +1,6 @@
 package dev.onebar.app
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -10,10 +11,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.onebar.app.data.DefaultHistoryStore
 import dev.onebar.app.data.LanguageOption
+import dev.onebar.app.data.toLocales
 import dev.onebar.app.ui.SettingsScreen
 import dev.onebar.app.ui.theme.OneBarTheme
 import dev.onebar.app.ui.theme.toNightMode
@@ -25,16 +26,29 @@ class SettingsActivity : AppCompatActivity() {
         val history = DefaultHistoryStore(applicationContext)
         enableEdgeToEdge()
         val appearanceStore = (application as OneBarApplication).appearanceStore
+        val firstRunLanguage = intent.getBooleanExtra(EXTRA_FIRST_RUN_LANGUAGE, false) &&
+            appearanceStore.requiresLanguageSelection
         setContent {
             val theme by appearanceStore.theme.collectAsStateWithLifecycle()
             OneBarTheme(theme = theme) {
                 val saveHistory by history.saveHistory.collectAsStateWithLifecycle(initialValue = true)
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     SettingsScreen(
-                        onBack = { finish() },
+                        onBack = { if (!firstRunLanguage) finish() },
+                        initialLanguageSelection = firstRunLanguage,
                         language = currentLanguage(),
                         theme = theme,
-                        onLanguageChange = { AppCompatDelegate.setApplicationLocales(it.toLocales()) },
+                        onLanguageChange = {
+                            appearanceStore.completeLanguageSelection()
+                            AppCompatDelegate.setApplicationLocales(it.toLocales())
+                            if (firstRunLanguage) {
+                                startActivity(
+                                    Intent(this, MainActivity::class.java)
+                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK),
+                                )
+                                finish()
+                            }
+                        },
                         onThemeChange = {
                             appearanceStore.setTheme(it)
                             AppCompatDelegate.setDefaultNightMode(it.toNightMode())
@@ -58,9 +72,7 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
-    private fun LanguageOption.toLocales(): LocaleListCompat = when (this) {
-        LanguageOption.SYSTEM -> LocaleListCompat.getEmptyLocaleList()
-        LanguageOption.RUSSIAN -> LocaleListCompat.forLanguageTags("ru")
-        LanguageOption.ENGLISH -> LocaleListCompat.forLanguageTags("en")
+    companion object {
+        const val EXTRA_FIRST_RUN_LANGUAGE = "first_run_language"
     }
 }
