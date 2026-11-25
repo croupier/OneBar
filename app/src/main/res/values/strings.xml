@@ -101,10 +101,11 @@
     <string name="settings_about_description">OneBar is a fast search across apps, contacts, and the web. Favorites, history, and suggestions are always close at hand.</string>
     <string name="settings_email">onebar@3406.ru</string>
     <string name="settings_feedback">Feedback</string>
-    <string name="settings_feedback_subject">OneBar app - feedback</string>
+    <string name="settings_feedback_subject">Приложение OneBar - обратная связь</string>
     <string name="settings_feedback_hint">Your message</string>
     <string name="settings_feedback_notice">Anonymized debug information will be added below. You can remove it, but it will be harder to help without it. Write your message at the beginning of the email.</string>
     <string name="settings_feedback_debug">Debug information</string>
     <string name="settings_feedback_send">Send email</string>
+    <string name="settings_feedback_no_mail_app">No email app found</string>
     <string name="settings_debug">OneBar %1$s\n%2$s %3$s\nAndroid %4$s (API %5$d)</string>
 </resources>

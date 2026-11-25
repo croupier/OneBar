@@ -77,6 +77,7 @@ class SettingsScreenTest {
         saveHistory: Boolean = true,
         onSaveHistory: suspend (Boolean) -> Unit = {},
         onClearHistory: suspend () -> Unit = {},
+        onSend: (String) -> Unit = {},
     ) {
         ui.setContent {
             var selectedLanguage by remember { mutableStateOf(language) }
@@ -99,6 +100,7 @@ class SettingsScreenTest {
                         saveHistory = saveHistory,
                         onSaveHistory = onSaveHistory,
                         onClearHistory = onClearHistory,
+                        onSend = onSend,
                     )
                 }
             }
@@ -287,14 +289,17 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun `поле_обратной_связи_принимает_текст`() {
-        show()
+    fun `поле_обратной_связи_передаёт_текст_при_отправке`() {
+        val sent = mutableListOf<String>()
+        show(onSend = { sent += it })
 
         ui.onNode(hasScrollAction()).performScrollToNode(hasSetTextAction())
         ui.onNode(hasSetTextAction()).performTextInput("Нужна помощь с приложением")
         ui.onNode(hasSetTextAction()).assertTextContains("Нужна помощь с приложением")
         scrollTo(str(R.string.settings_feedback_send))
-        ui.onNodeWithText(str(R.string.settings_feedback_send)).assertExists()
+        ui.onNodeWithText(str(R.string.settings_feedback_send)).performClick()
+
+        assertEquals(listOf("Нужна помощь с приложением"), sent)
     }
 
     @Test

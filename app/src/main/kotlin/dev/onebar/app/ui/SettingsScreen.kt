@@ -130,6 +130,7 @@ fun SettingsScreen(
     saveHistory: Boolean = true,
     onSaveHistory: suspend (Boolean) -> Unit = {},
     onClearHistory: suspend () -> Unit = {},
+    onSend: (String) -> Unit = {},
 ) {
     val typography = MaterialTheme.typography
     val compactTypography = remember(typography) { typography.withLineHeightRatio(1.2f) }
@@ -152,6 +153,7 @@ fun SettingsScreen(
                 saveHistory = saveHistory,
                 onSaveHistory = onSaveHistory,
                 onClearHistory = onClearHistory,
+                onSend = onSend,
             )
         }
     }
@@ -167,6 +169,7 @@ private fun SettingsScreenContent(
     saveHistory: Boolean,
     onSaveHistory: suspend (Boolean) -> Unit,
     onClearHistory: suspend () -> Unit,
+    onSend: (String) -> Unit,
 ) {
     var searchOptions by rememberSaveable(stateSaver = SearchOptionsSaver) { mutableStateOf(SearchOptions()) }
     var savedSearchOptions by rememberSaveable(stateSaver = SearchOptionsSaver) { mutableStateOf(SearchOptions()) }
@@ -305,7 +308,7 @@ private fun SettingsScreenContent(
                     FeedbackCard(
                         message = feedback,
                         onMessageChange = { feedback = it },
-                        onSend = {},
+                        onSend = { onSend(feedback) },
                     )
                 }
             }

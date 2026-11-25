@@ -1,7 +1,12 @@
 package dev.onebar.app
 
+import android.content.ActivityNotFoundException
+import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatDelegate
@@ -56,9 +61,18 @@ class SettingsActivity : AppCompatActivity() {
                         saveHistory = saveHistory,
                         onSaveHistory = { enabled -> history.setSaveHistory(enabled) },
                         onClearHistory = { history.clearQueries() },
+                        onSend = ::sendFeedback,
                     )
                 }
             }
+        }
+    }
+
+    private fun sendFeedback(message: String) {
+        try {
+            startActivity(feedbackIntent(this, message))
+        } catch (_: ActivityNotFoundException) {
+            Toast.makeText(this, R.string.settings_feedback_no_mail_app, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -74,5 +88,32 @@ class SettingsActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_FIRST_RUN_LANGUAGE = "first_run_language"
+    }
+}
+
+internal fun feedbackIntent(context: Context, message: String): Intent {
+    val versionName = context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty()
+    val debug = context.getString(
+        R.string.settings_debug,
+        versionName.ifBlank { "—" },
+        Build.MANUFACTURER,
+        Build.MODEL,
+        Build.VERSION.RELEASE,
+        Build.VERSION.SDK_INT,
+    )
+    val body = buildString {
+        appendLine(context.getString(R.string.settings_feedback_notice))
+        appendLine()
+        if (message.isNotBlank()) {
+            appendLine(message.trim())
+            appendLine()
+        }
+        append(debug)
+    }
+    val email = context.getString(R.string.settings_email)
+    return Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:$email")).apply {
+        putExtra(Intent.EXTRA_EMAIL, arrayOf(email))
+        putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.settings_feedback_subject))
+        putExtra(Intent.EXTRA_TEXT, body)
     }
 }
