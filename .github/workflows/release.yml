@@ -50,7 +50,7 @@ jobs:
           test -s "$RUNNER_TEMP/onebar-release.jks"
 
       - name: Unit tests
-        run: ./gradlew testDebugUnitTest --stacktrace
+        run: bash ./gradlew testDebugUnitTest --stacktrace
 
       - name: Build signed release APK
         env:
@@ -59,7 +59,7 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           ORG_GRADLE_PROJECT_APP_METRICA_API_KEY: ${{ secrets.APP_METRICA_API_KEY }}
-        run: ./gradlew assembleRelease --stacktrace
+        run: bash ./gradlew assembleRelease --stacktrace
 
       - name: Verify and package APK
         run: |
