@@ -1,4 +1,5 @@
 import { execSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -36,6 +37,7 @@ for (const [packageName, prefix] of [
 const stylesPath = join(assets, "styles.css");
 const styles = readFileSync(stylesPath, "utf8");
 if (!styles.endsWith("\n")) writeFileSync(stylesPath, `${styles}\n`);
+const stylesVersion = createHash("sha256").update(styles).digest("hex").slice(0, 12);
 
 writeFileSync(join(root, ".nojekyll"), "");
 mkdirSync(dist, { recursive: true });
@@ -48,7 +50,15 @@ for (const file of [
   "sitemap.xml",
   ".nojekyll",
 ]) {
-  cpSync(join(root, file), join(dist, file));
+  if (file.endsWith(".html")) {
+    const html = readFileSync(join(root, file), "utf8");
+    writeFileSync(
+      join(dist, file),
+      html.replaceAll("./assets/styles.css", `./assets/styles.css?v=${stylesVersion}`),
+    );
+  } else {
+    cpSync(join(root, file), join(dist, file));
+  }
 }
 cpSync(assets, join(dist, "assets"), { recursive: true });
 console.log("Site built into site/dist/");
