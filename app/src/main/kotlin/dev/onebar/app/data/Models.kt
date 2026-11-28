@@ -29,6 +29,8 @@ data class ContactEntry(
     val address: String = "",
     /** Все номера контакта, приведённые к цифрам: поиск по номеру равнозначен поиску по имени. */
     val searchableNumbers: List<String> = emptyList(),
+    /** Системная частота обращений: используется, когда внутренней истории ещё нет. */
+    val timesContacted: Int = 0,
 )
 
 enum class CommunicationKind {
@@ -47,4 +49,5 @@ data class CommunicationEntry(
     val name: String,
     val number: String,
     val timestamp: Long,
+    val launchCount: Int = 1,
 )

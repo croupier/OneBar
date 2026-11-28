@@ -104,7 +104,7 @@ class DefaultContactRepository(context: Context) : ContactRepository {
         if (!hasPermission() || limit <= 0 || (favoritesOnly && favorites.isEmpty())) return emptyList()
         val trimmed = query.trim()
         if (trimmed.isEmpty()) {
-            val rows = baseRows(HAS_PHONE_ONLY, null, limit).map(::entryOf)
+            val rows = baseRows(HAS_PHONE_ONLY, null, limit, CONTACT_ALPHA_SORT).map(::entryOf)
             return withNumbers(rankContacts(rows, "", limit, favorites, favoritesOnly))
         }
 
@@ -138,7 +138,12 @@ class DefaultContactRepository(context: Context) : ContactRepository {
 
     /** Ключи сортировки провайдера нужны и после объединения результатов нескольких chunk-ов. */
     @SuppressLint("Range")
-    private fun baseRows(selection: String, args: Array<String>?, cap: Int): List<ContactRow> {
+    private fun baseRows(
+        selection: String,
+        args: Array<String>?,
+        cap: Int,
+        sortOrder: String = STARRED_FIRST_SORT,
+    ): List<ContactRow> {
         val found = ArrayList<ContactRow>(cap)
         context.contentResolver.query(
             Contacts.CONTENT_URI,
@@ -152,7 +157,7 @@ class DefaultContactRepository(context: Context) : ContactRepository {
             ),
             selection,
             args,
-            STARRED_FIRST_SORT,
+            sortOrder,
         )?.use { cursor ->
             while (cursor.moveToNext() && found.size < cap) {
                 found += ContactRow(
@@ -174,6 +179,7 @@ class DefaultContactRepository(context: Context) : ContactRepository {
         name = row.name,
         number = null,
         photoUri = row.photoUri,
+        timesContacted = row.timesContacted,
     )
 
     /**
@@ -453,6 +459,8 @@ class DefaultContactRepository(context: Context) : ContactRepository {
         // Избранные первыми, затем по частоте обращения, затем алфавит.
         const val STARRED_FIRST_SORT =
             "${Contacts.STARRED} DESC, ${Contacts.TIMES_CONTACTED} DESC, ${Contacts.DISPLAY_NAME} ASC"
+
+        const val CONTACT_ALPHA_SORT = Contacts.DISPLAY_NAME
 
         // Запас для точного ранжирования после грубого LIKE-фильтра провайдера.
         const val MAX_CANDIDATES = 1_000

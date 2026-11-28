@@ -41,6 +41,7 @@ class HistoryStoreTest {
     @Test
     fun `пустой_журнал_отдаёт_пустые_списки`() = runBlocking {
         assertTrue(store.recentApps.first().isEmpty())
+        assertTrue(store.appLaunchCounts.first().isEmpty())
         assertTrue(store.communications.first().isEmpty())
         assertTrue(store.queries.first().isEmpty())
         assertTrue(store.saveHistory.first())
@@ -53,15 +54,16 @@ class HistoryStoreTest {
         store.pushRecentApp("com.a")
 
         assertEquals(listOf("com.a", "com.b"), store.recentApps.first())
+        assertEquals(mapOf("com.a" to 2, "com.b" to 1), store.appLaunchCounts.first())
     }
 
     @Test
-    fun `недавних_приложений_храним_не_больше_двенадцати`() = runBlocking {
-        (1..15).forEach { store.pushRecentApp("com.pkg$it") }
+    fun `недавних_приложений_храним_не_больше_ста`() = runBlocking {
+        (1..105).forEach { store.pushRecentApp("com.pkg$it") }
 
         val recent = store.recentApps.first()
-        assertEquals(12, recent.size)
-        assertEquals("com.pkg15", recent.first())
+        assertEquals(100, recent.size)
+        assertEquals("com.pkg105", recent.first())
     }
 
     @Test
@@ -79,6 +81,7 @@ class HistoryStoreTest {
 
         val kept = store.communications.first().single()
         assertEquals(2L, kept.timestamp)
+        assertEquals(2, kept.launchCount)
     }
 
     @Test
@@ -101,12 +104,12 @@ class HistoryStoreTest {
     }
 
     @Test
-    fun `журнал_коммуникаций_не_длиннее_двадцати_записей`() = runBlocking {
-        (1..25).forEach { store.pushCommunication(entry(it.toLong(), CommunicationKind.CALL, it.toLong())) }
+    fun `журнал_коммуникаций_не_длиннее_ста_записей`() = runBlocking {
+        (1..105).forEach { store.pushCommunication(entry(it.toLong(), CommunicationKind.CALL, it.toLong())) }
 
         val kept = store.communications.first()
-        assertEquals(20, kept.size)
-        assertEquals(25L, kept.first().contactId)
+        assertEquals(100, kept.size)
+        assertEquals(105L, kept.first().contactId)
     }
 
     @Test
@@ -135,12 +138,12 @@ class HistoryStoreTest {
     }
 
     @Test
-    fun `история_запросов_хранит_не_больше_двадцати`() = runBlocking {
-        (1..25).forEach { store.pushQuery("запрос $it") }
+    fun `история_запросов_хранит_не_больше_пятидесяти`() = runBlocking {
+        (1..55).forEach { store.pushQuery("запрос $it") }
 
         val kept = store.queries.first()
-        assertEquals(20, kept.size)
-        assertEquals("запрос 25", kept.first())
+        assertEquals(50, kept.size)
+        assertEquals("запрос 55", kept.first())
     }
 
     @Test
@@ -171,6 +174,22 @@ class HistoryStoreTest {
         assertEquals(listOf("com.a"), store.recentApps.first())
         assertEquals(listOf(communication), store.communications.first())
         assertTrue(store.saveHistory.first())
+    }
+
+    @Test
+    fun `замена_истории_сохраняет_пятьдесят_записей_и_счётчики`() = runBlocking {
+        val apps = (1..50).map { "com.pkg$it" }
+        val counts = apps.associateWith { 7 }
+        val communications = (1..50).map {
+            entry(it.toLong(), CommunicationKind.CALL, it.toLong()).copy(launchCount = it)
+        }
+
+        store.replaceHistory(apps, counts, communications, emptyList())
+
+        assertEquals(apps, store.recentApps.first())
+        assertEquals(counts, store.appLaunchCounts.first())
+        assertEquals(50, store.communications.first().size)
+        assertEquals(50, store.communications.first().last().launchCount)
     }
 
     @Test

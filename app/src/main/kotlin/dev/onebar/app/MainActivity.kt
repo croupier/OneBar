@@ -49,6 +49,9 @@ class MainActivity : AppCompatActivity() {
                             settingsLauncher.launch(Intent(this, SettingsActivity::class.java))
                         },
                         onExit = { finish() },
+                        onContactsPermissionGranted = {
+                            (application as OneBarApplication).seedDebugHistoryContacts()
+                        },
                     )
                 }
             }

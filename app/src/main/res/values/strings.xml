@@ -68,7 +68,7 @@
     <string name="settings_keyboard_startup_immediate">Show immediately</string>
     <string name="settings_keyboard_startup_on_focus">When search is focused</string>
     <string name="settings_search">Search</string>
-    <string name="settings_search_favorites">Favorites first</string>
+    <string name="settings_search_favorites">History + favorites first</string>
     <string name="settings_search_prefix">Match at the start of a name</string>
     <string name="settings_search_contains">Match anywhere in a name</string>
     <string name="settings_search_phone">Phone numbers</string>
@@ -77,7 +77,7 @@
     <string name="settings_search_extra">Additional fields</string>
     <string name="settings_search_extra_summary">Organization, nickname, address, email, app description and package</string>
     <string name="settings_info">About: %1$s</string>
-    <string name="settings_search_favorites_info">Apps and contacts added to favorites appear first in search results.</string>
+    <string name="settings_search_favorites_info">Matching internal history comes first from newest to oldest, followed by favorites by launch frequency; duplicates are removed.</string>
     <string name="settings_search_prefix_info">Matches at the beginning of a name rank higher than matches inside a name.</string>
     <string name="settings_search_contains_info">Also finds matches inside a name, not only at its beginning.</string>
     <string name="settings_search_phone_info">Allows searching contacts by phone number.</string>
