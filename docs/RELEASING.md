@@ -135,7 +135,7 @@ Workflow `release.yml` запустится на теге и:
 
 Перед первым публичным показом:
 
-- откройте `https://croupier.github.io/OneBar/`;
+- откройте `https://oneba.ru/`;
 - проверьте `/OneBar/install.html` и `/OneBar/privacy.html`;
 - проверьте мобильное меню, демо поиска и FAQ;
 - проверьте, что при пустом Umami ID banner не появляется;

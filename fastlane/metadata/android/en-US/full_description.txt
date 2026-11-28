@@ -25,6 +25,6 @@ REQUIREMENTS AND LIMITATIONS
 - Portrait orientation is currently supported.
 - OneBar is not a replacement launcher and does not modify your home screen.
 
-Website: https://croupier.github.io/OneBar/
+Website: https://oneba.ru/
 Source: https://github.com/croupier/OneBar
 Releases: https://github.com/croupier/OneBar/releases

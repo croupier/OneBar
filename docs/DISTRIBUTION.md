@@ -38,7 +38,7 @@ Workflow `.github/workflows/release.yml` собирает и публикует 
 
 Для этого проекта подходит: сайт статический, некоммерческий, без транзакций и backend. Ожидаемый адрес:
 
-`https://croupier.github.io/OneBar/`
+`https://oneba.ru/`
 
 Официальные лимиты на 28.11.2026:
 

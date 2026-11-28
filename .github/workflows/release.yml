@@ -93,5 +93,5 @@ jobs:
             - Скачайте `OneBar-*.apk`.
             - Сверьте SHA-256 с `SHA256SUMS`.
             - Сертификат подписи указан в `SIGNING-CERTIFICATE.txt`.
-            - Инструкция: https://croupier.github.io/OneBar/install.html
-            - Приватность: https://croupier.github.io/OneBar/privacy.html
+            - Инструкция: https://oneba.ru/install.html
+            - Приватность: https://oneba.ru/privacy.html

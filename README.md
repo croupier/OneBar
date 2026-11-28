@@ -9,7 +9,7 @@
     <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="MIT license">
   </p>
   <p>
-    <a href="https://croupier.github.io/OneBar/">Сайт</a> ·
+    <a href="https://oneba.ru/">Сайт</a> ·
     <a href="https://github.com/croupier/OneBar/releases/latest">Скачать APK</a> ·
     <a href="https://github.com/croupier/OneBar/issues">Сообщить о проблеме</a>
   </p>
@@ -47,7 +47,7 @@ OneBar — небольшой некоммерческий Android-проект 
   </tr>
 </table>
 
-Полная презентация: [croupier.github.io/OneBar](https://croupier.github.io/OneBar/).
+Полная презентация: [croupier.github.io/OneBar](https://oneba.ru/).
 
 ## Установка
 
@@ -59,7 +59,7 @@ OneBar — небольшой некоммерческий Android-проект 
 4. Разрешите установку из выбранного источника, если Android попросит.
 5. Установите APK и откройте OneBar.
 
-Подробная инструкция и решение проблем: [сайт → Установка](https://croupier.github.io/OneBar/install.html).
+Подробная инструкция и решение проблем: [сайт → Установка](https://oneba.ru/install.html).
 
 OneBar не содержит самообновления. Новые версии скачиваются вручную из GitHub Releases. При обновлении APK должен быть подписан тем же ключом. Переход между GitHub и F-Droid может потребовать переустановки из-за разных ключей подписи.
 
@@ -75,7 +75,7 @@ OneBar не содержит самообновления. Новые верси
 - Рекламные ID, App Set ID, геолокация, crash- и ANR-отчёты отключены; GMS исключён, MIT-адаптер App Set ID использует штатный fallback без идентификатора.
 - Согласие на аналитику не переносится через системный backup.
 
-Полная политика: [PRIVACY.md](PRIVACY.md) и [сайт](https://croupier.github.io/OneBar/privacy.html).
+Полная политика: [PRIVACY.md](PRIVACY.md) и [сайт](https://oneba.ru/privacy.html).
 
 ## Аналитика
 

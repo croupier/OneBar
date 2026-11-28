@@ -25,6 +25,6 @@ OneBar — небольшой учебный проект под лицензи�
 - Сейчас поддерживается портретная ориентация.
 - OneBar не заменяет лаунчер и не меняет главный экран телефона.
 
-Сайт: https://croupier.github.io/OneBar/
+Сайт: https://oneba.ru/
 Исходный код: https://github.com/croupier/OneBar
 Релизы: https://github.com/croupier/OneBar/releases
