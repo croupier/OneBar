@@ -3,13 +3,21 @@ plugins {
   alias(libs.plugins.compose.compiler)
 }
 
+import java.util.Properties
+
 // Схема версий — semver 2.0.0 без пре-релизных суффиксов (правило workspace, 2026-11-23):
 //   формат MAJOR.MINOR.PATCH; bump: совместимая функциональность → MINOR, фиксы → PATCH,
 //   ломка публичного API → MAJOR; до фиксации API держим 0.x, 1.0.0 — первый релизный билд.
 //   Итерации одной задачи версию повторно не поднимают. versionCode — не semver: +1 на
 //   каждый раздаваемый билд.
-val appVersion = "0.14.0"
+val appVersion = "0.15.0"
 val appVersionCode = 31
+
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) keystorePropertiesFile.inputStream().use(::load)
+}
+val hasReleaseSigning = !keystoreProperties.getProperty("storeFile").isNullOrBlank()
 
 android {
   namespace = "dev.onebar.app"
@@ -24,10 +32,25 @@ android {
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
+  signingConfigs {
+    if (hasReleaseSigning) {
+      create("release") {
+        storeFile = file(keystoreProperties.getProperty("storeFile"))
+        storePassword = keystoreProperties.getProperty("storePassword")
+        keyAlias = keystoreProperties.getProperty("keyAlias")
+        keyPassword = keystoreProperties.getProperty("keyPassword")
+      }
+    }
+  }
   buildTypes {
     release {
-      isMinifyEnabled = false
+      isMinifyEnabled = true
+      isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+      signingConfig = signingConfigs.findByName("release")
+    }
+    debug {
+      applicationIdSuffix = ".debug"
     }
   }
   compileOptions {

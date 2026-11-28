@@ -17,6 +17,13 @@ class SearchRankTest {
     }
 
     @Test
+    fun `опции_отключают_номерные_ё_и_транслит_варианты`() {
+        val options = SearchOptions(phone = false, yo = false, translit = false)
+        assertEquals(listOf("фек"), buildNeedles("Фек", options).map { it.text })
+        assertEquals(listOf("89991234567"), buildNeedles("89991234567", options).map { it.text })
+    }
+
+    @Test
     fun `пустой запрос не даёт вариантов`() {
         assertTrue(buildNeedles("   ").isEmpty())
     }

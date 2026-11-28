@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -72,6 +73,11 @@ val SWIPE_ACTION_SIZE = 48.dp
 val CONTACT_CARD_RADIUS = 16.dp
 val CONTACT_HEADER_HEIGHT = 36.dp
 val CONTACT_LIST_BOTTOM = 12.dp
+val ContactCardPadding = 12.dp
+val ContactContentStart = 12.dp
+val ContactContentEnd = 2.dp
+val ContactActionEnd = ContactCardPadding + ContactContentEnd
+val ContactAvatarStart = ContactActionEnd
 val CONTACT_SECTION_HEIGHT =
     CONTACT_HEADER_HEIGHT + CONTACT_ROW_HEIGHT * 3 + CONTACT_ROW_GAP * 2 + CONTACT_LIST_BOTTOM
 
@@ -107,9 +113,8 @@ private const val CAPTION_FADE_END = 0.6f
 private const val FOREGROUND_SCALE = 1.3f
 
 /**
- * Адаптивная иконка рисуется системой под маску (на Pixel — круг), и toBitmap возвращает уже
- * вырезанный кружок. Здесь слои рисуются целиком, на весь холст 108×108: получается исходный
- * квадрат, который потом скругливается формой в UI.
+ * Адаптивная иконка рисуется под маску лаунчера. Здесь слои рисуются целиком, на весь холст
+ * 108×108, поэтому получаем исходный квадрат, который потом скругливается формой в UI.
  */
 internal fun iconBitmap(source: Drawable): ImageBitmap {
     if (source !is AdaptiveIconDrawable) return source.toBitmap(ICON_PX, ICON_PX).asImageBitmap()
@@ -167,15 +172,15 @@ private fun edgeColor(bitmap: Bitmap): Color {
 }
 
 @Composable
-fun AppIcon(packageName: String, modifier: Modifier = Modifier) {
+fun AppIcon(packageName: String, modifier: Modifier = Modifier, size: Dp = AppItemSize) {
     val packageManager = LocalContext.current.packageManager
     val bitmap = remember(packageName) {
         runCatching { iconBitmap(packageManager.getApplicationIcon(packageName)) }.getOrNull()
     }
     if (bitmap == null) {
-        Box(modifier = modifier.size(AppItemSize).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(IconRadius)))
+        Box(modifier = modifier.size(size).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(IconRadius)))
     } else {
-        Image(bitmap = bitmap, contentDescription = null, modifier = modifier.size(AppItemSize).clip(RoundedCornerShape(IconRadius)))
+        Image(bitmap = bitmap, contentDescription = null, modifier = modifier.size(size).clip(RoundedCornerShape(IconRadius)))
     }
 }
 
@@ -448,10 +453,14 @@ private fun Labeled(
 }
 
 val AppItemSize = 44.dp
+val AppIconSize = 72.dp
 
 /** Геометрия плитки приложения: нужна и ряду-строке, и сетке избранного, чтобы ряды совпадали. */
-val AppItemWidth = 70.dp
-val AppItemHeight = 78.dp
+val AppItemWidth = 72.dp
+val AppItemHeight = 104.dp
+val AppIconInset = (AppItemWidth - AppIconSize) / 2
+val AppRowStart = ContactAvatarStart - AppIconInset
+val AppRowEndInset = ContactActionEnd - AppIconInset
 
 @Composable
 fun AppItem(
@@ -466,10 +475,14 @@ fun AppItem(
             .size(width = AppItemWidth, height = AppItemHeight)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
+        verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
     ) {
         Box {
-            AppIcon(app.packageName)
+            AppIcon(
+                app.packageName,
+                size = AppIconSize,
+                modifier = Modifier.testTag("app-icon-${app.packageName}"),
+            )
             if (favorite) {
                 Icon(
                     painter = painterResource(R.drawable.ic_star),
@@ -487,10 +500,13 @@ fun AppItem(
         Text(
             text = app.label,
             maxLines = 1,
+            softWrap = false,
             overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.labelSmall,
+            style = MaterialTheme.typography.labelMedium,
             textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp),
+            modifier = Modifier
+                .width(AppIconSize)
+                .testTag("app-label-${app.packageName}"),
         )
     }
 }

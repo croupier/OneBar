@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
@@ -23,6 +24,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onChildren
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -109,7 +111,8 @@ class SearchScreenTest {
         return node.fetchSemanticsNode().boundsInRoot.height
     }
 
-    private fun nodeBounds(tag: String): Rect = ui.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
+    private fun nodeBounds(tag: String, useUnmergedTree: Boolean = false): Rect =
+        ui.onNodeWithTag(tag, useUnmergedTree = useUnmergedTree).fetchSemanticsNode().boundsInRoot
 
     private fun show(
         apps: FakeApps = FakeApps(),
@@ -311,7 +314,6 @@ class SearchScreenTest {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     AppsGridSection(
                         apps = apps,
-                        columns = 4,
                         favoritePackages = setOf("com.1"),
                         onOpen = {},
                         onMenu = {},
@@ -332,14 +334,13 @@ class SearchScreenTest {
     }
 
     @Test
-    fun `ряды_приложений_прокручиваются_вертикально_и_горизонтально`() {
+    fun `ряды_приложений_ровно_по_четыре_и_прокручиваются_вертикально`() {
         val apps = (1..80).map { index -> app("com.$index", "App $index") }
         ui.setContent {
             OneBarTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     AppsGridSection(
                         apps = apps,
-                        columns = 4,
                         favoritePackages = emptySet(),
                         onOpen = {},
                         onMenu = {},
@@ -349,11 +350,123 @@ class SearchScreenTest {
             }
         }
 
+        ui.onNodeWithTag("apps-row-com.1").onChildren().assertCountEquals(4)
+        val gridBounds = nodeBounds("apps-grid")
+        val firstIcon = nodeBounds("app-icon-com.1", useUnmergedTree = true)
+        val secondIcon = nodeBounds("app-icon-com.2", useUnmergedTree = true)
+        val thirdIcon = nodeBounds("app-icon-com.3", useUnmergedTree = true)
+        val fourthIcon = nodeBounds("app-icon-com.4", useUnmergedTree = true)
+        val density = context.resources.displayMetrics.density
+        val iconWidth = AppIconSize.value * density
+        assertEquals(iconWidth, firstIcon.width, 2f)
+        assertEquals(gridBounds.left + ContactAvatarStart.value * density, firstIcon.left, 2f)
+        assertEquals(gridBounds.right - ContactActionEnd.value * density, fourthIcon.right, 2f)
+        assertEquals(secondIcon.left - firstIcon.right, thirdIcon.left - secondIcon.right, 2f)
+        val expectedGap = (
+            gridBounds.width - (ContactAvatarStart + ContactActionEnd).value * density -
+                iconWidth * 4
+            ) / 3f
+        assertEquals(expectedGap, secondIcon.left - firstIcon.right, 2f)
+        assertEquals(iconWidth, nodeBounds("app-label-com.1", useUnmergedTree = true).width, 2f)
         ui.onNodeWithTag("apps-grid").performScrollToNode(hasText("App 77"))
         ui.onNodeWithText("App 77").assertIsDisplayed()
         ui.onNodeWithTag("apps-grid").performScrollToNode(hasText("App 1"))
-        ui.onNodeWithTag("apps-row-com.1").performScrollToNode(hasText("App 6"))
-        ui.onNodeWithText("App 6").assertIsDisplayed()
+        ui.onNodeWithText("App 1").assertIsDisplayed()
+        ui.onNodeWithTag("apps-row-com.5").assertExists()
+    }
+
+    @Test
+    fun `однострочный_список_делает_туда_сюда_без_паузы_и_повторяет_цикл`() {
+        val apps = (1..10).map { index -> app("com.$index", "App $index") }
+        ui.setContent {
+            OneBarTheme {
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    AppAutoStrip(
+                        apps = apps,
+                        favoritePackages = emptySet(),
+                        onOpen = {},
+                        onMenu = {},
+                    )
+                }
+            }
+        }
+        ui.waitUntilAtLeastOneExists(hasTestTag("apps-strip"), TIMEOUT)
+        val strip = ui.onNodeWithTag("apps-strip")
+        val stripBounds = nodeBounds("apps-strip")
+        val firstIcon = nodeBounds("app-icon-com.1", useUnmergedTree = true)
+        val secondIcon = nodeBounds("app-icon-com.2", useUnmergedTree = true)
+        val thirdIcon = nodeBounds("app-icon-com.3", useUnmergedTree = true)
+        val fourthIcon = nodeBounds("app-icon-com.4", useUnmergedTree = true)
+        val density = context.resources.displayMetrics.density
+        val iconWidth = AppIconSize.value * density
+        assertEquals(iconWidth, firstIcon.width, 2f)
+        assertEquals(stripBounds.left + ContactAvatarStart.value * density, firstIcon.left, 2f)
+        assertEquals(stripBounds.right - ContactActionEnd.value * density, fourthIcon.right, 5f)
+        assertEquals(secondIcon.left - firstIcon.right, thirdIcon.left - secondIcon.right, 2f)
+        val expectedGap = (
+            stripBounds.width - (ContactAvatarStart + ContactActionEnd).value * density -
+                iconWidth * 4
+            ) / 3f
+        assertEquals(expectedGap, secondIcon.left - firstIcon.right, 2f)
+        ui.mainClock.autoAdvance = false
+        try {
+            ui.mainClock.advanceTimeByFrame()
+            val start = strip.fetchSemanticsNode().config[SemanticsProperties.HorizontalScrollAxisRange].value()
+            ui.mainClock.advanceTimeBy(3_000)
+            ui.mainClock.advanceTimeBy(450)
+            val forward = strip.fetchSemanticsNode().config[SemanticsProperties.HorizontalScrollAxisRange].value()
+            assertTrue("первое смещение не появилось: start=$start forward=$forward", forward > start)
+
+            ui.mainClock.advanceTimeBy(450)
+            val back = strip.fetchSemanticsNode().config[SemanticsProperties.HorizontalScrollAxisRange].value()
+            assertTrue("обратное смещение должно идти сразу: forward=$forward back=$back", back < forward)
+            assertEquals(start, back, 2f)
+
+            ui.mainClock.advanceTimeBy(5_000)
+            ui.mainClock.advanceTimeBy(450)
+            val repeated = strip.fetchSemanticsNode().config[SemanticsProperties.HorizontalScrollAxisRange].value()
+            assertTrue("повторный цикл не появился после паузы: back=$back repeated=$repeated", repeated > back)
+        } finally {
+            ui.mainClock.autoAdvance = true
+        }
+    }
+
+    @Test
+    fun `приложения_выровнены_по_аватару_и_телефону_контакта`() {
+        val apps = (1..4).map { index -> app("com.$index", "App $index") }
+        show(
+            apps = FakeApps(known = apps),
+            contacts = FakeContacts(known = listOf(contact(1, "Ann"))),
+            history = FakeHistory(recentApps = apps.map { it.packageName }),
+        )
+        ui.waitUntilAtLeastOneExists(hasTestTag("apps-strip"), TIMEOUT)
+        ui.waitUntilAtLeastOneExists(hasText("Ann"), TIMEOUT)
+
+        val firstApp = nodeBounds("app-icon-com.1", useUnmergedTree = true)
+        val fourthApp = nodeBounds("app-icon-com.4", useUnmergedTree = true)
+        val avatar = nodeBounds("contact-avatar-1", useUnmergedTree = true)
+        val phone = ui.onNodeWithContentDescription(str(R.string.call_action), useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        assertEquals(avatar.left, firstApp.left, 2f)
+        assertEquals(phone.right, fourthApp.right, 2f)
+    }
+
+    @Test
+    fun `однострочная_секция_приложений_не_оставляет_пустоты_под_рядом`() {
+        val apps = (1..8).map { index -> app("com.$index", "App $index") }
+        show(
+            apps = FakeApps(known = apps),
+            contacts = FakeContacts(known = listOf(contact(1, "Ann"))),
+            history = FakeHistory(recentApps = apps.map { it.packageName }),
+        )
+        ui.waitUntilAtLeastOneExists(hasTestTag("apps-strip"), TIMEOUT)
+        ui.waitUntilAtLeastOneExists(hasText("Ann"), TIMEOUT)
+
+        val expected = (SectionDividerHeight + AppsRowHeight).value * context.resources.displayMetrics.density
+        val appsBounds = nodeBounds("apps-section")
+        val contactsBounds = nodeBounds("contacts-section")
+        assertEquals(expected, appsBounds.height, 2f)
+        assertTrue(contactsBounds.height > appsBounds.height)
     }
 
     @Test

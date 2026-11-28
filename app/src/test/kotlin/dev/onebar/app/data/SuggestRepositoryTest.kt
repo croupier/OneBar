@@ -29,7 +29,7 @@ class SuggestRepositoryTest {
 
         repeat(2) {
             try {
-                repository.suggest("кофе")
+                repository.suggest("кофе", "ru")
                 fail("сетевой сбой должен дойти до вызывающей стороны")
             } catch (_: IOException) {
             }
@@ -42,7 +42,7 @@ class SuggestRepositoryTest {
     fun `отмена корутины закрывает заблокированное соединение`() = runBlocking {
         val connection = BlockingConnection()
         val repository = DefaultSuggestRepository { connection }
-        val request = launch(Dispatchers.IO) { repository.suggest("кофе") }
+        val request = launch(Dispatchers.IO) { repository.suggest("кофе", "ru") }
 
         assertTrue(connection.started.await(5, TimeUnit.SECONDS))
         withTimeout(5_000) { request.cancelAndJoin() }

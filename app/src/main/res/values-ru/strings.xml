@@ -76,6 +76,8 @@
     <string name="settings_search_translit">Транслит</string>
     <string name="settings_search_extra">Дополнительные поля</string>
     <string name="settings_search_extra_summary">Организация, ник, адрес, почта, описание и пакет приложения</string>
+    <string name="settings_search_web_suggestions">Веб-подсказки</string>
+    <string name="settings_search_web_suggestions_summary">Отправлять введённый текст в Google для подсказок</string>
     <string name="settings_info">Подробнее: %1$s</string>
     <string name="settings_search_favorites_info">Совпадения из внутренней истории идут первыми от новых к старым, затем избранное по частоте запуска; дубли не повторяются.</string>
     <string name="settings_search_prefix_info">Совпадения в начале названия стоят выше совпадений внутри названия.</string>
@@ -84,6 +86,7 @@
     <string name="settings_search_yo_info">Считает русские буквы е и ё равнозначными при поиске.</string>
     <string name="settings_search_translit_info">Находит названия, набранные латинскими буквами, с помощью транслитерации.</string>
     <string name="settings_search_extra_info">Ищет также в организации, нике, адресе, почте, описании и названии пакета приложения.</string>
+    <string name="settings_search_web_suggestions_info">При включённых веб-подсказках текст из поисковой строки отправляется в Google completion по HTTPS. Локальная история и поиск по приложениям/контактам продолжают работать без сети.</string>
     <string name="settings_history_save_info">Сохраняет отправленные запросы, чтобы их можно было выбрать снова в поле поиска.</string>
     <string name="settings_unsaved_title">Сохранить изменения?</string>
     <string name="settings_unsaved_message">В настройках поиска и истории есть несохранённые изменения.</string>

@@ -92,6 +92,16 @@ class ContactRepositorySearchTest {
         assertEquals(listOf(FAVORITE_ID), found.map { it.contactId })
     }
 
+    @Test
+    fun `сбой_провайдера_не_роняет_поиск`() {
+        val fixture = fixture(contacts = listOf(TestContact(1, "Ann")))
+        fixture.provider.failQueries = true
+
+        assertTrue(fixture.repository.search("ann", LIMIT).isEmpty())
+        assertTrue(fixture.repository.byLookupKeys(listOf("lookup-1")).isEmpty())
+        assertEquals(null, fixture.repository.details(1))
+    }
+
     private fun mapsFixture(nameMatches: Int): Fixture = fixture(
         contacts = (1..nameMatches).map { TestContact(it.toLong(), "Maps ${it.toString().padStart(2, '0')}") } +
             TestContact(FAVORITE_ID, "Navigator"),
@@ -129,6 +139,7 @@ class ContactRepositorySearchTest {
     ) : ContentProvider() {
         var emailQueries = 0
         var profileQueries = 0
+        var failQueries = false
         val dataSelections = mutableListOf<String>()
 
         override fun onCreate(): Boolean = true
@@ -142,6 +153,7 @@ class ContactRepositorySearchTest {
             selectionArgs: Array<out String>?,
             sortOrder: String?,
         ): MatrixCursor {
+            if (failQueries) throw SecurityException("provider unavailable")
             val cursor = MatrixCursor(projection.orEmpty())
             val args = selectionArgs?.toList().orEmpty()
             when (uri) {

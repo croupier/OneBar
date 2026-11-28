@@ -71,46 +71,40 @@ import androidx.compose.ui.window.DialogProperties
 import dev.onebar.app.R
 import dev.onebar.app.data.KeyboardStartup
 import dev.onebar.app.data.LanguageOption
+import dev.onebar.app.data.SearchOptions
 import dev.onebar.app.data.ThemeOption
 import kotlinx.coroutines.launch
-
-private data class SearchOptions(
-    val favoritesFirst: Boolean = true,
-    val prefix: Boolean = true,
-    val contains: Boolean = true,
-    val phone: Boolean = true,
-    val yo: Boolean = true,
-    val translit: Boolean = true,
-    val extraFields: Boolean = true,
-)
 
 private val SearchOptionsSaver = listSaver<SearchOptions, Boolean>(
     save = {
         listOf(
-            it.favoritesFirst,
+            it.historyFavoritesFirst,
             it.prefix,
             it.contains,
             it.phone,
             it.yo,
             it.translit,
             it.extraFields,
+            it.webSuggestions,
         )
     },
     restore = {
         SearchOptions(
-            favoritesFirst = it[0],
+            historyFavoritesFirst = it[0],
             prefix = it[1],
             contains = it[2],
             phone = it[3],
             yo = it[4],
             translit = it[5],
             extraFields = it[6],
+            webSuggestions = it[7],
         )
     },
 )
 
 private enum class InfoTopic(val titleRes: Int, val textRes: Int) {
     SEARCH_FAVORITES(R.string.settings_search_favorites, R.string.settings_search_favorites_info),
+    SEARCH_WEB_SUGGESTIONS(R.string.settings_search_web_suggestions, R.string.settings_search_web_suggestions_info),
     SEARCH_PREFIX(R.string.settings_search_prefix, R.string.settings_search_prefix_info),
     SEARCH_CONTAINS(R.string.settings_search_contains, R.string.settings_search_contains_info),
     SEARCH_PHONE(R.string.settings_search_phone, R.string.settings_search_phone_info),
@@ -130,8 +124,8 @@ fun SettingsScreen(
     onLanguageChange: (LanguageOption) -> Unit = {},
     onThemeChange: (ThemeOption) -> Unit = {},
     onKeyboardStartupChange: (KeyboardStartup) -> Unit = {},
-    historyFavoritesFirst: Boolean = true,
-    onHistoryFavoritesFirstChange: (Boolean) -> Unit = {},
+    initialSearchOptions: SearchOptions = SearchOptions(),
+    onSearchOptionsChange: (SearchOptions) -> Unit = {},
     saveHistory: Boolean = true,
     onSaveHistory: suspend (Boolean) -> Unit = {},
     onClearHistory: suspend () -> Unit = {},
@@ -157,8 +151,8 @@ fun SettingsScreen(
                 onLanguageChange = onLanguageChange,
                 onThemeChange = onThemeChange,
                 onKeyboardStartupChange = onKeyboardStartupChange,
-                historyFavoritesFirst = historyFavoritesFirst,
-                onHistoryFavoritesFirstChange = onHistoryFavoritesFirstChange,
+                initialSearchOptions = initialSearchOptions,
+                onSearchOptionsChange = onSearchOptionsChange,
                 saveHistory = saveHistory,
                 onSaveHistory = onSaveHistory,
                 onClearHistory = onClearHistory,
@@ -177,18 +171,18 @@ private fun SettingsScreenContent(
     onLanguageChange: (LanguageOption) -> Unit,
     onThemeChange: (ThemeOption) -> Unit,
     onKeyboardStartupChange: (KeyboardStartup) -> Unit,
-    historyFavoritesFirst: Boolean,
-    onHistoryFavoritesFirstChange: (Boolean) -> Unit,
+    initialSearchOptions: SearchOptions,
+    onSearchOptionsChange: (SearchOptions) -> Unit,
     saveHistory: Boolean,
     onSaveHistory: suspend (Boolean) -> Unit,
     onClearHistory: suspend () -> Unit,
     onSend: (String) -> Unit,
 ) {
     var searchOptions by rememberSaveable(stateSaver = SearchOptionsSaver) {
-        mutableStateOf(SearchOptions(favoritesFirst = historyFavoritesFirst))
+        mutableStateOf(initialSearchOptions)
     }
     var savedSearchOptions by rememberSaveable(stateSaver = SearchOptionsSaver) {
-        mutableStateOf(SearchOptions(favoritesFirst = historyFavoritesFirst))
+        mutableStateOf(initialSearchOptions)
     }
     var editedSaveHistory by rememberSaveable { mutableStateOf(saveHistory) }
     var savedSaveHistory by rememberSaveable { mutableStateOf(saveHistory) }
@@ -217,8 +211,8 @@ private fun SettingsScreenContent(
                 onSaveHistory(editedSaveHistory)
                 savedSaveHistory = editedSaveHistory
             }
-            if (searchOptions.favoritesFirst != savedSearchOptions.favoritesFirst) {
-                onHistoryFavoritesFirstChange(searchOptions.favoritesFirst)
+            if (searchOptions != savedSearchOptions) {
+                onSearchOptionsChange(searchOptions)
             }
             savedSearchOptions = searchOptions
             notify(savedMessage)
@@ -234,10 +228,10 @@ private fun SettingsScreenContent(
         }
     }
 
-    LaunchedEffect(historyFavoritesFirst) {
-        if (searchOptions == savedSearchOptions && searchOptions.favoritesFirst != historyFavoritesFirst) {
-            searchOptions = SearchOptions(favoritesFirst = historyFavoritesFirst)
-            savedSearchOptions = searchOptions
+    LaunchedEffect(initialSearchOptions) {
+        if (searchOptions == savedSearchOptions && searchOptions != initialSearchOptions) {
+            searchOptions = initialSearchOptions
+            savedSearchOptions = initialSearchOptions
         }
     }
 
@@ -256,6 +250,7 @@ private fun SettingsScreenContent(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
+            .navigationBarsPadding()
             .imePadding(),
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -692,8 +687,8 @@ private fun SearchSettingsCard(
     SettingsCard(title = stringResource(R.string.settings_search)) {
         SettingsCheckbox(
             label = stringResource(R.string.settings_search_favorites),
-            checked = options.favoritesFirst,
-            onCheckedChange = { onOptionsChange(options.copy(favoritesFirst = it)) },
+            checked = options.historyFavoritesFirst,
+            onCheckedChange = { onOptionsChange(options.copy(historyFavoritesFirst = it)) },
             onInfoClick = { onInfoClick(InfoTopic.SEARCH_FAVORITES) },
         )
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -738,6 +733,14 @@ private fun SearchSettingsCard(
             checked = options.extraFields,
             onCheckedChange = { onOptionsChange(options.copy(extraFields = it)) },
             onInfoClick = { onInfoClick(InfoTopic.SEARCH_EXTRA) },
+        )
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        SettingsCheckbox(
+            label = stringResource(R.string.settings_search_web_suggestions),
+            summary = stringResource(R.string.settings_search_web_suggestions_summary),
+            checked = options.webSuggestions,
+            onCheckedChange = { onOptionsChange(options.copy(webSuggestions = it)) },
+            onInfoClick = { onInfoClick(InfoTopic.SEARCH_WEB_SUGGESTIONS) },
         )
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Row(

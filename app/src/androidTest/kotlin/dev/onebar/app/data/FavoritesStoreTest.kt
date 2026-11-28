@@ -1,11 +1,17 @@
 package dev.onebar.app.data
 
+import androidx.datastore.core.CorruptionException
+import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -105,6 +111,19 @@ class FavoritesStoreTest {
         } finally {
             corrupt.delete()
         }
+    }
+
+    @Test
+    fun `повреждённый_protobuf_отдаёт_пустое_избранное`() = runBlocking {
+        val corrupted = object : DataStore<Preferences> {
+            override val data: Flow<Preferences> = flow { throw CorruptionException("test") }
+            override suspend fun updateData(transform: suspend (t: Preferences) -> Preferences): Preferences =
+                transform(emptyPreferences())
+        }
+        val recovered = DefaultFavoritesStore(corrupted)
+
+        assertTrue(recovered.apps.first().isEmpty())
+        assertTrue(recovered.contacts.first().isEmpty())
     }
 
     private fun newFile(prefix: String): File =

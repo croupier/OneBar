@@ -31,7 +31,7 @@ import kotlinx.coroutines.delay
 
 private const val AUTO_CLOSE_SECONDS = 15
 
-/** Тег для тестов: крестик диалога и крестик панели имеют одинаковое описание. */
+/** Тег для тестов: крестик диалога и крестик поля поиска имеют одинаковое описание. */
 const val TAG_FAVORITES_HINT_CLOSE = "favorites-hint-close"
 
 /**

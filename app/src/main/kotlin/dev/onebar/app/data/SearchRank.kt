@@ -4,9 +4,9 @@ package dev.onebar.app.data
  * Варианты запроса и общий ключ ранжирования.
  *
  * Строка из поля поиска превращается в упорядоченный список «игл»: сначала сама, затем
- * нормализации номера (если набран номер), затем перестановки е/ё (от минимума замен к
- * максимуму) и транслит ру↔ен. Порядок списка и есть приоритет, поэтому ранжировщику не нужно
- * знать, какой именно вариант совпал.
+ * разрешённые настройками нормализации номера, перестановки е/ё и транслит ру↔ен.
+ * Порядок списка и есть приоритет, поэтому ранжировщику не нужно знать, какой именно
+ * вариант совпал.
  */
 internal enum class VariantKind {
     EXACT,
@@ -18,19 +18,22 @@ internal enum class VariantKind {
 internal data class Needle(val text: String, val kind: VariantKind)
 
 /** Все варианты запроса в порядке приоритета; регистр снят уже здесь. */
-internal fun buildNeedles(rawQuery: String): List<Needle> {
+internal fun buildNeedles(
+    rawQuery: String,
+    options: SearchOptions = SearchOptions(),
+): List<Needle> {
     val exact = rawQuery.trim().lowercase()
     if (exact.isEmpty()) return emptyList()
     val needles = mutableListOf(Needle(exact, VariantKind.EXACT))
-    val phones = phoneForms(exact)
+    val phones = if (options.phone) phoneForms(exact) else emptyList()
     if (phones.isNotEmpty()) {
         // Номерной запрос: е/ё и транслит к цифрам неприменимы, вариантов больше нет.
         return (needles + phones.map { Needle(it, VariantKind.PHONE) }).distinctBy { it.text }
     }
-    if (needsYoVariants(exact)) {
+    if (options.yo && needsYoVariants(exact)) {
         needles += yoVariants(exact).map { Needle(it, VariantKind.YO) }
     }
-    if (needles.size < MAX_NEEDLES) {
+    if (options.translit && needles.size < MAX_NEEDLES) {
         needles += translitVariants(exact).map { Needle(it, VariantKind.TRANSLIT) }
     }
     return needles.filter { it.text.isNotBlank() }.distinctBy { it.text }.take(MAX_NEEDLES)
@@ -66,8 +69,14 @@ internal fun phoneForms(rawQuery: String): List<String> {
  * Маски LIKE для колонок номеров: между цифрами ставим '%', потому что в телефоне номер
  * хранится с пробелами и дефисами («+7 999 123-45-67»), а SQLite их не понимает.
  */
-internal fun phoneLikePatterns(rawQuery: String): List<String> =
+internal fun phoneLikePatterns(
+    rawQuery: String,
+    options: SearchOptions = SearchOptions(),
+): List<String> = if (options.phone) {
     phoneForms(rawQuery).map { form -> "%" + form.map { it.toString() }.joinToString("%") + "%" }
+} else {
+    emptyList()
+}
 
 /** Перестановки е/ё имеют смысл только для кириллицы: в латинице этих букв нет. */
 private fun needsYoVariants(text: String): Boolean =
@@ -137,16 +146,24 @@ internal data class Rank(val favorite: Int, val field: Int, val variant: Int, va
 }
 
 /** Лучшее из совпадений по всем группам полей; null — если ни один вариант не подошёл. */
-internal fun rankOf(needles: List<Needle>, fieldsByGroup: List<List<String>>, favorite: Boolean): Rank? {
+internal fun rankOf(
+    needles: List<Needle>,
+    fieldsByGroup: List<List<String>>,
+    favorite: Boolean,
+    options: SearchOptions = SearchOptions(),
+): Rank? {
     var best: Rank? = null
     for (groupIndex in fieldsByGroup.indices) {
         for (variant in needles.indices) {
             val needle = needles[variant].text
             for (field in fieldsByGroup[groupIndex]) {
                 if (field.isBlank()) continue
+                val starts = field.startsWith(needle)
+                val contains = field.contains(needle)
                 val position = when {
-                    field.startsWith(needle) -> POSITION_START
-                    field.contains(needle) -> POSITION_INSIDE
+                    starts && options.prefix -> POSITION_START
+                    contains && options.contains -> POSITION_INSIDE
+                    starts && options.contains -> POSITION_INSIDE
                     else -> continue
                 }
                 val candidate = Rank(if (favorite) 0 else 1, groupIndex, variant, position)
@@ -166,9 +183,9 @@ internal fun rankOf(needles: List<Needle>, fieldsByGroup: List<List<String>>, fa
  * Число масок ограничено: их перебирает провайдер, а хвост списка — самые редкие написания,
  * ради которых не стоит платить полным сканом телефонной книги.
  */
-internal fun likePatterns(rawQuery: String): List<String> {
+internal fun likePatterns(rawQuery: String, options: SearchOptions = SearchOptions()): List<String> {
     val patterns = LinkedHashSet<String>()
-    for (needle in buildNeedles(rawQuery)) {
+    for (needle in buildNeedles(rawQuery, options)) {
         val wildcarded = buildString(needle.text.length) {
             for (char in needle.text) when (char) {
                 '%', '_' -> append('\\').append(char)

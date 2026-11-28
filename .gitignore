@@ -14,6 +14,10 @@
 .cxx
 local.properties
 /.tmp
+/vibe_images
+/keystore.properties
+*.jks
+*.keystore
 
 # Kotlin incremental analysis
 /.kotlin

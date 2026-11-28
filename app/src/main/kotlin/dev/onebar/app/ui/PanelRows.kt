@@ -9,7 +9,7 @@ val AppsRowGap = 4.dp
 
 val SectionDividerHeight = 20.dp
 private const val MAX_APP_ROWS = 6
-private val APP_ROWS_HEIGHT_SLACK = 12.dp
+private val APP_ROWS_HEIGHT_SLACK = 4.dp
 private const val WEB_ROWS_WITH_KEYBOARD = 1
 private const val WEB_ROWS_WITHOUT_KEYBOARD = 3
 

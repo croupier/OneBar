@@ -1,0 +1,73 @@
+version: 1
+repowiki:
+  notes:
+    - text: "OneBar — Android/Compose launcher-поиск по приложениям, контактам и веб-подсказкам; release package dev.onebar.app, debug package dev.onebar.app.debug, minSdk 26, targetSdk 36, текущая версия 0.15.0."
+    - text: "Основные модули Kotlin: ui (Compose, ViewModel, жесты, настройки), data (репозитории, DataStore, ранжирование, сеть), widget (RemoteViews); fake-источники лежат в sharedTest."
+    - text: "Единственный источник версии — app/build.gradle.kts; versionName меняется в функциональном коммите, versionCode — отдельным build-коммитом на master перед раздачей APK."
+    - text: "Пустой запрос: внутренняя история от новых к старым → избранное по частоте → остальное по алфавиту; непустой: история → избранное по частоте → остальное по релевантности; дедупликация всегда."
+    - text: "Все поисковые опции сохраняются в SearchPreferencesStore и реально влияют на buildNeedles/rankOf/rankApps/rankContacts; веб-подсказки имеют отдельный opt-out и отправляют текст в Google только от трёх символов."
+    - text: "Лимиты на 2026-11-28: пустые списки приложений/контактов/запросов — 50, непустой локальный поиск — 20; вынесение лимитов в настройки отложено."
+    - text: "Debug-сеялка запускается только для FLAG_DEBUGGABLE и один раз на установку нового APK; заменяет историю 50 реальными установленными приложениями и 50 реальными контактами."
+    - text: "UI приложений: четыре равных слота, иконка и подпись 72 dp; многорядный режим вертикально прокручивается, однострочный делает пару смещений 40 dp без паузы между ними, затем паузу 5 секунд."
+    - text: "Release hardening: R8 и shrinkResources включены, добавлен app/proguard-rules.pro, optional signing читает локальный keystore.properties, debug использует applicationIdSuffix .debug."
+    - text: "Проверки на 2026-11-28: 101 JVM-тест и 120 instrumentation-тестов; полный набор проходит на Pixel 8a и Redmi Note 8T; lintDebug и assembleRelease с R8 успешны."
+    - text: "Оставшиеся релизные риски: QUERY_ALL_PACKAGES для Google Play, неограниченный рост счётчиков истории, стоимость поиска по большой телефонной книге, system insets/доступность и отсутствие CI signing-конфигурации по умолчанию."
+  documents:
+    - title: "Обзор проекта"
+      goal: "Назначение OneBar, пользовательские сценарии, поддерживаемые устройства и текущий статус 0.14.0."
+      parent: ""
+      hints:
+        - "Поиск по приложениям, контактам и веб-подсказкам."
+        - "История, избранное, частота запуска, жесты и виджет."
+        - "Что работает, что отложено и что блокирует первую публикацию."
+    - title: "Архитектура"
+      goal: "Карта модулей ui/data/widget, потоков StateFlow/DataStore и ответственности классов без пересказа каждого файла."
+      parent: ""
+      template: "architecture"
+      hints:
+        - "SearchViewModel как центральная orchestration-точка."
+        - "Репозитории PackageManager/ContentResolver/DataStore/HTTP."
+        - "Границы UI, данных и тестовых fake-источников."
+    - title: "Поиск, история и избранное"
+      goal: "Точные правила порядка, дедупликации, вариантов запроса, лимитов и сохранения настроек."
+      parent: ""
+      hints:
+        - "История → избранное по частоте → релевантность или алфавит."
+        - "exact/phone/е-ё/транслит и дополнительные поля."
+        - "Все флаги SearchOptions подключены к ранжированию и сохраняются; веб-подсказки имеют opt-out."
+    - title: "Хранилища и приватность"
+      goal: "Форматы DataStore, миграции, backup-исключения, разрешения и сетевой обмен."
+      parent: ""
+      hints:
+        - "history/favorites/search_preferences/appearance."
+        - "Имена, номера и lookupKey не должны попадать в backup и git."
+        - "Google suggest, HTTPS, таймауты, отмена и отсутствие opt-out."
+    - title: "Интерфейс и жесты"
+      goal: "Compose-раскладка, четыре слота приложений, анимации, свайпы, клавиатура, темы и доступность."
+      parent: ""
+      hints:
+        - "Симметричные отступы по аватару и телефонной иконке контакта."
+        - "Авто-цикл приложений: туда-сюда без паузы, затем 5 секунд."
+        - "Известные ограничения fontScale, landscape, long-press и insets."
+    - title: "Сборка и тестирование"
+      goal: "Воспроизводимые CLI-команды, матрица тестов и правила доставки APK."
+      parent: ""
+      hints:
+        - "JDK 17, SDK D:/Android, cmd.exe //c gradlew.bat, чистые proxy-переменные."
+        - "testDebugUnitTest, assembleDebug, assembleDebugAndroidTest, lintDebug."
+        - "Прямой am instrument на Pixel и Redmi, проверка SHA-256/versionCode."
+    - title: "Release readiness"
+      goal: "Приоритезированный чек-лист первого релиза и известные долги с ссылками на код."
+      parent: ""
+      hints:
+        - "Blocker/high: Play permission, privacy disclosure, accessibility и insets."
+        - "Medium: стоимость поиска по большой книге, рост счётчиков истории, загрузка иконок, контракт виджета."
+        - "Release hardening выполнен: R8/proguard, optional signing, debug package isolation; остаются CI signing и upgrade/визуальная матрица."
+knowledgecard:
+  notes:
+    - text: "Границы модулей: ui отвечает только за отображение и orchestration; data инкапсулирует PackageManager, ContentResolver, DataStore и HTTP; widget не дублирует поисковую логику."
+    - text: "SearchViewModel использует immutable StateFlow, generation-проверки, debounce и IO для блокирующих источников; новые coroutine job должны отменять предыдущую и проверять актуальность query/favoritesMode."
+    - text: "DataStore-транзакции атомарны; JSON-поля читаются через runCatching, CorruptionException на чтении превращается в пустые preferences, ошибки записи избранного откатывают optimistic UI."
+    - text: "Тестовые источники находятся в sharedTest и используются JVM- и instrumentation-тестами; новые ветки поведения сначала покрываются fake-репозиториями."
+    - text: "Compose-плитки приложений имеют фиксированные 72 dp и четыре равных слота; автоматическое смещение выполняет пару туда-сюда без паузы, затем ждёт 5 секунд."
+    - text: "SearchViewModel сериализует loadContacts на Main, использует flowOn(io)/distinctUntilChanged для источников и проверяет query/favoritesMode/searchOptions в generation."

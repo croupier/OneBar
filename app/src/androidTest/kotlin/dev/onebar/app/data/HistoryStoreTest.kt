@@ -1,11 +1,17 @@
 package dev.onebar.app.data
 
+import androidx.datastore.core.CorruptionException
+import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -210,6 +216,32 @@ class HistoryStoreTest {
         } finally {
             corrupt.delete()
         }
+    }
+
+    @Test
+    fun `старый_формат_recent_apps_восстанавливает_счётчики`() = runBlocking {
+        val raw = PreferenceDataStoreFactory.create(produceFile = { file })
+        raw.edit { prefs -> prefs[stringPreferencesKey("recent_apps")] = "com.a,com.b" }
+        val migrated = DefaultHistoryStore(raw)
+
+        assertEquals(mapOf("com.a" to 1, "com.b" to 1), migrated.appLaunchCounts.first())
+        migrated.pushRecentApp("com.a")
+        assertEquals(mapOf("com.a" to 2, "com.b" to 1), migrated.appLaunchCounts.first())
+    }
+
+    @Test
+    fun `повреждённый_protobuf_отдаёт_пустую_историю`() = runBlocking {
+        val corrupted = object : DataStore<Preferences> {
+            override val data: Flow<Preferences> = flow { throw CorruptionException("test") }
+            override suspend fun updateData(transform: suspend (t: Preferences) -> Preferences): Preferences =
+                transform(emptyPreferences())
+        }
+        val recovered = DefaultHistoryStore(corrupted)
+
+        assertTrue(recovered.recentApps.first().isEmpty())
+        assertTrue(recovered.communications.first().isEmpty())
+        assertTrue(recovered.queries.first().isEmpty())
+        assertTrue(recovered.saveHistory.first())
     }
 
     private fun entry(id: Long, kind: CommunicationKind, timestamp: Long) = CommunicationEntry(
