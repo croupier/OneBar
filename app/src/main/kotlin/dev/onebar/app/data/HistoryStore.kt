@@ -24,6 +24,8 @@ internal fun historyStoreForFile(file: File): HistoryStore =
 interface HistoryStore {
     val recentApps: Flow<List<String>>
 
+    val appLaunchCounts: Flow<Map<String, Int>>
+
     val communications: Flow<List<CommunicationEntry>>
 
     val queries: Flow<List<String>>
@@ -42,6 +44,13 @@ interface HistoryStore {
     suspend fun setSaveHistory(enabled: Boolean)
 
     suspend fun clearQueries()
+
+    suspend fun replaceHistory(
+        recentApps: List<String>,
+        appLaunchCounts: Map<String, Int>,
+        communications: List<CommunicationEntry>,
+        queries: List<String>,
+    )
 }
 
 class DefaultHistoryStore internal constructor(private val store: DataStore<Preferences>) : HistoryStore {
@@ -49,7 +58,11 @@ class DefaultHistoryStore internal constructor(private val store: DataStore<Pref
     constructor(context: Context) : this(context.historyDataStore)
 
     override val recentApps: Flow<List<String>> = store.data.map { prefs ->
-        prefs[KEY_RECENT_APPS]?.split(SEPARATOR)?.filter { it.isNotBlank() } ?: emptyList()
+        prefs[KEY_RECENT_APPS]?.split(SEPARATOR)?.filter { it.isNotBlank() }?.distinct() ?: emptyList()
+    }
+
+    override val appLaunchCounts: Flow<Map<String, Int>> = store.data.map { prefs ->
+        readAppLaunchCounts(prefs)
     }
 
     override val communications: Flow<List<CommunicationEntry>> = store.data.map { prefs ->
@@ -65,32 +78,35 @@ class DefaultHistoryStore internal constructor(private val store: DataStore<Pref
     }
 
     override suspend fun pushRecentApp(packageName: String) {
+        if (packageName.isBlank()) return
         store.edit { prefs ->
             val current = prefs[KEY_RECENT_APPS]?.split(SEPARATOR).orEmpty()
+            val counts = readAppLaunchCounts(prefs).toMutableMap()
             prefs[KEY_RECENT_APPS] = (listOf(packageName) + current.filter { it != packageName })
                 .distinct()
                 .take(MAX_RECENT_APPS)
                 .joinToString(SEPARATOR)
+            counts[packageName] = (counts[packageName] ?: 0) + 1
+            prefs[KEY_APP_LAUNCH_COUNTS] = encodeAppLaunchCounts(counts)
         }
     }
 
     override suspend fun pushCommunication(entry: CommunicationEntry) {
         store.edit { prefs ->
-            val updated = listOf(entry) + readCommunications(prefs).filterNot {
+            val current = readCommunications(prefs)
+            val previous = current.firstOrNull {
                 it.contactId == entry.contactId && it.kind == entry.kind
             }
-            val array = JSONArray()
-            updated.take(MAX_COMMUNICATIONS).forEach { array.put(encode(it)) }
-            prefs[KEY_COMMUNICATIONS] = array.toString()
+            val updated = listOf(entry.copy(launchCount = (previous?.launchCount ?: 0) + 1)) +
+                current.filterNot { it.contactId == entry.contactId && it.kind == entry.kind }
+            prefs[KEY_COMMUNICATIONS] = encodeCommunications(updated.take(MAX_COMMUNICATIONS))
         }
     }
 
     override suspend fun removeCommunications(contactId: Long) {
         store.edit { prefs ->
             val kept = readCommunications(prefs).filterNot { it.contactId == contactId }
-            val array = JSONArray()
-            kept.forEach { array.put(encode(it)) }
-            prefs[KEY_COMMUNICATIONS] = array.toString()
+            prefs[KEY_COMMUNICATIONS] = encodeCommunications(kept)
         }
     }
 
@@ -113,6 +129,20 @@ class DefaultHistoryStore internal constructor(private val store: DataStore<Pref
         store.edit { prefs -> prefs.remove(KEY_QUERIES) }
     }
 
+    override suspend fun replaceHistory(
+        recentApps: List<String>,
+        appLaunchCounts: Map<String, Int>,
+        communications: List<CommunicationEntry>,
+        queries: List<String>,
+    ) {
+        store.edit { prefs ->
+            prefs[KEY_RECENT_APPS] = recentApps.distinct().take(MAX_RECENT_APPS).joinToString(SEPARATOR)
+            prefs[KEY_APP_LAUNCH_COUNTS] = encodeAppLaunchCounts(appLaunchCounts)
+            prefs[KEY_COMMUNICATIONS] = encodeCommunications(communications.take(MAX_COMMUNICATIONS))
+            prefs[KEY_QUERIES] = JSONArray(queries.distinct().take(MAX_QUERIES)).toString()
+        }
+    }
+
     private fun readCommunications(prefs: Preferences): List<CommunicationEntry> {
         val json = prefs[KEY_COMMUNICATIONS] ?: return emptyList()
         return runCatching {
@@ -129,6 +159,33 @@ class DefaultHistoryStore internal constructor(private val store: DataStore<Pref
         }.getOrDefault(emptyList())
     }
 
+    private fun readAppLaunchCounts(prefs: Preferences): Map<String, Int> {
+        val stored = prefs[KEY_APP_LAUNCH_COUNTS]
+        if (stored != null) {
+            runCatching {
+                val obj = JSONObject(stored)
+                val counts = mutableMapOf<String, Int>()
+                obj.keys().forEach { key ->
+                    counts[key] = obj.optInt(key, 0).coerceAtLeast(0)
+                }
+                return counts
+            }
+        }
+        return prefs[KEY_RECENT_APPS]?.split(SEPARATOR).orEmpty()
+            .filter { it.isNotBlank() }
+            .associateWith { 1 }
+    }
+
+    private fun encodeCommunications(entries: List<CommunicationEntry>): String =
+        JSONArray().apply { entries.forEach { put(encode(it)) } }.toString()
+
+    private fun encodeAppLaunchCounts(counts: Map<String, Int>): String =
+        JSONObject().apply {
+            counts.filterKeys { it.isNotBlank() }.forEach { (packageName, count) ->
+                put(packageName, count.coerceAtLeast(0))
+            }
+        }.toString()
+
     private fun encode(entry: CommunicationEntry): JSONObject = JSONObject()
         .put("kind", entry.kind.name)
         .put("id", entry.contactId)
@@ -136,6 +193,7 @@ class DefaultHistoryStore internal constructor(private val store: DataStore<Pref
         .put("name", entry.name)
         .put("number", entry.number)
         .put("time", entry.timestamp)
+        .put("count", entry.launchCount.coerceAtLeast(1))
 
     private fun decode(obj: JSONObject): CommunicationEntry = CommunicationEntry(
         kind = CommunicationKind.valueOf(obj.getString("kind")),
@@ -144,15 +202,17 @@ class DefaultHistoryStore internal constructor(private val store: DataStore<Pref
         name = obj.optString("name"),
         number = obj.optString("number"),
         timestamp = obj.getLong("time"),
+        launchCount = obj.optInt("count", 1).coerceAtLeast(1),
     )
 
     private companion object {
-        // Имена пакетов не содержат запятой, поэтому оно безопасно как разделитель списка.
+        // Имена пакетов не содержат запятую, поэтому оно безопасно как разделитель списка.
         const val SEPARATOR = ","
-        const val MAX_RECENT_APPS = 12
-        const val MAX_COMMUNICATIONS = 20
-        const val MAX_QUERIES = 20
+        const val MAX_RECENT_APPS = 100
+        const val MAX_COMMUNICATIONS = 100
+        const val MAX_QUERIES = 50
         val KEY_RECENT_APPS = stringPreferencesKey("recent_apps")
+        val KEY_APP_LAUNCH_COUNTS = stringPreferencesKey("app_launch_counts")
         val KEY_COMMUNICATIONS = stringPreferencesKey("communications")
         val KEY_QUERIES = stringPreferencesKey("queries")
         val KEY_SAVE_HISTORY = booleanPreferencesKey("save_history")

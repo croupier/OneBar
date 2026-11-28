@@ -7,7 +7,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -24,11 +24,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -52,10 +50,10 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
@@ -70,6 +68,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.onebar.app.R
+import dev.onebar.app.OneBarApplication
 import dev.onebar.app.data.CommunicationKind
 import dev.onebar.app.data.ContactEntry
 import dev.onebar.app.data.DefaultAppRepository
@@ -80,6 +79,7 @@ import dev.onebar.app.data.DefaultSuggestRepository
 import dev.onebar.app.data.KeyboardStartup
 import dev.onebar.app.data.LaunchableApp
 import dev.onebar.app.data.MessengerRepository
+import dev.onebar.app.data.SearchPreferencesStore
 import kotlinx.coroutines.launch
 
 private const val BACK_CONFIRM_WINDOW_MS = 2_000L
@@ -94,12 +94,17 @@ fun SearchScreen(
             suggestions = DefaultSuggestRepository(),
             history = DefaultHistoryStore(context.applicationContext),
             favoritesStore = DefaultFavoritesStore(context.applicationContext),
+            historyFavoritesFirst = (
+                (context.applicationContext as? OneBarApplication)?.searchPreferencesStore
+                    ?: SearchPreferencesStore(context.applicationContext)
+                ).historyFavoritesFirst,
         )
     },
     keyboardStartup: KeyboardStartup = KeyboardStartup.IMMEDIATE,
     settingsReturnCount: Int = 0,
     onOpenSettings: () -> Unit = {},
     onExit: () -> Unit = {},
+    onContactsPermissionGranted: () -> Unit = {},
     onCallEntry: (ContactEntry) -> Unit = { SearchActions.callEntry(context, it) },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -155,7 +160,10 @@ fun SearchScreen(
 
     val contactsPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { granted -> viewModel.onContactsPermissionResult(granted) }
+    ) { granted ->
+        viewModel.onContactsPermissionResult(granted)
+        if (granted) onContactsPermissionGranted()
+    }
 
     LaunchedEffect(Unit) {
         if (keyboardStartup == KeyboardStartup.IMMEDIATE) {
@@ -205,8 +213,9 @@ fun SearchScreen(
             focusRequester = focusRequester,
             onOpenSettings = onOpenSettings,
             onValueChange = { input ->
+                val textChanged = input.text != fieldValue.text
                 fieldValue = input
-                viewModel.onQueryChange(input.text)
+                if (textChanged) viewModel.onQueryChange(input.text)
             },
             onToggleFavorites = viewModel::onToggleFavoritesMode,
             onFieldFocus = { keyboard?.show() },
@@ -228,107 +237,127 @@ fun SearchScreen(
             },
         )
 
-        // Второй ряд плиток даём только тогда, когда остаётся место минимуму контактов.
-        // Контакты листаются внутри секции; при нехватке высоты прокручивается вся панель.
         BoxWithConstraints(modifier = Modifier.fillMaxWidth().weight(1f)) {
             val appColumns = appsColumns(maxWidth)
-            val showHistory =
-                state.historyRequested && state.query.isBlank() && state.queries.isNotEmpty() &&
-                    !state.favoritesMode
+            val hasApps = state.apps.isNotEmpty()
+            val hasSuggestions = state.suggestions.isNotEmpty()
+            val hasContacts = !favoritesBlank && (!state.contactsGranted || state.contacts.isNotEmpty())
             val rows = panelRows(
                 available = maxHeight,
-                hasApps = state.apps.isNotEmpty(),
-                hasHistory = showHistory,
-                hasSuggestions = state.suggestions.isNotEmpty(),
+                hasApps = hasApps,
+                hasSuggestions = hasSuggestions,
             )
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .then(if (rows.scroll) Modifier.verticalScroll(rememberScrollState()) else Modifier),
-            ) {
-                if (state.apps.isNotEmpty()) {
-                    SectionDivider(stringResource(R.string.apps_title))
-                    if (rows.appRows > 1) {
-                        AppsGridSection(
-                            apps = state.apps,
-                            columns = appColumns,
-                            rows = rows.appRows,
-                            favoritePackages = state.favApps.toSet(),
-                            onOpen = openApp,
-                            onMenu = viewModel::onAppMenuOpen,
-                        )
-                    } else {
-                        LazyRow(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            items(state.apps, key = { it.packageName }) { app ->
-                                AppItem(
-                                    app = app,
-                                    favorite = !state.favoritesMode && app.packageName in state.favApps,
-                                    onClick = { openApp(app) },
-                                    onLongClick = { viewModel.onAppMenuOpen(app) },
-                                )
+            val webHeight = if (hasSuggestions) {
+                SectionDividerHeight + ROW_HEIGHT * rows.webRows
+            } else {
+                0.dp
+            }
+            val localHeight = maxHeight - webHeight
+            val listHeight = localHeight / 2
+            Column(modifier = Modifier.fillMaxSize()) {
+                if (hasApps) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(if (hasContacts) listHeight else localHeight)
+                            .testTag("apps-section"),
+                    ) {
+                        SectionDivider(stringResource(R.string.apps_title))
+                        if (rows.appRows > 1) {
+                            AppsGridSection(
+                                apps = state.apps,
+                                columns = appColumns,
+                                favoritePackages = state.favApps.toSet(),
+                                onOpen = openApp,
+                                onMenu = viewModel::onAppMenuOpen,
+                                modifier = Modifier.weight(1f),
+                            )
+                        } else {
+                            LazyRow(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                items(state.apps, key = { it.packageName }) { app ->
+                                    AppItem(
+                                        app = app,
+                                        favorite = !state.favoritesMode && app.packageName in state.favApps,
+                                        onClick = { openApp(app) },
+                                        onLongClick = { viewModel.onAppMenuOpen(app) },
+                                    )
+                                }
                             }
                         }
                     }
                 }
 
-                if (showHistory) {
-                    SearchHistorySection(queries = state.queries, onPick = viewModel::onQueryChange)
-                }
-
                 if (favoritesBlank) {
-                    FavoritesEmptyHint()
+                    FavoritesEmptyHint(modifier = Modifier.height(localHeight))
                 } else {
-                    val hasContacts = !state.contactsGranted || state.contacts.isNotEmpty()
                     if (hasContacts) {
-                        SectionDivider(stringResource(R.string.contacts_title))
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(if (hasApps) listHeight else localHeight)
+                                .testTag("contacts-section"),
+                        ) {
+                            SectionDivider(stringResource(R.string.contacts_title))
+                            ContactsSection(
+                                state = state,
+                                modifier = Modifier.fillMaxSize(),
+                                swipeRows = swipeRows,
+                                smsIcon = smsIcon,
+                                callIcon = callIcon,
+                                onRequestPermission = { contactsPermission.launch(Manifest.permission.READ_CONTACTS) },
+                                onSms = { entry ->
+                                    viewModel.onCommunication(CommunicationKind.SMS, entry)
+                                    SearchActions.smsEntry(context, entry)
+                                },
+                                onCall = { entry ->
+                                    viewModel.onCommunication(CommunicationKind.CALL, entry)
+                                    onCallEntry(entry)
+                                },
+                                onOpen = { entry ->
+                                    SearchActions.openContact(context, entry)
+                                },
+                                onMenu = viewModel::onMenuOpen,
+                            )
+                        }
                     }
-                    ContactsSection(
-                        state = state,
-                        modifier = if (rows.scroll) Modifier.fillMaxWidth().height(ROW_HEIGHT * 3)
-                        else Modifier.fillMaxWidth().weight(1f),
-                        swipeRows = swipeRows,
-                        smsIcon = smsIcon,
-                        callIcon = callIcon,
-                        onRequestPermission = { contactsPermission.launch(Manifest.permission.READ_CONTACTS) },
-                        onSms = { entry ->
-                            viewModel.onCommunication(CommunicationKind.SMS, entry)
-                            SearchActions.smsEntry(context, entry)
-                        },
-                        onCall = { entry ->
-                            viewModel.onCommunication(CommunicationKind.CALL, entry)
-                            onCallEntry(entry)
-                        },
-                        onOpen = { entry ->
-                            SearchActions.openContact(context, entry)
-                        },
-                        onMenu = viewModel::onMenuOpen,
-                    )
 
                     val noLocalResults = state.query.isNotBlank() &&
                         state.apps.isEmpty() && state.contacts.isEmpty()
                     if (noLocalResults) {
-                        NothingFoundRow(inFavorites = state.favoritesMode)
+                        if (hasContacts) {
+                            NothingFoundRow(inFavorites = state.favoritesMode)
+                        } else {
+                            Box(
+                                modifier = Modifier.height(localHeight),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                NothingFoundRow(inFavorites = state.favoritesMode)
+                            }
+                        }
                     }
+                }
 
-                    if (state.suggestions.isNotEmpty()) {
+                if (hasSuggestions) {
+                    Column(modifier = Modifier.height(webHeight).testTag("web-section")) {
                         SectionDivider(stringResource(R.string.web_search_title))
+                        WebSuggestionsSection(
+                            state = state,
+                            rows = rows.webRows,
+                            swipeRows = swipeRows,
+                            onPick = { text ->
+                                fieldValue = TextFieldValue(text, selection = TextRange(text.length))
+                                viewModel.onQueryChange(text)
+                                focusRequester.requestFocus()
+                                keyboard?.show()
+                            },
+                            onSearch = { engine, text ->
+                                SearchActions.webSearch(context, engine, text)
+                            },
+                        )
                     }
-                    WebSuggestionsSection(
-                        state = state,
-                        swipeRows = swipeRows,
-                        onPick = { text ->
-                            fieldValue = TextFieldValue(text, selection = TextRange(text.length))
-                            viewModel.onQueryChange(text)
-                            focusRequester.requestFocus()
-                            keyboard?.show()
-                        },
-                        onSearch = { engine, text ->
-                            SearchActions.webSearch(context, engine, text)
-                        },
-                    )
                 }
             }
         }
@@ -467,7 +496,8 @@ private fun SearchBar(
                 Box(
                     modifier = Modifier
                         .matchParentSize()
-                        .pointerInput(Unit) { detectTapGestures { onFieldTap() } },
+                        .clickable(onClick = onFieldTap)
+                        .testTag("history-trigger"),
                 )
             }
             if (value.text.isNotBlank()) {
@@ -522,9 +552,9 @@ internal fun SectionDivider(title: String) {
 
 /** Пустое избранное: тот же каркас, вместо списков — подсказка про долгое нажатие. */
 @Composable
-private fun FavoritesEmptyHint() {
+private fun FavoritesEmptyHint(modifier: Modifier = Modifier) {
     Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 34.dp, vertical = 48.dp),
+        modifier = modifier.fillMaxWidth().padding(horizontal = 34.dp, vertical = 48.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {

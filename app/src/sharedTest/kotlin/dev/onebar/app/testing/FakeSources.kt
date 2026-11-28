@@ -31,6 +31,7 @@ fun contact(
     address: String = "",
     numbers: List<String> = emptyList(),
     photoUri: String? = null,
+    timesContacted: Int = 0,
 ) = ContactEntry(
     contactId = id,
     lookupKey = lookupKey,
@@ -44,6 +45,7 @@ fun contact(
     note = note,
     address = address,
     searchableNumbers = numbers,
+    timesContacted = timesContacted,
 )
 
 fun log(
@@ -53,7 +55,8 @@ fun log(
     lookupKey: String = "lookup-$id",
     number: String = "+7000000000$id",
     timestamp: Long = System.currentTimeMillis(),
-) = CommunicationEntry(kind, id, lookupKey, name, number, timestamp)
+    launchCount: Int = 1,
+) = CommunicationEntry(kind, id, lookupKey, name, number, timestamp, launchCount)
 
 /**
  * Заглушки источников данных. Колбэки onMatch/onSearch вызываются до формирования
@@ -121,11 +124,13 @@ class FakeSuggestions(private val replies: Map<String, List<String>> = emptyMap(
 /** Хранит то же, что DataStore-журнал, но в памяти и сразу отдаёт изменения во flows. */
 class FakeHistory(
     recentApps: List<String> = emptyList(),
+    appLaunchCounts: Map<String, Int> = recentApps.associateWith { 1 },
     communications: List<CommunicationEntry> = emptyList(),
     queries: List<String> = emptyList(),
     saveHistory: Boolean = true,
 ) : HistoryStore {
     private val _recentApps = MutableStateFlow(recentApps)
+    private val _appLaunchCounts = MutableStateFlow(appLaunchCounts)
     private val _communications = MutableStateFlow(communications)
     private val _queries = MutableStateFlow(queries)
     private val _saveHistory = MutableStateFlow(saveHistory)
@@ -136,6 +141,7 @@ class FakeHistory(
     val journalRemoved: MutableList<Long> = mutableListOf()
 
     override val recentApps: Flow<List<String>> = _recentApps
+    override val appLaunchCounts: Flow<Map<String, Int>> = _appLaunchCounts
     override val communications: Flow<List<CommunicationEntry>> = _communications
     override val queries: Flow<List<String>> = combine(_queries, _saveHistory) { queries, enabled ->
         if (enabled) queries else emptyList()
@@ -145,11 +151,15 @@ class FakeHistory(
     override suspend fun pushRecentApp(packageName: String) {
         pushedApps += packageName
         _recentApps.value = listOf(packageName) + _recentApps.value.filterNot { it == packageName }
+        _appLaunchCounts.value = _appLaunchCounts.value + (packageName to (_appLaunchCounts.value[packageName] ?: 0) + 1)
     }
 
     override suspend fun pushCommunication(entry: CommunicationEntry) {
         pushedCommunications += entry
-        _communications.value = listOf(entry) +
+        val previous = _communications.value.firstOrNull {
+            it.contactId == entry.contactId && it.kind == entry.kind
+        }
+        _communications.value = listOf(entry.copy(launchCount = (previous?.launchCount ?: 0) + 1)) +
             _communications.value.filterNot { it.contactId == entry.contactId && it.kind == entry.kind }
     }
 
@@ -171,6 +181,18 @@ class FakeHistory(
 
     override suspend fun clearQueries() {
         _queries.value = emptyList()
+    }
+
+    override suspend fun replaceHistory(
+        recentApps: List<String>,
+        appLaunchCounts: Map<String, Int>,
+        communications: List<CommunicationEntry>,
+        queries: List<String>,
+    ) {
+        _recentApps.value = recentApps
+        _appLaunchCounts.value = appLaunchCounts
+        _communications.value = communications
+        _queries.value = queries
     }
 }
 

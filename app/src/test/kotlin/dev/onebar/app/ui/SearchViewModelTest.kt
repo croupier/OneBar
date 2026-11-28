@@ -10,6 +10,8 @@ import dev.onebar.app.testing.MainDispatcherRule
 import dev.onebar.app.testing.app
 import dev.onebar.app.testing.contact
 import dev.onebar.app.testing.log
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -37,7 +39,12 @@ class SearchViewModelTest {
         suggestions: FakeSuggestions = FakeSuggestions(),
         history: FakeHistory = FakeHistory(),
         favorites: FakeFavorites = FakeFavorites(),
-    ) = SearchViewModel(apps, contacts, suggestions, history, favorites, io = main.dispatcher)
+        historyFavoritesFirst: StateFlow<Boolean> = MutableStateFlow(true),
+    ) = SearchViewModel(
+        apps, contacts, suggestions, history, favorites,
+        io = main.dispatcher,
+        historyFavoritesFirst = historyFavoritesFirst,
+    )
 
     @Test
     fun `пустой запрос показывает недавние приложения в порядке журнала`() = runTest(main.dispatcher) {
@@ -48,6 +55,167 @@ class SearchViewModelTest {
         advanceUntilIdle()
 
         assertEquals(listOf("com.b", "com.a"), vm.state.value.apps.map { it.packageName })
+    }
+
+    @Test
+    fun `пустой запрос приложений история избранное частота алфавит без дублей`() = runTest(main.dispatcher) {
+        val apps = FakeApps(
+            known = listOf(
+                app("com.alpha", "Alpha"),
+                app("com.hist.old", "Z Old"),
+                app("com.fav.low", "A Fav Low"),
+                app("com.zeta", "Zeta"),
+                app("com.fav.high", "B Fav High"),
+                app("com.hist.new", "Y New"),
+            )
+        )
+        val vm = viewModel(
+            apps = apps,
+            history = FakeHistory(
+                recentApps = listOf("com.hist.new", "com.hist.old", "com.fav.high"),
+                appLaunchCounts = mapOf("com.fav.high" to 20, "com.fav.low" to 5),
+            ),
+            favorites = FakeFavorites(apps = listOf("com.fav.low", "com.fav.high")),
+        )
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf("com.hist.new", "com.hist.old", "com.fav.high", "com.fav.low", "com.alpha", "com.zeta"),
+            vm.state.value.apps.map { it.packageName },
+        )
+    }
+
+    @Test
+    fun `пустой запрос контактов история частота избранного алфавит без дублей`() = runTest(main.dispatcher) {
+        val vm = viewModel(
+            contacts = FakeContacts(
+                known = listOf(
+                    contact(1, "New"),
+                    contact(2, "Old"),
+                    contact(3, "Fav Low", timesContacted = 2),
+                    contact(4, "Fav High", timesContacted = 10),
+                    contact(5, "Alpha"),
+                )
+            ),
+            history = FakeHistory(
+                communications = listOf(
+                    log(1, "New", CommunicationKind.CALL, timestamp = 200, launchCount = 3),
+                    log(1, "New", CommunicationKind.SMS, timestamp = 100, launchCount = 2),
+                    log(2, "Old", timestamp = 50),
+                )
+            ),
+            favorites = FakeFavorites(contacts = listOf("lookup-3", "lookup-4")),
+        )
+        advanceUntilIdle()
+
+        val rows = vm.state.value.contacts
+        assertEquals(listOf(1L, 2L, 4L, 3L, 5L), rows.map { it.entry.contactId })
+        assertEquals(1, rows.count { it.entry.contactId == 1L })
+    }
+
+    @Test
+    fun `непустой поиск ставит совпадения истории перед избранным и остальными`() = runTest(main.dispatcher) {
+        val vm = viewModel(
+            apps = FakeApps(
+                known = listOf(
+                    app("com.best", "Maps Best"),
+                    app("com.history", "Maps History"),
+                    app("com.favorite", "Maps Favorite"),
+                )
+            ),
+            history = FakeHistory(recentApps = listOf("com.history")),
+            favorites = FakeFavorites(apps = listOf("com.favorite")),
+        )
+        advanceUntilIdle()
+
+        vm.onQueryChange("maps")
+        advanceUntilIdle()
+
+        assertEquals(listOf("com.history", "com.favorite", "com.best"), vm.state.value.apps.map { it.packageName })
+    }
+
+    @Test
+    fun `выключенный приоритет истории оставляет избранное и релевантность`() = runTest(main.dispatcher) {
+        val vm = viewModel(
+            apps = FakeApps(
+                known = listOf(
+                    app("com.best", "Maps Best"),
+                    app("com.history", "Maps History"),
+                    app("com.favorite", "Maps Favorite"),
+                )
+            ),
+            history = FakeHistory(recentApps = listOf("com.history")),
+            favorites = FakeFavorites(apps = listOf("com.favorite")),
+            historyFavoritesFirst = MutableStateFlow(false),
+        )
+        advanceUntilIdle()
+
+        vm.onQueryChange("maps")
+        advanceUntilIdle()
+
+        assertEquals(listOf("com.favorite", "com.best", "com.history"), vm.state.value.apps.map { it.packageName })
+    }
+
+    @Test
+    fun `в самом избранном приложения идут по частоте запуска`() = runTest(main.dispatcher) {
+        val vm = viewModel(
+            apps = FakeApps(known = listOf(app("com.low", "Low"), app("com.high", "High"))),
+            history = FakeHistory(
+                appLaunchCounts = mapOf("com.low" to 2, "com.high" to 20),
+            ),
+            favorites = FakeFavorites(apps = listOf("com.low", "com.high")),
+        )
+        advanceUntilIdle()
+
+        vm.onToggleFavoritesMode()
+        advanceUntilIdle()
+
+        assertEquals(listOf("com.high", "com.low"), vm.state.value.apps.map { it.packageName })
+    }
+
+    @Test
+    fun `в самом избранном контакты идут по частоте действий`() = runTest(main.dispatcher) {
+        val vm = viewModel(
+            contacts = FakeContacts(known = listOf(contact(1, "Low"), contact(2, "High"))),
+            history = FakeHistory(
+                communications = listOf(
+                    log(1, "Low", timestamp = 300, launchCount = 2),
+                    log(2, "High", timestamp = 200, launchCount = 20),
+                )
+            ),
+            favorites = FakeFavorites(contacts = listOf("lookup-1", "lookup-2")),
+        )
+        advanceUntilIdle()
+
+        vm.onToggleFavoritesMode()
+        advanceUntilIdle()
+
+        assertEquals(listOf("High", "Low"), vm.state.value.contacts.map { it.entry.name })
+    }
+
+    @Test
+    fun `веб-история идёт первой и не дублирует подсказки`() = runTest(main.dispatcher) {
+        val vm = viewModel(
+            history = FakeHistory(queries = listOf("Coffee", "Pizza")),
+            suggestions = FakeSuggestions(replies = mapOf("cof" to listOf("coffee", "coffee beans"))),
+        )
+
+        vm.onQueryChange("cof")
+        advanceUntilIdle()
+
+        assertEquals(listOf("Coffee", "coffee beans"), vm.state.value.suggestions)
+    }
+
+    @Test
+    fun `пустые списки ограничены пятьюдесятью записями`() = runTest(main.dispatcher) {
+        val vm = viewModel(
+            apps = FakeApps(known = (1..60).map { app("com.$it", "App $it") }),
+            contacts = FakeContacts(known = (1..60).map { contact(it.toLong(), "Contact $it") }),
+        )
+        advanceUntilIdle()
+
+        assertEquals(50, vm.state.value.apps.size)
+        assertEquals(50, vm.state.value.contacts.size)
     }
 
     @Test
@@ -191,6 +359,7 @@ class SearchViewModelTest {
 
         vm.onHistoryRequested()
         assertTrue(vm.state.value.historyRequested)
+        assertEquals(listOf("кофе", "пицца"), vm.state.value.suggestions)
     }
 
     @Test

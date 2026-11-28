@@ -30,6 +30,7 @@ class SettingsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         val history = DefaultHistoryStore(applicationContext)
+        val searchPreferences = (application as OneBarApplication).searchPreferencesStore
         enableEdgeToEdge()
         val appearanceStore = (application as OneBarApplication).appearanceStore
         val firstRunLanguage = intent.getBooleanExtra(EXTRA_FIRST_RUN_LANGUAGE, false) &&
@@ -37,6 +38,7 @@ class SettingsActivity : AppCompatActivity() {
         setContent {
             val theme by appearanceStore.theme.collectAsStateWithLifecycle()
             val keyboardStartup by appearanceStore.keyboardStartup.collectAsStateWithLifecycle()
+            val historyFavoritesFirst by searchPreferences.historyFavoritesFirst.collectAsStateWithLifecycle()
             OneBarTheme(theme = theme) {
                 val saveHistory by history.saveHistory.collectAsStateWithLifecycle(initialValue = true)
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -62,6 +64,8 @@ class SettingsActivity : AppCompatActivity() {
                             AppCompatDelegate.setDefaultNightMode(it.toNightMode())
                         },
                         onKeyboardStartupChange = appearanceStore::setKeyboardStartup,
+                        historyFavoritesFirst = historyFavoritesFirst,
+                        onHistoryFavoritesFirstChange = searchPreferences::setHistoryFavoritesFirst,
                         saveHistory = saveHistory,
                         onSaveHistory = { enabled -> history.setSaveHistory(enabled) },
                         onClearHistory = { history.clearQueries() },

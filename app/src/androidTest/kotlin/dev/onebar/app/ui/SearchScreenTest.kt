@@ -1,6 +1,7 @@
 package dev.onebar.app.ui
 
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
@@ -14,6 +15,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotFocused
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
@@ -27,6 +29,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
@@ -118,7 +121,7 @@ class SearchScreenTest {
         settingsReturnCount: MutableState<Int>? = null,
         onOpenSettings: () -> Unit = {},
         onExit: () -> Unit = {},
-    ) {
+    ): SearchViewModel {
         val viewModel = SearchViewModel(apps, contacts, suggestions, history, favorites)
         ui.setContent {
             SearchScreen(
@@ -130,6 +133,7 @@ class SearchScreenTest {
                 onCallEntry = {},
             )
         }
+        return viewModel
     }
 
     @Test
@@ -308,7 +312,6 @@ class SearchScreenTest {
                     AppsGridSection(
                         apps = apps,
                         columns = 4,
-                        rows = 2,
                         favoritePackages = setOf("com.1"),
                         onOpen = {},
                         onMenu = {},
@@ -323,6 +326,34 @@ class SearchScreenTest {
         }
         ui.onNodeWithTag("app-favorite-com.1", useUnmergedTree = true).assertIsDisplayed()
         ui.onNodeWithTag("app-favorite-com.2", useUnmergedTree = true).assertDoesNotExist()
+        ui.onNodeWithText("App 5").assertExists()
+        ui.onNodeWithTag("apps-grid").performScrollToNode(hasText("App 5"))
+        ui.onNodeWithText("App 5").assertIsDisplayed()
+    }
+
+    @Test
+    fun `ряды_приложений_прокручиваются_вертикально_и_горизонтально`() {
+        val apps = (1..80).map { index -> app("com.$index", "App $index") }
+        ui.setContent {
+            OneBarTheme {
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    AppsGridSection(
+                        apps = apps,
+                        columns = 4,
+                        favoritePackages = emptySet(),
+                        onOpen = {},
+                        onMenu = {},
+                        modifier = Modifier.height(220.dp),
+                    )
+                }
+            }
+        }
+
+        ui.onNodeWithTag("apps-grid").performScrollToNode(hasText("App 77"))
+        ui.onNodeWithText("App 77").assertIsDisplayed()
+        ui.onNodeWithTag("apps-grid").performScrollToNode(hasText("App 1"))
+        ui.onNodeWithTag("apps-row-com.1").performScrollToNode(hasText("App 6"))
+        ui.onNodeWithText("App 6").assertIsDisplayed()
     }
 
     @Test
@@ -338,8 +369,29 @@ class SearchScreenTest {
         ui.onNode(hasSetTextAction()).performImeAction()
         ui.waitUntilAtLeastOneExists(hasTestTag("apps-grid"), TIMEOUT)
 
-        ui.onNodeWithText("App 5").assertIsDisplayed()
+        ui.onNodeWithText("App 5").assertExists()
         ui.onNodeWithTag("app-favorite-com.1", useUnmergedTree = true).assertIsDisplayed()
+        ui.onNodeWithTag("apps-grid").performScrollToNode(hasText("App 5"))
+        ui.onNodeWithText("App 5").assertIsDisplayed()
+    }
+
+    @Test
+    fun `без_веб_поиска_приложения_и_контакты_делят_высоту_поровну`() {
+        val apps = (1..8).map { index -> app("com.$index", "App $index") }
+        show(
+            apps = FakeApps(known = apps),
+            contacts = FakeContacts(known = listOf(contact(1, "Ann"))),
+            history = FakeHistory(recentApps = apps.map { it.packageName }),
+        )
+        ui.waitUntilAtLeastOneExists(hasText("Ann"), TIMEOUT)
+        ui.onNode(hasSetTextAction()).performImeAction()
+        ui.waitUntilAtLeastOneExists(hasTestTag("apps-grid"), TIMEOUT)
+
+        val appsBounds = nodeBounds("apps-section")
+        val contactsBounds = nodeBounds("contacts-section")
+        assertEquals(appsBounds.height, contactsBounds.height, 24f)
+        ui.onNodeWithTag("web-section").assertDoesNotExist()
+        ui.onNodeWithText(str(R.string.web_search_title)).assertDoesNotExist()
     }
 
     @Test
@@ -822,19 +874,24 @@ class SearchScreenTest {
         ui.waitUntil(TIMEOUT) { history.pushedQueries.isNotEmpty() }
 
         ui.onNodeWithContentDescription(str(R.string.clear)).performClick()
-        field.performClick()
+        ui.onNodeWithTag("history-trigger").performTouchInput { click() }
 
         ui.waitUntilAtLeastOneExists(hasText("кофе"), TIMEOUT)
     }
 
     @Test
     fun `тап_по_пустому_полю_показывает_историю_запросов`() {
-        show(history = FakeHistory(queries = listOf("кофе", "пицца")))
+        val viewModel = show(history = FakeHistory(queries = listOf("кофе", "пицца")))
+        ui.waitUntil(TIMEOUT) { viewModel.state.value.queries.size == 2 }
 
-        ui.onNode(hasSetTextAction()).performClick()
+        ui.onNodeWithTag("history-trigger").performTouchInput { click() }
 
+        assertTrue(viewModel.state.value.historyRequested)
+        assertEquals(listOf("кофе", "пицца"), viewModel.state.value.suggestions)
         ui.waitUntilAtLeastOneExists(hasText("кофе"), TIMEOUT)
-        ui.onNodeWithText("пицца").assertExists()
+        ui.onNodeWithTag("web-suggestions").performScrollToNode(hasText("пицца"))
+        ui.onNodeWithText("пицца").assertIsDisplayed()
+        assertEquals(1, ui.onAllNodesWithText(str(R.string.web_search_title)).fetchSemanticsNodes().size)
     }
 
     @Test

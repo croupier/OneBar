@@ -21,10 +21,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -141,36 +139,45 @@ fun appsColumns(width: Dp): Int =
     ((width - 16.dp + 4.dp) / (AppItemWidth + 4.dp)).toInt().coerceAtLeast(1)
 
 /**
- * Приложения сеткой, когда высоты хватает на два ряда: горизонтальная строка при большой
- * высоте оставила бы пустое поле. Сверх отданных рядов сетка листается сама.
+ * Приложения вертикальным списком горизонтальных рядов: без клавиатуры видно несколько
+ * рядов, лишние ряды доступны вертикальным свайпом, а каждый ряд — горизонтальным.
  */
 @Composable
 fun AppsGridSection(
     apps: List<LaunchableApp>,
     columns: Int,
-    rows: Int,
     favoritePackages: Set<String>,
     onOpen: (LaunchableApp) -> Unit,
     onMenu: (LaunchableApp) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     if (apps.isEmpty()) return
-    val usedRows = ((apps.size + columns - 1) / columns).coerceAtMost(rows).coerceAtLeast(1)
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(columns),
-        modifier = Modifier
+    val rowColumns = columns + 2
+    val appRows = apps.chunked(rowColumns)
+    LazyColumn(
+        modifier = modifier
             .fillMaxWidth()
-            .height(AppsRowHeight * usedRows)
-            .padding(vertical = 6.dp)
             .testTag("apps-grid"),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(AppsRowGap),
+        contentPadding = PaddingValues(vertical = 6.dp),
     ) {
-        items(apps, key = { it.packageName }) { app ->
-            AppItem(
-                app = app,
-                favorite = app.packageName in favoritePackages,
-                onClick = { onOpen(app) },
-                onLongClick = { onMenu(app) },
-            )
+        items(appRows, key = { it.first().packageName }) { rowApps ->
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(AppItemHeight)
+                    .testTag("apps-row-${rowApps.first().packageName}"),
+                horizontalArrangement = Arrangement.spacedBy(AppsRowGap),
+            ) {
+                items(rowApps, key = { it.packageName }) { app ->
+                    AppItem(
+                        app = app,
+                        favorite = app.packageName in favoritePackages,
+                        onClick = { onOpen(app) },
+                        onLongClick = { onMenu(app) },
+                    )
+                }
+            }
         }
     }
 }
@@ -472,68 +479,21 @@ private const val SETTLE_MS = 220
 private const val ACTION_HOLD_MS = 100L
 
 @Composable
-fun SearchHistorySection(
-    queries: List<String>,
-    onPick: (String) -> Unit,
-) {
-    LazyColumn(modifier = Modifier.fillMaxWidth().height(ROW_HEIGHT * 3)) {
-        items(queries, key = { it }) { query ->
-            HistoryRow(text = query, onPick = { onPick(query) })
-        }
-    }
-}
-
-@Composable
-private fun HistoryRow(
-    text: String,
-    onPick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().height(ROW_HEIGHT),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Icon(
-            painter = painterResource(R.drawable.ic_history),
-            contentDescription = null,
-            modifier = Modifier.padding(start = 14.dp).size(22.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = text,
-            modifier = Modifier
-                .weight(1f)
-                .clip(RoundedCornerShape(8.dp))
-                .clickable(onClick = onPick)
-                .padding(vertical = 8.dp),
-            style = MaterialTheme.typography.bodyLarge,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Icon(
-            painter = painterResource(R.drawable.ic_submit),
-            contentDescription = stringResource(R.string.history_restore),
-            modifier = Modifier
-                .padding(end = 14.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .clickable(onClick = onPick)
-                .padding(6.dp)
-                .size(20.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-@Composable
 internal fun WebSuggestionsSection(
     state: SearchState,
+    rows: Int,
     swipeRows: SwipeRowController,
     onPick: (String) -> Unit,
     onSearch: (WebEngine, String) -> Unit,
 ) {
     if (state.suggestions.isEmpty()) return
 
-    LazyColumn(modifier = Modifier.fillMaxWidth().height(ROW_HEIGHT * 3)) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(ROW_HEIGHT * rows)
+            .testTag("web-suggestions"),
+    ) {
         items(state.suggestions, key = { "web:$it" }) { suggestion ->
             WebRow(
                 text = suggestion,

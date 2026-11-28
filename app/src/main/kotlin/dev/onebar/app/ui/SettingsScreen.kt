@@ -130,6 +130,8 @@ fun SettingsScreen(
     onLanguageChange: (LanguageOption) -> Unit = {},
     onThemeChange: (ThemeOption) -> Unit = {},
     onKeyboardStartupChange: (KeyboardStartup) -> Unit = {},
+    historyFavoritesFirst: Boolean = true,
+    onHistoryFavoritesFirstChange: (Boolean) -> Unit = {},
     saveHistory: Boolean = true,
     onSaveHistory: suspend (Boolean) -> Unit = {},
     onClearHistory: suspend () -> Unit = {},
@@ -155,6 +157,8 @@ fun SettingsScreen(
                 onLanguageChange = onLanguageChange,
                 onThemeChange = onThemeChange,
                 onKeyboardStartupChange = onKeyboardStartupChange,
+                historyFavoritesFirst = historyFavoritesFirst,
+                onHistoryFavoritesFirstChange = onHistoryFavoritesFirstChange,
                 saveHistory = saveHistory,
                 onSaveHistory = onSaveHistory,
                 onClearHistory = onClearHistory,
@@ -173,13 +177,19 @@ private fun SettingsScreenContent(
     onLanguageChange: (LanguageOption) -> Unit,
     onThemeChange: (ThemeOption) -> Unit,
     onKeyboardStartupChange: (KeyboardStartup) -> Unit,
+    historyFavoritesFirst: Boolean,
+    onHistoryFavoritesFirstChange: (Boolean) -> Unit,
     saveHistory: Boolean,
     onSaveHistory: suspend (Boolean) -> Unit,
     onClearHistory: suspend () -> Unit,
     onSend: (String) -> Unit,
 ) {
-    var searchOptions by rememberSaveable(stateSaver = SearchOptionsSaver) { mutableStateOf(SearchOptions()) }
-    var savedSearchOptions by rememberSaveable(stateSaver = SearchOptionsSaver) { mutableStateOf(SearchOptions()) }
+    var searchOptions by rememberSaveable(stateSaver = SearchOptionsSaver) {
+        mutableStateOf(SearchOptions(favoritesFirst = historyFavoritesFirst))
+    }
+    var savedSearchOptions by rememberSaveable(stateSaver = SearchOptionsSaver) {
+        mutableStateOf(SearchOptions(favoritesFirst = historyFavoritesFirst))
+    }
     var editedSaveHistory by rememberSaveable { mutableStateOf(saveHistory) }
     var savedSaveHistory by rememberSaveable { mutableStateOf(saveHistory) }
     var showLanguageDialog by rememberSaveable { mutableStateOf(false) }
@@ -207,6 +217,9 @@ private fun SettingsScreenContent(
                 onSaveHistory(editedSaveHistory)
                 savedSaveHistory = editedSaveHistory
             }
+            if (searchOptions.favoritesFirst != savedSearchOptions.favoritesFirst) {
+                onHistoryFavoritesFirstChange(searchOptions.favoritesFirst)
+            }
             savedSearchOptions = searchOptions
             notify(savedMessage)
         } else {
@@ -218,6 +231,13 @@ private fun SettingsScreenContent(
         if (editedSaveHistory == savedSaveHistory && saveHistory != savedSaveHistory) {
             editedSaveHistory = saveHistory
             savedSaveHistory = saveHistory
+        }
+    }
+
+    LaunchedEffect(historyFavoritesFirst) {
+        if (searchOptions == savedSearchOptions && searchOptions.favoritesFirst != historyFavoritesFirst) {
+            searchOptions = SearchOptions(favoritesFirst = historyFavoritesFirst)
+            savedSearchOptions = searchOptions
         }
     }
 

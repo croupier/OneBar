@@ -85,7 +85,7 @@ class SearchViewModelRaceTest {
     fun `обновление после возврата не теряет новое недавнее приложение`() = runBlocking {
         val apps = BlockingRefreshApps(listOf(app("com.a", "A"), app("com.b", "B")))
         val vm = SearchViewModel(apps, FakeContacts(), FakeSuggestions(), FakeHistory(recentApps = listOf("com.a")), FakeFavorites())
-        withTimeout(5_000) { vm.state.first { it.apps.map { app -> app.label } == listOf("A") } }
+        withTimeout(5_000) { vm.state.first { it.apps.map { app -> app.packageName } == listOf("com.a", "com.b") } }
 
         val children = vm.viewModelScope.coroutineContext[Job]!!.children.toSet()
         apps.blockNext.set(true)

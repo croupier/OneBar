@@ -77,6 +77,8 @@ class SettingsScreenTest {
         onLanguageChange: (LanguageOption) -> Unit = {},
         onThemeChange: (ThemeOption) -> Unit = {},
         onKeyboardStartupChange: (KeyboardStartup) -> Unit = {},
+        historyFavoritesFirst: Boolean = true,
+        onHistoryFavoritesFirstChange: (Boolean) -> Unit = {},
         saveHistory: Boolean = true,
         onSaveHistory: suspend (Boolean) -> Unit = {},
         onClearHistory: suspend () -> Unit = {},
@@ -106,6 +108,8 @@ class SettingsScreenTest {
                             selectedKeyboardStartup = it
                             onKeyboardStartupChange(it)
                         },
+                        historyFavoritesFirst = historyFavoritesFirst,
+                        onHistoryFavoritesFirstChange = onHistoryFavoritesFirstChange,
                         saveHistory = saveHistory,
                         onSaveHistory = onSaveHistory,
                         onClearHistory = onClearHistory,
@@ -192,6 +196,24 @@ class SettingsScreenTest {
         ui.onNodeWithText(str(R.string.settings_cancel)).assertDoesNotExist()
         ui.onNodeWithText(str(R.string.settings_keyboard_startup_on_focus)).assertExists()
         assertEquals(KeyboardStartup.ON_FOCUS, selected)
+    }
+
+    @Test
+    fun `приоритет_истории_и_избранного_сохраняется`() {
+        val saved = mutableListOf<Boolean>()
+        show(onHistoryFavoritesFirstChange = { saved += it })
+        val label = str(R.string.settings_search_favorites)
+
+        scrollTo(label)
+        ui.onNodeWithText(label).assertIsOn().performClick()
+        ui.onNodeWithText(label).assertIsOff()
+        assertTrue(saved.isEmpty())
+
+        scrollTo(str(R.string.settings_save))
+        ui.onNodeWithText(str(R.string.settings_save)).performClick()
+
+        assertEquals(listOf(false), saved)
+        ui.waitUntilAtLeastOneExists(hasText(str(R.string.settings_saved_message)), 5_000L)
     }
 
     @Test
