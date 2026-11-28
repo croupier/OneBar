@@ -10,13 +10,17 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.onebar.app.data.IconShape
+import dev.onebar.app.ui.LocalIconShape
 import dev.onebar.app.ui.SearchScreen
+import dev.onebar.app.ui.isSystemIconShapeAvailable
 import dev.onebar.app.ui.theme.OneBarTheme
 
 class MainActivity : AppCompatActivity() {
@@ -40,19 +44,28 @@ class MainActivity : AppCompatActivity() {
             }
             val theme by appearanceStore.theme.collectAsStateWithLifecycle()
             val keyboardStartup by appearanceStore.keyboardStartup.collectAsStateWithLifecycle()
+            val storedIconShape by appearanceStore.iconShape.collectAsStateWithLifecycle()
+            val systemIconShapeAvailable = remember { isSystemIconShapeAvailable() }
+            val iconShape = if (storedIconShape == IconShape.SYSTEM && !systemIconShapeAvailable) {
+                IconShape.SQUARE
+            } else {
+                storedIconShape
+            }
             OneBarTheme(theme = theme) {
-                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    SearchScreen(
-                        keyboardStartup = keyboardStartup,
-                        settingsReturnCount = settingsReturnCount,
-                        onOpenSettings = {
-                            settingsLauncher.launch(Intent(this, SettingsActivity::class.java))
-                        },
-                        onExit = { finish() },
-                        onContactsPermissionGranted = {
-                            (application as OneBarApplication).seedDebugHistoryContacts()
-                        },
-                    )
+                CompositionLocalProvider(LocalIconShape provides iconShape) {
+                    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                        SearchScreen(
+                            keyboardStartup = keyboardStartup,
+                            settingsReturnCount = settingsReturnCount,
+                            onOpenSettings = {
+                                settingsLauncher.launch(Intent(this, SettingsActivity::class.java))
+                            },
+                            onExit = { finish() },
+                            onContactsPermissionGranted = {
+                                (application as OneBarApplication).seedDebugHistoryContacts()
+                            },
+                        )
+                    }
                 }
             }
         }

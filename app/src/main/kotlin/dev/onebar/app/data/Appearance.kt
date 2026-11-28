@@ -25,6 +25,13 @@ enum class KeyboardStartup {
     ON_FOCUS,
 }
 
+enum class IconShape {
+    SYSTEM,
+    SQUARE,
+    CIRCLE,
+    SOFT_SQUARE,
+}
+
 class AppearanceStore internal constructor(private val preferences: SharedPreferences) {
 
     constructor(context: Context) : this(
@@ -36,6 +43,9 @@ class AppearanceStore internal constructor(private val preferences: SharedPrefer
 
     private val _keyboardStartup = MutableStateFlow(readKeyboardStartup())
     val keyboardStartup: StateFlow<KeyboardStartup> = _keyboardStartup.asStateFlow()
+
+    private val _iconShape = MutableStateFlow(readIconShape())
+    val iconShape: StateFlow<IconShape> = _iconShape.asStateFlow()
 
     val requiresLanguageSelection: Boolean
         get() = readLanguageSetup() != LanguageSetup.COMPLETE
@@ -74,6 +84,11 @@ class AppearanceStore internal constructor(private val preferences: SharedPrefer
         _keyboardStartup.value = option
     }
 
+    fun setIconShape(option: IconShape) {
+        preferences.edit().putString(KEY_ICON_SHAPE, option.name).apply()
+        _iconShape.value = option
+    }
+
     private fun readTheme(): ThemeOption {
         val stored = preferences.getString(KEY_THEME, null)
         return ThemeOption.entries.firstOrNull { it.name == stored } ?: ThemeOption.SYSTEM
@@ -82,6 +97,11 @@ class AppearanceStore internal constructor(private val preferences: SharedPrefer
     private fun readKeyboardStartup(): KeyboardStartup {
         val stored = preferences.getString(KEY_KEYBOARD_STARTUP, null)
         return KeyboardStartup.entries.firstOrNull { it.name == stored } ?: KeyboardStartup.IMMEDIATE
+    }
+
+    private fun readIconShape(): IconShape {
+        val stored = preferences.getString(KEY_ICON_SHAPE, null)
+        return IconShape.entries.firstOrNull { it.name == stored } ?: IconShape.SQUARE
     }
 
     private fun readLanguageSetup(): LanguageSetup {
@@ -103,6 +123,7 @@ class AppearanceStore internal constructor(private val preferences: SharedPrefer
         const val PREFERENCES_NAME = "appearance"
         const val KEY_THEME = "theme"
         const val KEY_KEYBOARD_STARTUP = "keyboard_startup"
+        const val KEY_ICON_SHAPE = "icon_shape"
         const val KEY_LANGUAGE_SETUP = "language_setup"
     }
 }

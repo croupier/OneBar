@@ -15,13 +15,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.onebar.app.data.DefaultHistoryStore
+import dev.onebar.app.data.IconShape
 import dev.onebar.app.data.KeyboardStartup
 import dev.onebar.app.data.LanguageOption
 import dev.onebar.app.data.toLocales
 import dev.onebar.app.ui.SettingsScreen
+import dev.onebar.app.ui.isSystemIconShapeAvailable
 import dev.onebar.app.ui.theme.OneBarTheme
 import dev.onebar.app.ui.theme.toNightMode
 
@@ -38,6 +41,8 @@ class SettingsActivity : AppCompatActivity() {
         setContent {
             val theme by appearanceStore.theme.collectAsStateWithLifecycle()
             val keyboardStartup by appearanceStore.keyboardStartup.collectAsStateWithLifecycle()
+            val iconShape by appearanceStore.iconShape.collectAsStateWithLifecycle()
+            val systemIconShapeAvailable = remember { isSystemIconShapeAvailable() }
             val searchOptions by searchPreferences.options.collectAsStateWithLifecycle()
             OneBarTheme(theme = theme) {
                 val saveHistory by history.saveHistory.collectAsStateWithLifecycle(initialValue = true)
@@ -48,6 +53,8 @@ class SettingsActivity : AppCompatActivity() {
                         language = currentLanguage(),
                         theme = theme,
                         keyboardStartup = keyboardStartup,
+                        iconShape = iconShape,
+                        systemIconShapeAvailable = systemIconShapeAvailable,
                         onLanguageChange = {
                             appearanceStore.completeLanguageSelection()
                             AppCompatDelegate.setApplicationLocales(it.toLocales())
@@ -64,6 +71,7 @@ class SettingsActivity : AppCompatActivity() {
                             AppCompatDelegate.setDefaultNightMode(it.toNightMode())
                         },
                         onKeyboardStartupChange = appearanceStore::setKeyboardStartup,
+                        onIconShapeChange = appearanceStore::setIconShape,
                         initialSearchOptions = searchOptions,
                         onSearchOptionsChange = searchPreferences::setOptions,
                         saveHistory = saveHistory,

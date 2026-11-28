@@ -141,13 +141,14 @@ private const val APP_GRID_COLUMNS = 4
 @Composable
 fun AppsGridSection(
     apps: List<LaunchableApp>,
+    rows: Int,
     favoritePackages: Set<String>,
     onOpen: (LaunchableApp) -> Unit,
     onMenu: (LaunchableApp) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (apps.isEmpty()) return
-    val appRows = apps.chunked(APP_GRID_COLUMNS)
+    val appRows = apps.chunked(APP_GRID_COLUMNS).take(rows)
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         val gap = (
             (maxWidth - AppRowStart - AppRowEndInset - AppItemWidth * APP_GRID_COLUMNS) /

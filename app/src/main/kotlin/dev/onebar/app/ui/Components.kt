@@ -58,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
 import androidx.core.graphics.drawable.toBitmap
 import dev.onebar.app.R
+import dev.onebar.app.data.IconShape
 import dev.onebar.app.data.LaunchableApp
 import java.io.InputStream
 import kotlinx.coroutines.Dispatchers
@@ -81,7 +82,7 @@ val ContactAvatarStart = ContactActionEnd
 val CONTACT_SECTION_HEIGHT =
     CONTACT_HEADER_HEIGHT + CONTACT_ROW_HEIGHT * 3 + CONTACT_ROW_GAP * 2 + CONTACT_LIST_BOTTOM
 
-/** Стиль иконок: квадрат со скруглением, а не круглая маска лаунчера. */
+/** Радиус квадратных иконок по умолчанию и плиток действий. */
 val IconRadius = 12.dp
 
 /**
@@ -114,9 +115,9 @@ private const val FOREGROUND_SCALE = 1.3f
 
 /**
  * Адаптивная иконка рисуется под маску лаунчера. Здесь слои рисуются целиком, на весь холст
- * 108×108, поэтому получаем исходный квадрат, который потом скругливается формой в UI.
+ * 108×108, поэтому получаем исходный квадрат, который затем обрезается выбранной формой.
  */
-internal fun iconBitmap(source: Drawable): ImageBitmap {
+internal fun iconBitmap(source: Drawable, iconShape: IconShape = IconShape.SQUARE): ImageBitmap {
     if (source !is AdaptiveIconDrawable) return source.toBitmap(ICON_PX, ICON_PX).asImageBitmap()
     val bitmap = Bitmap.createBitmap(ICON_PX, ICON_PX, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
@@ -124,7 +125,8 @@ internal fun iconBitmap(source: Drawable): ImageBitmap {
         layer.setBounds(0, 0, ICON_PX, ICON_PX)
         layer.draw(canvas)
     }
-    canvas.scale(FOREGROUND_SCALE, FOREGROUND_SCALE, ICON_PX / 2f, ICON_PX / 2f)
+    val foregroundScale = if (iconShape == IconShape.SYSTEM) 1f else FOREGROUND_SCALE
+    canvas.scale(foregroundScale, foregroundScale, ICON_PX / 2f, ICON_PX / 2f)
     source.foreground?.let { layer ->
         layer.setBounds(0, 0, ICON_PX, ICON_PX)
         layer.draw(canvas)
@@ -172,15 +174,31 @@ private fun edgeColor(bitmap: Bitmap): Color {
 }
 
 @Composable
-fun AppIcon(packageName: String, modifier: Modifier = Modifier, size: Dp = AppItemSize) {
+fun AppIcon(
+    packageName: String,
+    modifier: Modifier = Modifier,
+    size: Dp = AppItemSize,
+    contentDescription: String? = null,
+) {
     val packageManager = LocalContext.current.packageManager
-    val bitmap = remember(packageName) {
-        runCatching { iconBitmap(packageManager.getApplicationIcon(packageName)) }.getOrNull()
+    val option = LocalIconShape.current
+    val shape = remember(option) { appIconShape(option) }
+    val bitmap = remember(packageName, option) {
+        runCatching { iconBitmap(packageManager.getApplicationIcon(packageName), option) }.getOrNull()
     }
+    val accessibilityModifier = contentDescription?.let { label ->
+        Modifier.semantics { this.contentDescription = label }
+    } ?: Modifier
     if (bitmap == null) {
-        Box(modifier = modifier.size(size).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(IconRadius)))
+        Box(
+            modifier = modifier
+                .size(size)
+                .clip(shape)
+                .then(accessibilityModifier)
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+        )
     } else {
-        Image(bitmap = bitmap, contentDescription = null, modifier = modifier.size(size).clip(RoundedCornerShape(IconRadius)))
+        Image(bitmap = bitmap, contentDescription = contentDescription, modifier = modifier.size(size).clip(shape))
     }
 }
 
@@ -453,11 +471,11 @@ private fun Labeled(
 }
 
 val AppItemSize = 44.dp
-val AppIconSize = 72.dp
+val AppIconSize = 64.dp
 
 /** Геометрия плитки приложения: нужна и ряду-строке, и сетке избранного, чтобы ряды совпадали. */
 val AppItemWidth = 72.dp
-val AppItemHeight = 104.dp
+val AppItemHeight = 96.dp
 val AppIconInset = (AppItemWidth - AppIconSize) / 2
 val AppRowStart = ContactAvatarStart - AppIconInset
 val AppRowEndInset = ContactActionEnd - AppIconInset
@@ -475,7 +493,7 @@ fun AppItem(
             .size(width = AppItemWidth, height = AppItemHeight)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
+        verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.Top),
     ) {
         Box {
             AppIcon(

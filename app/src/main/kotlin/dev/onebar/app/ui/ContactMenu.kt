@@ -1,6 +1,5 @@
 package dev.onebar.app.ui
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -20,18 +19,15 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.core.graphics.drawable.toBitmap
 import dev.onebar.app.R
 import dev.onebar.app.data.ContactEntry
 import dev.onebar.app.data.LaunchableApp
@@ -209,16 +205,13 @@ private fun MenuRow(
 
 @Composable
 private fun MessengerIcon(tile: MessengerTile, onClick: () -> Unit) {
-    val packageManager = LocalContext.current.packageManager
-    val bitmap = remember(tile.messenger) {
-        runCatching { iconBitmap(packageManager.getApplicationIcon(tile.messenger.packageName)) }.getOrNull()
-    }
     AppTile(onClick = onClick) {
-        if (bitmap == null) {
-            TileBackground()
-        } else {
-            Image(bitmap = bitmap, contentDescription = tile.label, modifier = Modifier.size(MENU_TILE))
-        }
+        AppIcon(
+            packageName = tile.messenger.packageName,
+            modifier = Modifier.size(MENU_TILE),
+            size = MENU_TILE,
+            contentDescription = tile.label,
+        )
     }
 }
 
@@ -240,7 +233,6 @@ private fun AppTile(onClick: () -> Unit, content: @Composable () -> Unit) {
     Box(
         modifier = Modifier
             .size(MENU_TILE)
-            .clip(RoundedCornerShape(10.dp))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {

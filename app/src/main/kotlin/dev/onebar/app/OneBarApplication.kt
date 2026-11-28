@@ -30,10 +30,10 @@ class OneBarApplication : Application() {
         )
     }
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val debuggable get() = (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
 
     override fun onCreate() {
         super.onCreate()
+        val debuggable = (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
         val currentLocales = AppCompatDelegate.getApplicationLocales()
         if (appearanceStore.usesEnglishLanguageDefault) {
             if (currentLocales.isEmpty || currentLocales.get(0)?.language == "en") {
@@ -54,6 +54,7 @@ class OneBarApplication : Application() {
     }
 
     fun seedDebugHistoryContacts() {
+        val debuggable = (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
         if (debuggable) applicationScope.launch { debugHistorySeeder.seedContactsIfNeeded() }
     }
 }

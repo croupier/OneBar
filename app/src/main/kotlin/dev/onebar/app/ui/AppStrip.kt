@@ -31,7 +31,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 private const val APP_STRIP_ITEMS = 4
 private const val FIRST_AUTO_SCROLL_MS = 3_000L
-private const val IDLE_AUTO_SCROLL_MS = 5_000L
+private const val IDLE_AUTO_SCROLL_MS = 10_000L
 private val AutoScrollDistance = 40.dp
 
 /** Однострочный список: четыре плитки по границам контактов и мягкое смещение после простоя. */

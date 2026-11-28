@@ -70,6 +70,28 @@ class AppearanceStoreTest {
     }
 
     @Test
+    fun `без_выбора_иконки_квадратные`() {
+        assertEquals(IconShape.SQUARE, AppearanceStore(preferences).iconShape.value)
+    }
+
+    @Test
+    fun `выбранная_форма_иконок_сохраняется_и_видна_новому_хранилищу`() {
+        val store = AppearanceStore(preferences)
+
+        store.setIconShape(IconShape.CIRCLE)
+
+        assertEquals(IconShape.CIRCLE, store.iconShape.value)
+        assertEquals(IconShape.CIRCLE, AppearanceStore(preferences).iconShape.value)
+    }
+
+    @Test
+    fun `неизвестная_форма_иконок_возвращает_квадрат`() {
+        preferences.edit().putString("icon_shape", "unknown").commit()
+
+        assertEquals(IconShape.SQUARE, AppearanceStore(preferences).iconShape.value)
+    }
+
+    @Test
     fun `системный_русский_выбирается_без_обязательного_выбора`() {
         val store = AppearanceStore(preferences)
 

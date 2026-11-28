@@ -22,6 +22,7 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onChildren
@@ -29,6 +30,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performScrollToNode
@@ -124,6 +126,7 @@ class SearchScreenTest {
         settingsReturnCount: MutableState<Int>? = null,
         onOpenSettings: () -> Unit = {},
         onExit: () -> Unit = {},
+        onWebSearch: (WebEngine, String) -> Unit = { _, _ -> },
     ): SearchViewModel {
         val viewModel = SearchViewModel(apps, contacts, suggestions, history, favorites)
         ui.setContent {
@@ -133,6 +136,7 @@ class SearchScreenTest {
                 settingsReturnCount = settingsReturnCount?.value ?: 0,
                 onOpenSettings = onOpenSettings,
                 onExit = onExit,
+                onWebSearch = onWebSearch,
                 onCallEntry = {},
             )
         }
@@ -314,6 +318,7 @@ class SearchScreenTest {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     AppsGridSection(
                         apps = apps,
+                        rows = 2,
                         favoritePackages = setOf("com.1"),
                         onOpen = {},
                         onMenu = {},
@@ -334,13 +339,14 @@ class SearchScreenTest {
     }
 
     @Test
-    fun `ряды_приложений_ровно_по_четыре_и_прокручиваются_вертикально`() {
+    fun `ряды_приложений_ровно_по_четыре_без_частичного_ряда`() {
         val apps = (1..80).map { index -> app("com.$index", "App $index") }
         ui.setContent {
             OneBarTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     AppsGridSection(
                         apps = apps,
+                        rows = 2,
                         favoritePackages = emptySet(),
                         onOpen = {},
                         onMenu = {},
@@ -368,11 +374,37 @@ class SearchScreenTest {
             ) / 3f
         assertEquals(expectedGap, secondIcon.left - firstIcon.right, 2f)
         assertEquals(iconWidth, nodeBounds("app-label-com.1", useUnmergedTree = true).width, 2f)
+        val tile = nodeBounds("grid-app-slot-com.1")
+        val label = nodeBounds("app-label-com.1", useUnmergedTree = true)
+        assertTrue(label.top - firstIcon.bottom <= 4.dp.value * density)
+        assertTrue(tile.bottom - label.bottom > firstIcon.top - tile.top)
+        ui.onNodeWithTag("apps-row-com.5").assertExists()
+        ui.onNodeWithTag("apps-row-com.9").assertDoesNotExist()
+        ui.onNodeWithText("App 77").assertDoesNotExist()
+    }
+
+    @Test
+    fun `ряды_приложений_прокручиваются_вертикально`() {
+        val apps = (1..80).map { index -> app("com.$index", "App $index") }
+        ui.setContent {
+            OneBarTheme {
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    AppsGridSection(
+                        apps = apps,
+                        rows = 20,
+                        favoritePackages = emptySet(),
+                        onOpen = {},
+                        onMenu = {},
+                        modifier = Modifier.height(220.dp),
+                    )
+                }
+            }
+        }
+
         ui.onNodeWithTag("apps-grid").performScrollToNode(hasText("App 77"))
         ui.onNodeWithText("App 77").assertIsDisplayed()
         ui.onNodeWithTag("apps-grid").performScrollToNode(hasText("App 1"))
         ui.onNodeWithText("App 1").assertIsDisplayed()
-        ui.onNodeWithTag("apps-row-com.5").assertExists()
     }
 
     @Test
@@ -422,7 +454,7 @@ class SearchScreenTest {
             assertTrue("обратное смещение должно идти сразу: forward=$forward back=$back", back < forward)
             assertEquals(start, back, 2f)
 
-            ui.mainClock.advanceTimeBy(5_000)
+            ui.mainClock.advanceTimeBy(10_000)
             ui.mainClock.advanceTimeBy(450)
             val repeated = strip.fetchSemanticsNode().config[SemanticsProperties.HorizontalScrollAxisRange].value()
             assertTrue("повторный цикл не появился после паузы: back=$back repeated=$repeated", repeated > back)
@@ -869,6 +901,27 @@ class SearchScreenTest {
             TextRange("кофе в зёрнах".length),
             field.fetchSemanticsNode().config[SemanticsProperties.TextSelectionRange],
         )
+    }
+
+    @Test
+    fun `веб_поиск_сохраняет_запрос_в_историю`() {
+        val history = FakeHistory()
+        val searches = mutableListOf<Pair<WebEngine, String>>()
+        show(
+            history = history,
+            suggestions = FakeSuggestions(replies = mapOf("коф" to listOf("кофе в зёрнах"))),
+            onWebSearch = { engine, text -> searches += engine to text },
+        )
+        ui.onNode(hasSetTextAction()).performTextInput("коф")
+        ui.waitUntilAtLeastOneExists(hasText("кофе в зёрнах"), TIMEOUT)
+
+        ui.onAllNodesWithContentDescription(str(R.string.search_google))
+            .onFirst()
+            .performSemanticsAction(SemanticsActions.OnClick)
+
+        ui.waitUntil(TIMEOUT) { history.pushedQueries.isNotEmpty() }
+        assertEquals(listOf("кофе в зёрнах"), history.pushedQueries)
+        assertEquals(listOf(WebEngine.GOOGLE to "кофе в зёрнах"), searches)
     }
 
     @Test

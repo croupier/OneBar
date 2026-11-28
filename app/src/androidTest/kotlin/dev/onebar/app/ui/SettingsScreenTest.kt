@@ -8,7 +8,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
@@ -32,6 +35,7 @@ import androidx.test.espresso.Espresso.pressBack
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.onebar.app.R
+import dev.onebar.app.data.IconShape
 import dev.onebar.app.data.KeyboardStartup
 import dev.onebar.app.data.LanguageOption
 import dev.onebar.app.data.SearchOptions
@@ -56,6 +60,9 @@ class SettingsScreenTest {
 
     private fun str(id: Int, vararg args: Any): String = context.getString(id, *args)
 
+    private fun shapeOption(text: String) = hasText(text) and
+        SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton)
+
     private fun scrollTo(text: String) {
         ui.onNode(hasScrollAction()).performScrollToNode(hasText(text))
     }
@@ -75,9 +82,12 @@ class SettingsScreenTest {
         language: LanguageOption = LanguageOption.SYSTEM,
         theme: ThemeOption = ThemeOption.SYSTEM,
         keyboardStartup: KeyboardStartup = KeyboardStartup.IMMEDIATE,
+        iconShape: IconShape = IconShape.SQUARE,
+        systemIconShapeAvailable: Boolean = isSystemIconShapeAvailable(),
         onLanguageChange: (LanguageOption) -> Unit = {},
         onThemeChange: (ThemeOption) -> Unit = {},
         onKeyboardStartupChange: (KeyboardStartup) -> Unit = {},
+        onIconShapeChange: (IconShape) -> Unit = {},
         initialSearchOptions: SearchOptions = SearchOptions(),
         onSearchOptionsChange: (SearchOptions) -> Unit = {},
         saveHistory: Boolean = true,
@@ -89,6 +99,7 @@ class SettingsScreenTest {
             var selectedLanguage by remember { mutableStateOf(language) }
             var selectedTheme by remember { mutableStateOf(theme) }
             var selectedKeyboardStartup by remember { mutableStateOf(keyboardStartup) }
+            var selectedIconShape by remember { mutableStateOf(iconShape) }
             OneBarTheme(theme = selectedTheme) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     SettingsScreen(
@@ -97,6 +108,8 @@ class SettingsScreenTest {
                         language = selectedLanguage,
                         theme = selectedTheme,
                         keyboardStartup = selectedKeyboardStartup,
+                        iconShape = selectedIconShape,
+                        systemIconShapeAvailable = systemIconShapeAvailable,
                         onLanguageChange = {
                             selectedLanguage = it
                             onLanguageChange(it)
@@ -108,6 +121,10 @@ class SettingsScreenTest {
                         onKeyboardStartupChange = {
                             selectedKeyboardStartup = it
                             onKeyboardStartupChange(it)
+                        },
+                        onIconShapeChange = {
+                            selectedIconShape = it
+                            onIconShapeChange(it)
                         },
                         initialSearchOptions = initialSearchOptions,
                         onSearchOptionsChange = onSearchOptionsChange,
@@ -129,6 +146,8 @@ class SettingsScreenTest {
         ui.onNodeWithText(str(R.string.settings_language)).assertExists()
         ui.onNodeWithText(str(R.string.settings_theme)).assertExists()
         ui.onNodeWithText(str(R.string.settings_keyboard_startup)).assertExists()
+        ui.onNodeWithText(str(R.string.settings_icon_shape)).assertExists()
+        ui.onNodeWithText(str(R.string.settings_icon_shape_square)).assertExists()
         scrollTo(str(R.string.settings_search))
         ui.onNodeWithText(str(R.string.settings_search)).assertExists()
         scrollTo(str(R.string.settings_history))
@@ -197,6 +216,34 @@ class SettingsScreenTest {
         ui.onNodeWithText(str(R.string.settings_cancel)).assertDoesNotExist()
         ui.onNodeWithText(str(R.string.settings_keyboard_startup_on_focus)).assertExists()
         assertEquals(KeyboardStartup.ON_FOCUS, selected)
+    }
+
+    @Test
+    fun `выбор_формы_иконок_показывает_все_доступные_варианты`() {
+        var selected: IconShape? = null
+        show(systemIconShapeAvailable = true, onIconShapeChange = { selected = it })
+
+        ui.onNode(hasText(str(R.string.settings_icon_shape)) and hasClickAction()).performClick()
+        ui.onNodeWithText(str(R.string.settings_icon_shape_system)).assertExists()
+        ui.onNode(shapeOption(str(R.string.settings_icon_shape_square))).assertExists()
+        ui.onNodeWithText(str(R.string.settings_icon_shape_circle)).performClick()
+
+        ui.onNodeWithText(str(R.string.settings_cancel)).assertDoesNotExist()
+        ui.onNodeWithText(str(R.string.settings_icon_shape_circle)).assertExists()
+        assertEquals(IconShape.CIRCLE, selected)
+    }
+
+    @Test
+    fun `без_системной_маски_пункт_из_темы_скрыт`() {
+        show(iconShape = IconShape.SYSTEM, systemIconShapeAvailable = false)
+
+        ui.onNodeWithText(str(R.string.settings_icon_shape_square)).assertExists()
+        ui.onNode(hasText(str(R.string.settings_icon_shape)) and hasClickAction()).performClick()
+
+        ui.onNodeWithText(str(R.string.settings_icon_shape_system)).assertDoesNotExist()
+        ui.onNode(shapeOption(str(R.string.settings_icon_shape_square))).assertExists()
+        ui.onNodeWithText(str(R.string.settings_icon_shape_circle)).assertExists()
+        ui.onNodeWithText(str(R.string.settings_icon_shape_soft)).assertExists()
     }
 
     @Test

@@ -106,6 +106,9 @@ fun SearchScreen(
     onOpenSettings: () -> Unit = {},
     onExit: () -> Unit = {},
     onContactsPermissionGranted: () -> Unit = {},
+    onWebSearch: (WebEngine, String) -> Unit = { engine, text ->
+        SearchActions.webSearch(context, engine, text)
+    },
     onCallEntry: (ContactEntry) -> Unit = { SearchActions.callEntry(context, it) },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -287,6 +290,7 @@ fun SearchScreen(
                             if (multipleRows) {
                                 AppsGridSection(
                                     apps = state.apps,
+                                    rows = rows.appRows,
                                     favoritePackages = state.favApps.toSet(),
                                     onOpen = openApp,
                                     onMenu = viewModel::onAppMenuOpen,
@@ -370,7 +374,8 @@ fun SearchScreen(
                                 keyboard?.show()
                             },
                             onSearch = { engine, text ->
-                                SearchActions.webSearch(context, engine, text)
+                                viewModel.onQuerySubmitted(text)
+                                onWebSearch(engine, text)
                             },
                         )
                     }

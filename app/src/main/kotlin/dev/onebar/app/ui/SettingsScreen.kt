@@ -69,6 +69,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import dev.onebar.app.R
+import dev.onebar.app.data.IconShape
 import dev.onebar.app.data.KeyboardStartup
 import dev.onebar.app.data.LanguageOption
 import dev.onebar.app.data.SearchOptions
@@ -121,9 +122,12 @@ fun SettingsScreen(
     language: LanguageOption = LanguageOption.SYSTEM,
     theme: ThemeOption = ThemeOption.SYSTEM,
     keyboardStartup: KeyboardStartup = KeyboardStartup.IMMEDIATE,
+    iconShape: IconShape = IconShape.SQUARE,
+    systemIconShapeAvailable: Boolean = isSystemIconShapeAvailable(),
     onLanguageChange: (LanguageOption) -> Unit = {},
     onThemeChange: (ThemeOption) -> Unit = {},
     onKeyboardStartupChange: (KeyboardStartup) -> Unit = {},
+    onIconShapeChange: (IconShape) -> Unit = {},
     initialSearchOptions: SearchOptions = SearchOptions(),
     onSearchOptionsChange: (SearchOptions) -> Unit = {},
     saveHistory: Boolean = true,
@@ -148,9 +152,12 @@ fun SettingsScreen(
                 language = language,
                 theme = theme,
                 keyboardStartup = keyboardStartup,
+                iconShape = iconShape,
+                systemIconShapeAvailable = systemIconShapeAvailable,
                 onLanguageChange = onLanguageChange,
                 onThemeChange = onThemeChange,
                 onKeyboardStartupChange = onKeyboardStartupChange,
+                onIconShapeChange = onIconShapeChange,
                 initialSearchOptions = initialSearchOptions,
                 onSearchOptionsChange = onSearchOptionsChange,
                 saveHistory = saveHistory,
@@ -168,9 +175,12 @@ private fun SettingsScreenContent(
     language: LanguageOption,
     theme: ThemeOption,
     keyboardStartup: KeyboardStartup,
+    iconShape: IconShape,
+    systemIconShapeAvailable: Boolean,
     onLanguageChange: (LanguageOption) -> Unit,
     onThemeChange: (ThemeOption) -> Unit,
     onKeyboardStartupChange: (KeyboardStartup) -> Unit,
+    onIconShapeChange: (IconShape) -> Unit,
     initialSearchOptions: SearchOptions,
     onSearchOptionsChange: (SearchOptions) -> Unit,
     saveHistory: Boolean,
@@ -189,6 +199,7 @@ private fun SettingsScreenContent(
     var showLanguageDialog by rememberSaveable { mutableStateOf(false) }
     var showThemeDialog by rememberSaveable { mutableStateOf(false) }
     var showKeyboardStartupDialog by rememberSaveable { mutableStateOf(false) }
+    var showIconShapeDialog by rememberSaveable { mutableStateOf(false) }
     var showClearHistoryDialog by rememberSaveable { mutableStateOf(false) }
     var showUnsavedChangesDialog by rememberSaveable { mutableStateOf(false) }
     var infoTopic by rememberSaveable { mutableStateOf<InfoTopic?>(null) }
@@ -235,9 +246,14 @@ private fun SettingsScreenContent(
         }
     }
 
+    val visibleIconShape = if (iconShape == IconShape.SYSTEM && !systemIconShapeAvailable) {
+        IconShape.SQUARE
+    } else {
+        iconShape
+    }
     val hasUnsavedChanges = searchOptions != savedSearchOptions || editedSaveHistory != savedSaveHistory
     val backHandlerEnabled = !showLanguageDialog && !showThemeDialog && !showKeyboardStartupDialog &&
-        !showClearHistoryDialog && !showUnsavedChangesDialog && infoTopic == null
+        !showIconShapeDialog && !showClearHistoryDialog && !showUnsavedChangesDialog && infoTopic == null
     val requestBack = {
         if (hasUnsavedChanges) showUnsavedChangesDialog = true else onBack()
     }
@@ -295,6 +311,12 @@ private fun SettingsScreenContent(
                             label = stringResource(R.string.settings_keyboard_startup),
                             value = keyboardStartup.label(),
                             onClick = { showKeyboardStartupDialog = true },
+                        )
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        ChoiceRow(
+                            label = stringResource(R.string.settings_icon_shape),
+                            value = visibleIconShape.label(),
+                            onClick = { showIconShapeDialog = true },
                         )
                     }
                 }
@@ -389,6 +411,27 @@ private fun SettingsScreenContent(
                 showKeyboardStartupDialog = false
             },
             onDismiss = { showKeyboardStartupDialog = false },
+        )
+    }
+    if (showIconShapeDialog) {
+        val availableShapes = IconShape.entries.filter {
+            it != IconShape.SYSTEM || systemIconShapeAvailable
+        }
+        val labels = mapOf(
+            IconShape.SYSTEM to stringResource(R.string.settings_icon_shape_system),
+            IconShape.SQUARE to stringResource(R.string.settings_icon_shape_square),
+            IconShape.CIRCLE to stringResource(R.string.settings_icon_shape_circle),
+            IconShape.SOFT_SQUARE to stringResource(R.string.settings_icon_shape_soft),
+        )
+        ChoiceDialog(
+            title = stringResource(R.string.settings_icon_shape),
+            options = availableShapes.map { labels.getValue(it) },
+            selected = availableShapes.indexOf(visibleIconShape).coerceAtLeast(0),
+            onSelect = {
+                onIconShapeChange(availableShapes[it])
+                showIconShapeDialog = false
+            },
+            onDismiss = { showIconShapeDialog = false },
         )
     }
     if (showClearHistoryDialog) {
@@ -929,6 +972,16 @@ private fun KeyboardStartup.label(): String = stringResource(
     when (this) {
         KeyboardStartup.IMMEDIATE -> R.string.settings_keyboard_startup_immediate
         KeyboardStartup.ON_FOCUS -> R.string.settings_keyboard_startup_on_focus
+    }
+)
+
+@Composable
+private fun IconShape.label(): String = stringResource(
+    when (this) {
+        IconShape.SYSTEM -> R.string.settings_icon_shape_system
+        IconShape.SQUARE -> R.string.settings_icon_shape_square
+        IconShape.CIRCLE -> R.string.settings_icon_shape_circle
+        IconShape.SOFT_SQUARE -> R.string.settings_icon_shape_soft
     }
 )
 

@@ -67,6 +67,11 @@
     <string name="settings_keyboard">Клавиатура</string>
     <string name="settings_keyboard_startup_immediate">Показывать сразу</string>
     <string name="settings_keyboard_startup_on_focus">При фокусе на поиске</string>
+    <string name="settings_icon_shape">Форма иконок</string>
+    <string name="settings_icon_shape_system">Из темы</string>
+    <string name="settings_icon_shape_square">Квадрат</string>
+    <string name="settings_icon_shape_circle">Круг</string>
+    <string name="settings_icon_shape_soft">Мягкий квадрат</string>
     <string name="settings_search">Поиск</string>
     <string name="settings_search_favorites">Сначала история + избранное</string>
     <string name="settings_search_prefix">Совпадение с начала названия</string>
