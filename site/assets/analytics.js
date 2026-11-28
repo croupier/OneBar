@@ -1,4 +1,4 @@
-const UMAMI_WEBSITE_ID = "";
+const UMAMI_WEBSITE_ID = "a375c420-afe4-42b6-a5f8-2ee13de85abc";
 const UMAMI_HOST = "https://cloud.umami.is";
 const STORAGE_KEY = "onebar-site-analytics";
 const banner = document.querySelector("[data-analytics-banner]");
