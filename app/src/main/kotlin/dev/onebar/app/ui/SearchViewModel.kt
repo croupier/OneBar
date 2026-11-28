@@ -2,6 +2,7 @@ package dev.onebar.app.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.onebar.app.data.AnalyticsSink
 import dev.onebar.app.data.AppRepository
 import dev.onebar.app.data.CommunicationEntry
 import dev.onebar.app.data.CommunicationKind
@@ -69,6 +70,7 @@ class SearchViewModel(
     /** Блокирующие обращения к PackageManager и контактам; в тестах — виртуальный диспетчер. */
     private val io: CoroutineDispatcher = Dispatchers.IO,
     searchOptions: StateFlow<SearchOptions> = MutableStateFlow(SearchOptions()),
+    private val analytics: AnalyticsSink = AnalyticsSink.None,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SearchState(contactsGranted = contacts.hasPermission()))
@@ -92,6 +94,7 @@ class SearchViewModel(
     @Volatile private var contactsGeneration: Long = 0L
 
     init {
+        analytics.track("app_open")
         viewModelScope.launch {
             searchOptions.collect { options ->
                 val changed = _state.value.searchOptions != options
@@ -239,6 +242,7 @@ class SearchViewModel(
             return
         }
         _state.update { it.copy(favoritesMode = !current.favoritesMode) }
+        analytics.track(if (current.favoritesMode) "favorites_closed" else "favorites_opened")
         onQueryChange(current.query)
     }
 
@@ -268,7 +272,9 @@ class SearchViewModel(
         }
         viewModelScope.launch {
             val saved = runCatching { favoritesStore.toggleApp(app.packageName) }.isSuccess
-            if (!saved) {
+            if (saved) {
+                analytics.track(if (app.packageName in previous) "favorite_app_removed" else "favorite_app_added")
+            } else {
                 _state.update { it.copy(favApps = previous) }
                 loadApps(_state.value.query.trim())
             }
@@ -304,7 +310,9 @@ class SearchViewModel(
         }
         viewModelScope.launch {
             val saved = runCatching { favoritesStore.toggleContact(entry.lookupKey) }.isSuccess
-            if (!saved) {
+            if (saved) {
+                analytics.track(if (entry.lookupKey in previous) "favorite_contact_removed" else "favorite_contact_added")
+            } else {
                 _state.update { it.copy(favContactKeys = previous) }
                 loadContacts()
             }
@@ -330,15 +338,24 @@ class SearchViewModel(
     /** В историю запрос попадает только после явной отправки кнопкой «Поиск» или Enter. */
     fun onQuerySubmitted(text: String) {
         val query = text.trim()
-        if (query.isNotEmpty()) viewModelScope.launch { runCatching { history.pushQuery(query) } }
+        if (query.isNotEmpty()) {
+            analytics.track("search_submitted")
+            viewModelScope.launch { runCatching { history.pushQuery(query) } }
+        }
+    }
+
+    fun onWebSearch(engine: WebEngine) {
+        analytics.track(if (engine == WebEngine.YANDEX) "web_search_yandex" else "web_search_google")
     }
 
     fun onAppLaunched(app: LaunchableApp) {
+        analytics.track("app_launched")
         viewModelScope.launch { runCatching { history.pushRecentApp(app.packageName) } }
     }
 
     fun onCommunication(kind: CommunicationKind, entry: ContactEntry) {
         val number = entry.number ?: return
+        analytics.track(if (kind == CommunicationKind.SMS) "contact_sms" else "contact_call")
         viewModelScope.launch {
             val full = withContext(io) {
                 runCatching {

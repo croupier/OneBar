@@ -1,6 +1,7 @@
 package dev.onebar.app.testing
 
 import dev.onebar.app.data.AppRepository
+import dev.onebar.app.data.AnalyticsSink
 import dev.onebar.app.data.CommunicationEntry
 import dev.onebar.app.data.CommunicationKind
 import dev.onebar.app.data.ContactEntry
@@ -15,6 +16,13 @@ import dev.onebar.app.data.rankContacts
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
+
+class RecordingAnalytics : AnalyticsSink {
+    val events = mutableListOf<String>()
+    override fun track(event: String) {
+        events += event
+    }
+}
 
 fun app(packageName: String, label: String = packageName, description: String = "") =
     LaunchableApp(packageName, label, description)

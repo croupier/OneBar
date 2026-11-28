@@ -112,6 +112,7 @@ private enum class InfoTopic(val titleRes: Int, val textRes: Int) {
     SEARCH_TRANSLIT(R.string.settings_search_translit, R.string.settings_search_translit_info),
     SEARCH_EXTRA(R.string.settings_search_extra, R.string.settings_search_extra_info),
     HISTORY_SAVE(R.string.settings_history_save, R.string.settings_history_save_info),
+    ANALYTICS(R.string.settings_analytics, R.string.settings_analytics_info),
 }
 
 @Composable
@@ -129,6 +130,9 @@ fun SettingsScreen(
     saveHistory: Boolean = true,
     onSaveHistory: suspend (Boolean) -> Unit = {},
     onClearHistory: suspend () -> Unit = {},
+    analyticsEnabled: Boolean = false,
+    analyticsAvailable: Boolean = false,
+    onAnalyticsChange: (Boolean) -> Unit = {},
     onSend: (String) -> Unit = {},
 ) {
     val typography = MaterialTheme.typography
@@ -156,6 +160,9 @@ fun SettingsScreen(
                 saveHistory = saveHistory,
                 onSaveHistory = onSaveHistory,
                 onClearHistory = onClearHistory,
+                analyticsEnabled = analyticsEnabled,
+                analyticsAvailable = analyticsAvailable,
+                onAnalyticsChange = onAnalyticsChange,
                 onSend = onSend,
             )
         }
@@ -176,6 +183,9 @@ private fun SettingsScreenContent(
     saveHistory: Boolean,
     onSaveHistory: suspend (Boolean) -> Unit,
     onClearHistory: suspend () -> Unit,
+    analyticsEnabled: Boolean,
+    analyticsAvailable: Boolean,
+    onAnalyticsChange: (Boolean) -> Unit,
     onSend: (String) -> Unit,
 ) {
     var searchOptions by rememberSaveable(stateSaver = SearchOptionsSaver) {
@@ -186,6 +196,7 @@ private fun SettingsScreenContent(
     }
     var editedSaveHistory by rememberSaveable { mutableStateOf(saveHistory) }
     var savedSaveHistory by rememberSaveable { mutableStateOf(saveHistory) }
+    var currentAnalyticsEnabled by remember { mutableStateOf(analyticsEnabled) }
     var showLanguageDialog by rememberSaveable { mutableStateOf(false) }
     var showThemeDialog by rememberSaveable { mutableStateOf(false) }
     var showKeyboardStartupDialog by rememberSaveable { mutableStateOf(false) }
@@ -226,6 +237,10 @@ private fun SettingsScreenContent(
             editedSaveHistory = saveHistory
             savedSaveHistory = saveHistory
         }
+    }
+
+    LaunchedEffect(analyticsEnabled) {
+        currentAnalyticsEnabled = analyticsEnabled
     }
 
     LaunchedEffect(initialSearchOptions) {
@@ -330,6 +345,21 @@ private fun SettingsScreenContent(
                         ) {
                             Text(stringResource(R.string.settings_history_clear))
                         }
+                    }
+                }
+                item {
+                    SettingsCard(title = stringResource(R.string.settings_privacy)) {
+                        SettingsCheckbox(
+                            label = stringResource(R.string.settings_analytics),
+                            summary = if (analyticsAvailable) null else stringResource(R.string.settings_analytics_unavailable),
+                            checked = currentAnalyticsEnabled,
+                            enabled = analyticsAvailable,
+                            onCheckedChange = {
+                                currentAnalyticsEnabled = it
+                                onAnalyticsChange(it)
+                            },
+                            onInfoClick = { infoTopic = InfoTopic.ANALYTICS },
+                        )
                     }
                 }
                 item { AboutCard() }
@@ -770,16 +800,22 @@ private fun SettingsCheckbox(
     onCheckedChange: (Boolean) -> Unit,
     summary: String? = null,
     onInfoClick: (() -> Unit)? = null,
+    enabled: Boolean = true,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .toggleable(value = checked, role = Role.Checkbox, onValueChange = onCheckedChange)
+            .toggleable(
+                value = checked,
+                enabled = enabled,
+                role = Role.Checkbox,
+                onValueChange = onCheckedChange,
+            )
             .padding(vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Checkbox(checked = checked, onCheckedChange = null)
+        Checkbox(checked = checked, onCheckedChange = null, enabled = enabled)
         Column(modifier = Modifier.weight(1f)) {
             Text(text = label, style = MaterialTheme.typography.bodyLarge)
             if (summary != null) {

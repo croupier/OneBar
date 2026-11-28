@@ -31,6 +31,7 @@ class SettingsActivity : AppCompatActivity() {
 
         val history = DefaultHistoryStore(applicationContext)
         val searchPreferences = (application as OneBarApplication).searchPreferencesStore
+        val analytics = (application as OneBarApplication).usageAnalytics
         enableEdgeToEdge()
         val appearanceStore = (application as OneBarApplication).appearanceStore
         val firstRunLanguage = intent.getBooleanExtra(EXTRA_FIRST_RUN_LANGUAGE, false) &&
@@ -69,6 +70,9 @@ class SettingsActivity : AppCompatActivity() {
                         saveHistory = saveHistory,
                         onSaveHistory = { enabled -> history.setSaveHistory(enabled) },
                         onClearHistory = { history.clearQueries() },
+                        analyticsEnabled = analytics.isEnabled,
+                        analyticsAvailable = analytics.isConfigured,
+                        onAnalyticsChange = analytics::setEnabled,
                         onSend = ::sendFeedback,
                     )
                 }

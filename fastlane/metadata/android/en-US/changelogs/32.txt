@@ -1,0 +1,6 @@
+OneBar 0.15.0
+- Working search settings with saved values.
+- History and favorites first, with deduplication.
+- Privacy controls and release hardening.
+- Optional opt-in AppMetrica analytics without ads, GMS, location or advertising IDs.
+- Public website, MIT license and release documentation.

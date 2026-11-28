@@ -103,6 +103,10 @@
     <string name="settings_history_clear_title">Clear search history?</string>
     <string name="settings_history_clear_message">All saved search queries will be removed.</string>
     <string name="settings_history_cleared_message">Search history cleared</string>
+    <string name="settings_privacy">Privacy</string>
+    <string name="settings_analytics">Anonymous analytics</string>
+    <string name="settings_analytics_unavailable">Analytics is not configured in this build</string>
+    <string name="settings_analytics_info">Off by default. If enabled, AppMetrica receives device, session and coarse usage events such as app opens, searches and calls or SMS actions. Search text, contact names, phone numbers and app package names are not sent. Advertising identifiers, App Set ID, location, crash and ANR reports are disabled. You can turn analytics off at any time.</string>
     <string name="settings_clear">Clear</string>
     <string name="settings_cancel">Cancel</string>
     <string name="settings_about">About</string>

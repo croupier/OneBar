@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Вопрос о приватности
+    url: mailto:onebar@3406.ru
+    about: Не создавайте публичный issue с персональными данными.

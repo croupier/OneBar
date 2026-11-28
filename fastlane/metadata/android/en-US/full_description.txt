@@ -1,0 +1,30 @@
+OneBar is a fast, non-commercial Android search app for installed apps, contacts and the web. Type once and get local results, recent activity, favorites and web suggestions in a single compact screen.
+
+FEATURES
+- Search installed apps and contacts by name, phone number, organization and additional fields.
+- Exact, prefix, substring, е/ё and transliteration matching.
+- Internal history and favorites rise to the top without duplicate results.
+- Swipe actions for SMS, calls, Yandex and Google.
+- Light and dark themes, Russian and English interfaces.
+- Search widget and configurable keyboard behavior.
+- Optional anonymous analytics, disabled by default.
+
+PRIVACY
+OneBar does not read SMS or the call log. Contacts, history and favorites stay on the device. READ_CONTACTS is used only for contact search, and QUERY_ALL_PACKAGES is needed to list installed apps.
+
+When web suggestions are enabled, entered text and the interface language are sent to Google completion over HTTPS. This can be turned off; local search keeps working offline.
+
+AppMetrica analytics requires explicit consent in Settings → Privacy. It receives device, session and coarse usage events, but never search text, contact names, phone numbers, message contents or app package names. Advertising identifiers, App Set ID, location, crash and ANR reports are disabled. Google Play Services is not included.
+
+OPEN SOURCE
+OneBar is a small educational project distributed under the MIT license. It has no ads, purchases, account or proprietary analytics dependency. Source code, signed APK releases and SHA-256 checksums are available on GitHub.
+
+REQUIREMENTS AND LIMITATIONS
+- Android 8.0 or newer.
+- Internet is required for web suggestions and browser search.
+- Portrait orientation is currently supported.
+- OneBar is not a replacement launcher and does not modify your home screen.
+
+Website: https://croupier.github.io/OneBar/
+Source: https://github.com/croupier/OneBar
+Releases: https://github.com/croupier/OneBar/releases

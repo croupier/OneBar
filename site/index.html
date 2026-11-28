@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0c1712">
+  <meta name="color-scheme" content="light">
+  <title>OneBar — приложения, контакты и веб-поиск в одной строке</title>
+  <meta name="description" content="OneBar — бесплатный Android-лаунчер поиска по приложениям, контактам и вебу. История, избранное, свайпы, тёмная тема и открытый исходный код.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://croupier.github.io/OneBar/">
+  <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./assets/icon-192.png">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="stylesheet" href="./assets/styles.css">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ru_RU">
+  <meta property="og:site_name" content="OneBar">
+  <meta property="og:title" content="OneBar — один поиск для всего нужного">
+  <meta property="og:description" content="Приложения, контакты и веб-поиск в одной строке. Бесплатно, без рекламы, с открытым исходным кодом.">
+  <meta property="og:url" content="https://croupier.github.io/OneBar/">
+  <meta property="og:image" content="https://croupier.github.io/OneBar/assets/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="OneBar — один поиск для всего нужного">
+  <meta name="twitter:description" content="Приложения, контакты и веб-поиск в одной строке. Открытый Android-проект без рекламы.">
+  <meta name="twitter:image" content="https://croupier.github.io/OneBar/assets/og-image.png">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "OneBar",
+    "applicationCategory": "UtilitiesApplication",
+    "operatingSystem": "Android",
+    "softwareVersion": "0.15.0",
+    "description": "Бесплатный поиск по установленным приложениям, контактам и вебу с историей, избранным и свайп-действиями.",
+    "url": "https://croupier.github.io/OneBar/",
+    "downloadUrl": "https://github.com/croupier/OneBar/releases/latest",
+    "codeRepository": "https://github.com/croupier/OneBar",
+    "license": "https://github.com/croupier/OneBar/blob/master/LICENSE",
+    "isAccessibleForFree": true,
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "RUB"
+    },
+    "author": {
+      "@type": "Person",
+      "name": "croupier",
+      "url": "https://github.com/croupier"
+    }
+  }
+  </script>
+  <script src="./assets/analytics.js" defer></script>
+  <script src="./assets/site.js" defer></script>
+</head>
+<body>
+  <a href="#main" class="fixed left-4 top-4 z-[100] -translate-y-24 rounded-full bg-lime px-5 py-3 text-sm font-bold text-ink transition-transform focus:translate-y-0">Перейти к содержанию</a>
+
+  <header class="sticky top-0 z-50 border-b border-white/10 bg-ink/90 text-white backdrop-blur-xl">
+    <div class="site-container flex h-18 items-center justify-between gap-6">
+      <a href="./" class="flex items-center gap-3" aria-label="OneBar — главная">
+        <img src="./assets/icon-96.png" alt="" width="40" height="40" class="rounded-xl">
+        <span class="font-display text-lg font-semibold tracking-tight">OneBar</span>
+      </a>
+      <nav class="hidden items-center gap-8 text-sm text-white/70 md:flex" aria-label="Основная навигация">
+        <a class="transition-colors hover:text-white" href="#features">Возможности</a>
+        <a class="transition-colors hover:text-white" href="#demo">Демо</a>
+        <a class="transition-colors hover:text-white" href="#privacy">Приватность</a>
+        <a class="transition-colors hover:text-white" href="#download">Скачать</a>
+        <a class="transition-colors hover:text-white" href="#faq">Вопросы</a>
+      </nav>
+      <div class="flex items-center gap-3">
+        <a href="https://github.com/croupier/OneBar" target="_blank" rel="noopener noreferrer" data-analytics-event="github_source_click" class="hidden items-center gap-2 rounded-full border border-white/15 px-4 py-2.5 text-sm font-semibold transition-colors hover:border-lime hover:text-lime sm:flex">
+          <svg aria-hidden="true" viewBox="0 0 24 24" class="size-4 fill-current"><path d="M12 .7a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2.23c-3.22.7-3.9-1.36-3.9-1.36-.52-1.34-1.28-1.7-1.28-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.57-.29-5.27-1.29-5.27-5.69 0-1.26.45-2.29 1.19-3.09-.12-.29-.52-1.47.11-3.05 0 0 .97-.31 3.16 1.18a10.9 10.9 0 0 1 5.76 0c2.2-1.49 3.16-1.18 3.16-1.18.63 1.58.23 2.76.11 3.05.74.8 1.19 1.83 1.19 3.09 0 4.42-2.71 5.39-5.29 5.68.42.36.79 1.06.79 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .7Z"/></svg>
+          Исходный код
+        </a>
+        <button type="button" data-menu-button aria-expanded="false" aria-controls="mobile-menu" aria-label="Открыть меню" class="grid size-10 place-items-center rounded-full border border-white/15 md:hidden">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-5"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+      </div>
+    </div>
+    <nav id="mobile-menu" data-mobile-menu class="hidden border-t border-white/10 bg-ink px-4 py-5 md:hidden" aria-label="Мобильная навигация">
+      <div class="mx-auto flex max-w-xl flex-col gap-4 text-white/80">
+        <a href="#features">Возможности</a>
+        <a href="#demo">Демо</a>
+        <a href="#privacy">Приватность</a>
+        <a href="#download">Скачать</a>
+        <a href="#faq">Вопросы</a>
+        <a href="https://github.com/croupier/OneBar" target="_blank" rel="noopener noreferrer">Исходный код на GitHub</a>
+      </div>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section class="hero-glow grid-pattern relative overflow-hidden bg-ink text-white">
+      <div class="site-container relative grid min-h-[calc(100svh-4.5rem)] items-center gap-16 py-20 lg:grid-cols-[1.05fr_0.95fr] lg:py-24">
+        <div class="relative z-10 max-w-2xl">
+          <div class="mb-7 inline-flex items-center gap-2 rounded-full border border-lime/25 bg-lime/10 px-4 py-2 text-xs font-semibold tracking-wide text-lime sm:text-sm">
+            <span class="size-2 rounded-full bg-lime shadow-[0_0_18px_#c9f56a]"></span>
+            Открытый Android-проект · версия 0.15.0
+          </div>
+          <h1 class="text-balance font-display text-[clamp(2.65rem,7vw,5.7rem)] font-semibold leading-[0.98] tracking-[-0.045em]">
+            Один поиск.<br>
+            <span class="text-lime">Всё нужное.</span>
+          </h1>
+          <p class="mt-7 max-w-xl text-balance text-lg leading-relaxed text-white/68 sm:text-xl">
+            OneBar собирает установленные приложения, контакты и веб-подсказки в одну строку. Без лишних экранов, рекламы и передачи ваших данных рекламным сетям.
+          </p>
+          <div class="mt-9 flex flex-col gap-3 sm:flex-row">
+            <a href="https://github.com/croupier/OneBar/releases/latest" target="_blank" rel="noopener noreferrer" data-analytics-event="download_apk_click" class="group inline-flex items-center justify-center gap-3 rounded-full bg-lime px-7 py-4 text-base font-bold text-ink transition-transform hover:-translate-y-0.5 hover:bg-[#d6ff83]">
+              Скачать OneBar
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-5 transition-transform group-hover:translate-y-0.5"><path d="M12 3v12m0 0 5-5m-5 5-5-5M5 21h14"/></svg>
+            </a>
+            <a href="#demo" class="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 px-7 py-4 text-base font-semibold text-white transition-colors hover:border-white/45 hover:bg-white/5">
+              Попробовать демо
+            </a>
+          </div>
+          <dl class="mt-10 grid max-w-lg grid-cols-3 gap-4 border-t border-white/12 pt-6 text-sm">
+            <div><dt class="text-white/45">Лицензия</dt><dd class="mt-1 font-semibold text-white">MIT</dd></div>
+            <div><dt class="text-white/45">Реклама</dt><dd class="mt-1 font-semibold text-white">Нет</dd></div>
+            <div><dt class="text-white/45">Аналитика</dt><dd class="mt-1 font-semibold text-white">По желанию</dd></div>
+          </dl>
+        </div>
+
+        <div class="relative mx-auto w-full max-w-[34rem] lg:mx-0">
+          <div class="absolute left-[4%] top-[12%] hidden h-[76%] w-[47%] rotate-[-8deg] opacity-80 xl:block" style="--phone-rotate: -8deg">
+            <div class="phone-shell float-delayed h-full">
+              <div class="phone-screen bg-[#e9efe4] text-[#173226]">
+                <div class="flex items-center justify-between px-2 text-[9px] font-bold"><span>9:41</span><span>5G ▰</span></div>
+                <div class="mt-5 flex items-center gap-2 rounded-2xl bg-white px-3 py-3 shadow-sm">
+                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.86 2.86-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21h-4v-.09A1.7 1.7 0 0 0 8.94 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.86-2.86.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3v-4h.09A1.7 1.7 0 0 0 4.6 8.94a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.86-2.86.06.06A1.7 1.7 0 0 0 8.94 4.6 1.7 1.7 0 0 0 9.97 3.04V3h4v.09A1.7 1.7 0 0 0 15 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.86 2.86-.06.06A1.7 1.7 0 0 0 19.4 9c.14.6.7 1.03 1.32 1.03H21v4h-.09A1.7 1.7 0 0 0 19.4 15Z"/></svg>
+                  <span class="flex-1 text-[10px] text-[#718076]">поиск</span>
+                  <span class="text-[#4a7a37]">★</span>
+                </div>
+                <div class="relative my-5 h-px bg-[#cad5c5]"><span class="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#e9efe4] px-2 text-[9px] font-semibold">Избранное</span></div>
+                <div class="space-y-2">
+                  <div class="flex items-center gap-2 rounded-2xl bg-white p-2.5"><span class="grid size-9 place-items-center rounded-xl bg-[#d7e8ff] text-xs font-bold">К</span><div class="min-w-0 flex-1"><p class="truncate text-[11px] font-bold">Карты</p><p class="text-[9px] text-[#718076]">Навигация</p></div><span class="text-[#5b7c48]">★</span></div>
+                  <div class="flex items-center gap-2 rounded-2xl bg-white p-2.5"><span class="grid size-9 place-items-center rounded-full bg-[#f1d9c7] text-xs font-bold">М</span><div class="min-w-0 flex-1"><p class="truncate text-[11px] font-bold">Марина</p><p class="text-[9px] text-[#718076]">Мобильный</p></div><span class="text-[#5b7c48]">★</span></div>
+                  <div class="flex items-center gap-2 rounded-2xl bg-white p-2.5"><span class="grid size-9 place-items-center rounded-xl bg-[#e5dcff] text-xs font-bold">П</span><div class="min-w-0 flex-1"><p class="truncate text-[11px] font-bold">Почта</p><p class="text-[9px] text-[#718076]">Письма</p></div><span class="text-[#5b7c48]">★</span></div>
+                </div>
+                <p class="mt-8 text-center text-[9px] text-[#718076]">Только избранное</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="relative ml-auto w-[82%] rotate-[4deg] sm:w-[76%]" style="--phone-rotate: 4deg">
+            <div class="phone-shell float-slow">
+              <div class="phone-screen bg-[#edf3e9] text-[#173226]">
+                <div class="flex items-center justify-between px-2 text-[9px] font-bold"><span>9:41</span><span>5G ▰</span></div>
+                <div class="mt-5 flex items-center gap-2 rounded-2xl bg-white px-3 py-3 shadow-sm">
+                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.86 2.86-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21h-4v-.09A1.7 1.7 0 0 0 8.94 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.86-2.86.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3v-4h.09A1.7 1.7 0 0 0 4.6 8.94a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.86-2.86.06.06A1.7 1.7 0 0 0 8.94 4.6 1.7 1.7 0 0 0 9.97 3.04V3h4v.09A1.7 1.7 0 0 0 15 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.86 2.86-.06.06A1.7 1.7 0 0 0 19.4 9c.14.6.7 1.03 1.32 1.03H21v4h-.09A1.7 1.7 0 0 0 19.4 15Z"/></svg>
+                  <span class="flex-1 text-[10px] text-[#718076]">карты</span>
+                  <span class="text-[#8a968e]">×</span>
+                  <span class="text-[#4a7a37]">★</span>
+                </div>
+                <div class="relative my-4 h-px bg-[#cad5c5]"><span class="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#edf3e9] px-2 text-[9px] font-semibold">Приложения</span></div>
+                <div class="grid grid-cols-4 gap-y-3 px-1">
+                  <div class="app-tile"><span class="app-icon bg-[#d9edcf]">К</span><span class="w-full truncate text-[8px] font-medium">Карты</span></div>
+                  <div class="app-tile"><span class="app-icon bg-[#f5dfc8]">П</span><span class="w-full truncate text-[8px] font-medium">Почта</span></div>
+                  <div class="app-tile"><span class="app-icon bg-[#dce8fb]">М</span><span class="w-full truncate text-[8px] font-medium">Музыка</span></div>
+                  <div class="app-tile"><span class="app-icon bg-[#e9def8]">К</span><span class="w-full truncate text-[8px] font-medium">Камера</span></div>
+                </div>
+                <div class="relative my-4 h-px bg-[#cad5c5]"><span class="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#edf3e9] px-2 text-[9px] font-semibold">Контакты</span></div>
+                <div class="space-y-2">
+                  <div class="flex items-center gap-2 rounded-2xl bg-white p-2.5"><span class="grid size-8 place-items-center rounded-full bg-[#d7e8ff] text-[10px] font-bold">А</span><div class="min-w-0 flex-1"><p class="truncate text-[10px] font-bold">Алексей</p><p class="text-[8px] text-[#718076]">Рабочий</p></div><span class="grid size-6 place-items-center rounded-lg bg-[#e4f0dd] text-[8px]">✉</span><span class="grid size-6 place-items-center rounded-lg bg-[#e4f0dd] text-[8px]">☎</span></div>
+                  <div class="flex items-center gap-2 rounded-2xl bg-white p-2.5"><span class="grid size-8 place-items-center rounded-full bg-[#f1d9c7] text-[10px] font-bold">М</span><div class="min-w-0 flex-1"><p class="truncate text-[10px] font-bold">Марина</p><p class="text-[8px] text-[#718076]">Мобильный</p></div><span class="grid size-6 place-items-center rounded-lg bg-[#e4f0dd] text-[8px]">✉</span><span class="grid size-6 place-items-center rounded-lg bg-[#e4f0dd] text-[8px]">☎</span></div>
+                </div>
+                <div class="relative my-4 h-px bg-[#cad5c5]"><span class="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#edf3e9] px-2 text-[9px] font-semibold">Веб-поиск</span></div>
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between rounded-xl bg-white px-3 py-2.5"><span class="text-[10px]">карты рядом со мной</span><span class="grid size-5 place-items-center rounded-md bg-[#eef3e9] text-[8px] font-bold">Я</span></div>
+                  <div class="flex items-center justify-between rounded-xl bg-white px-3 py-2.5"><span class="text-[10px]">карты москва</span><span class="grid size-5 place-items-center rounded-md bg-[#eef3e9] text-[8px] font-bold">G</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="absolute -right-2 top-[8%] rounded-2xl border border-lime/30 bg-forest/95 px-4 py-3 text-xs font-semibold text-white shadow-xl backdrop-blur-md sm:right-[-2rem]">История → избранное</div>
+          <div class="absolute bottom-[9%] left-0 rounded-2xl border border-lime/30 bg-forest/95 px-4 py-3 text-xs font-semibold text-white shadow-xl backdrop-blur-md">Свайп → действие</div>
+        </div>
+      </div>
+      <div class="border-t border-white/10">
+        <div class="site-container flex flex-wrap items-center justify-center gap-x-10 gap-y-4 py-5 text-xs font-semibold uppercase tracking-[0.16em] text-white/45 sm:text-sm">
+          <span>Приложения</span><span class="text-lime">•</span><span>Контакты</span><span class="text-lime">•</span><span>Веб-поиск</span><span class="text-lime">•</span><span>История</span><span class="text-lime">•</span><span>Избранное</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="features" class="py-24 sm:py-32">
+      <div class="site-container">
+        <div class="reveal grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
+          <div>
+            <p class="mb-4 text-sm font-bold uppercase tracking-[0.18em] text-forest-light">Меньше переключений</p>
+            <h2 class="text-balance font-display text-4xl font-semibold leading-tight tracking-[-0.035em] sm:text-5xl">Всё начинается с одной строки</h2>
+          </div>
+          <p class="max-w-xl text-lg leading-relaxed text-muted lg:justify-self-end">OneBar не заменяет ваш лаунчер и не пытается стать ещё одним комбайном. Это отдельный быстрый поиск для повседневных действий.</p>
+        </div>
+
+        <div class="mt-14 grid gap-5 md:grid-cols-3">
+          <article class="reveal group rounded-[2rem] border border-line bg-paper p-7 transition-transform hover:-translate-y-1 sm:p-9">
+            <div class="mb-10 flex items-start justify-between">
+              <div class="grid size-14 place-items-center rounded-2xl bg-lime-soft text-forest">
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="size-7"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>
+              </div>
+              <span class="font-display text-sm text-muted">01</span>
+            </div>
+            <h3 class="text-2xl font-bold tracking-tight">Приложения и контакты</h3>
+            <p class="mt-4 leading-relaxed text-muted">Ищите по названию, номеру, организации и дополнительным полям. Контакты остаются на устройстве, а звонок или СМС открываются в выбранном системой приложении.</p>
+          </article>
+
+          <article class="reveal group rounded-[2rem] border border-line bg-paper p-7 transition-transform hover:-translate-y-1 sm:p-9" style="transition-delay: 80ms">
+            <div class="mb-10 flex items-start justify-between">
+              <div class="grid size-14 place-items-center rounded-2xl bg-lime-soft text-forest">
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="size-7"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg>
+              </div>
+              <span class="font-display text-sm text-muted">02</span>
+            </div>
+            <h3 class="text-2xl font-bold tracking-tight">Память о привычках</h3>
+            <p class="mt-4 leading-relaxed text-muted">История показывает недавно использованное, избранное поднимается по частоте, а остальные результаты сортируются по релевантности. Дубли не мешают.</p>
+          </article>
+
+          <article class="reveal group rounded-[2rem] border border-line bg-paper p-7 transition-transform hover:-translate-y-1 sm:p-9" style="transition-delay: 160ms">
+            <div class="mb-10 flex items-start justify-between">
+              <div class="grid size-14 place-items-center rounded-2xl bg-lime-soft text-forest">
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="size-7"><path d="M8 6h8a4 4 0 0 1 4 4v4a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4v-4a4 4 0 0 1 4-4Z"/><path d="m9 9-3 3 3 3m6-6 3 3-3 3"/></svg>
+              </div>
+              <span class="font-display text-sm text-muted">03</span>
+            </div>
+            <h3 class="text-2xl font-bold tracking-tight">Действия свайпом</h3>
+            <p class="mt-4 leading-relaxed text-muted">СМС и звонок, Яндекс и Google — нужное действие раскрывается прямо в строке. Полный свайп запускает его, короткий возвращает карточку назад.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="demo" class="relative overflow-hidden bg-forest py-24 text-white sm:py-32">
+      <div class="grid-pattern absolute inset-0 opacity-60"></div>
+      <div class="site-container relative grid items-center gap-14 lg:grid-cols-2">
+        <div class="reveal min-w-0">
+          <p class="mb-4 text-sm font-bold uppercase tracking-[0.18em] text-lime">Интерактивное демо</p>
+          <h2 class="text-balance font-display text-4xl font-semibold leading-tight tracking-[-0.035em] sm:text-5xl">Наберите пару букв</h2>
+          <p class="mt-6 max-w-lg text-lg leading-relaxed text-white/65">Посмотрите, как один запрос собирает разные типы результатов. Демо работает на вымышленных данных и ничего не отправляет.</p>
+          <div class="mt-8 flex flex-wrap gap-2 text-sm">
+            <span class="rounded-full border border-white/15 px-4 py-2 text-white/75">карты</span>
+            <span class="rounded-full border border-white/15 px-4 py-2 text-white/75">марина</span>
+            <span class="rounded-full border border-white/15 px-4 py-2 text-white/75">почта</span>
+          </div>
+          <p class="mt-8 text-sm text-white/45">Подсказки: запросы не сохраняются. При включённой веб-аналитике передаётся только количество результатов.</p>
+        </div>
+
+        <div class="reveal min-w-0 overflow-hidden rounded-[2.2rem] border border-white/15 bg-[#111b15] p-2 text-white shadow-2xl sm:p-4">
+          <div class="rounded-[1.8rem] bg-[#0c1712] p-4 sm:p-6" aria-live="polite">
+            <div class="flex items-center gap-3 border-b border-white/10 px-1 pb-4">
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="size-6 shrink-0 text-white/70"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.86 2.86-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21h-4v-.09A1.7 1.7 0 0 0 8.94 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.86-2.86.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3v-4h.09A1.7 1.7 0 0 0 4.6 8.94a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.86-2.86.06.06A1.7 1.7 0 0 0 8.94 4.6 1.7 1.7 0 0 0 9.97 3.04V3h4v.09A1.7 1.7 0 0 0 15 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.86 2.86-.06.06A1.7 1.7 0 0 0 19.4 9c.14.6.7 1.03 1.32 1.03H21v4h-.09A1.7 1.7 0 0 0 19.4 15Z"/></svg>
+              <label for="demo-search" class="sr-only">Демонстрационный поиск</label>
+              <input id="demo-search" data-demo-input type="search" autocomplete="off" placeholder="Попробуйте «карты»" class="min-w-0 flex-1 bg-transparent text-lg text-white outline-none placeholder:text-white/45">
+              <span data-demo-count class="sr-only">8</span>
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="size-6 shrink-0 text-white/55"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9L12 3Z"/></svg>
+            </div>
+
+            <section data-demo-section class="mt-5">
+              <div class="relative h-px bg-white/15"><span class="absolute left-3 -translate-y-1/2 bg-[#0c1712] pr-3 text-[11px] font-bold uppercase tracking-[0.14em] text-[#b9d99a]">Приложения</span></div>
+              <div class="mt-5 grid grid-cols-4 gap-y-4">
+                <div data-demo-item="карты навигация" class="flex min-w-0 flex-col items-center gap-2 text-center">
+                  <span class="grid size-14 place-items-center rounded-2xl bg-[#d7edcf] text-[#1c5b36] shadow-lg shadow-black/20"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="size-7"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Z"/><path d="M9 3v15m6-12v15"/></svg></span>
+                  <span class="w-full truncate text-xs font-medium text-white/85">Карты</span>
+                </div>
+                <div data-demo-item="почта письма" class="flex min-w-0 flex-col items-center gap-2 text-center">
+                  <span class="grid size-14 place-items-center rounded-2xl bg-[#f5dfc8] text-[#8a4b20] shadow-lg shadow-black/20"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="size-7"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7 8 6 8-6"/></svg></span>
+                  <span class="w-full truncate text-xs font-medium text-white/85">Почта</span>
+                </div>
+                <div data-demo-item="музыка аудио" class="flex min-w-0 flex-col items-center gap-2 text-center">
+                  <span class="grid size-14 place-items-center rounded-2xl bg-[#e5dcff] text-[#6545a5] shadow-lg shadow-black/20"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="size-7"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg></span>
+                  <span class="w-full truncate text-xs font-medium text-white/85">Музыка</span>
+                </div>
+                <div data-demo-item="камера фото" class="flex min-w-0 flex-col items-center gap-2 text-center">
+                  <span class="grid size-14 place-items-center rounded-2xl bg-[#cfe9e3] text-[#286458] shadow-lg shadow-black/20"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="size-7"><path d="M4 7h3l2-3h6l2 3h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="4"/></svg></span>
+                  <span class="w-full truncate text-xs font-medium text-white/85">Камера</span>
+                </div>
+              </div>
+            </section>
+
+            <section data-demo-section class="mt-6">
+              <div class="relative h-px bg-white/15"><span class="absolute left-3 -translate-y-1/2 bg-[#0c1712] pr-3 text-[11px] font-bold uppercase tracking-[0.14em] text-[#b9d99a]">Контакты</span></div>
+              <div class="mt-4 space-y-2">
+                <div data-demo-item="марина мобильный" class="flex items-center gap-3 rounded-2xl bg-white/[0.06] p-3">
+                  <span class="grid size-11 shrink-0 place-items-center rounded-full bg-[#f2dccb] text-sm font-bold text-[#6b432c]">М</span>
+                  <div class="min-w-0 flex-1"><p class="truncate font-bold">Марина</p><p class="truncate text-xs text-white/45">Мобильный</p></div>
+                  <span class="grid size-9 shrink-0 place-items-center rounded-xl bg-[#dff0d6] text-[#173226]" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="size-4"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7 8 6 8-6"/></svg></span>
+                  <span class="grid size-9 shrink-0 place-items-center rounded-xl bg-[#dff0d6] text-[#173226]" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="size-4"><path d="M5 3h4l2 5-3 2a15 15 0 0 0 6 6l2-3 5 2v4a2 2 0 0 1-2 2C10 21 3 14 3 5a2 2 0 0 1 2-2Z"/></svg></span>
+                </div>
+                <div data-demo-item="алексей рабочий" class="flex items-center gap-3 rounded-2xl bg-white/[0.06] p-3">
+                  <span class="grid size-11 shrink-0 place-items-center rounded-full bg-[#dce8fb] text-sm font-bold text-[#365778]">А</span>
+                  <div class="min-w-0 flex-1"><p class="truncate font-bold">Алексей</p><p class="truncate text-xs text-white/45">Рабочий</p></div>
+                  <span class="grid size-9 shrink-0 place-items-center rounded-xl bg-[#dff0d6] text-[#173226]" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="size-4"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7 8 6 8-6"/></svg></span>
+                  <span class="grid size-9 shrink-0 place-items-center rounded-xl bg-[#dff0d6] text-[#173226]" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="size-4"><path d="M5 3h4l2 5-3 2a15 15 0 0 0 6 6l2-3 5 2v4a2 2 0 0 1-2 2C10 21 3 14 3 5a2 2 0 0 1 2-2Z"/></svg></span>
+                </div>
+              </div>
+            </section>
+
+            <section data-demo-section class="mt-6">
+              <div class="relative h-px bg-white/15"><span class="absolute left-3 -translate-y-1/2 bg-[#0c1712] pr-3 text-[11px] font-bold uppercase tracking-[0.14em] text-[#b9d99a]">Веб-поиск</span></div>
+              <div class="mt-4 space-y-2">
+                <div data-demo-item="карты рядом со мной" class="flex items-center justify-between rounded-xl bg-white/[0.06] px-4 py-3"><span class="truncate pr-3">карты рядом со мной</span><span class="grid size-8 shrink-0 place-items-center rounded-xl bg-[#e84a3c] text-xs font-bold text-white">Я</span><span class="ml-2 grid size-8 shrink-0 place-items-center rounded-xl bg-white text-xs font-bold text-[#4285f4]">G</span></div>
+                <div data-demo-item="карты москва" class="flex items-center justify-between rounded-xl bg-white/[0.06] px-4 py-3"><span class="truncate pr-3">карты москва</span><span class="grid size-8 shrink-0 place-items-center rounded-xl bg-[#e84a3c] text-xs font-bold text-white">Я</span><span class="ml-2 grid size-8 shrink-0 place-items-center rounded-xl bg-white text-xs font-bold text-[#4285f4]">G</span></div>
+              </div>
+            </section>
+            <p data-demo-empty class="mt-6 hidden rounded-2xl bg-white/[0.06] p-5 text-center text-sm text-white/55">Ничего не найдено. Попробуйте «карты», «марина» или «почта».</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="privacy" class="bg-paper py-24 sm:py-32">
+      <div class="site-container grid gap-14 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+        <div class="reveal relative mx-auto w-full max-w-md">
+          <div class="absolute inset-8 rounded-full bg-lime/35 blur-3xl"></div>
+          <div class="relative rounded-[2.5rem] border border-line bg-cream p-8 sm:p-10">
+            <div class="mx-auto grid size-24 place-items-center rounded-[2rem] bg-forest text-lime shadow-xl">
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="size-12"><path d="M12 3 5 6v5c0 4.5 2.8 8.1 7 10 4.2-1.9 7-5.5 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></svg>
+            </div>
+            <div class="mt-8 grid grid-cols-3 divide-x divide-line text-center">
+              <div><p class="font-display text-2xl font-semibold">0</p><p class="mt-1 text-xs text-muted">READ_CALL_LOG<br>и READ_SMS</p></div>
+              <div><p class="font-display text-2xl font-semibold">1</p><p class="mt-1 text-xs text-muted">переключатель<br>аналитики</p></div>
+              <div><p class="font-display text-2xl font-semibold">MIT</p><p class="mt-1 text-xs text-muted">открытая<br>лицензия</p></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="reveal">
+          <p class="mb-4 text-sm font-bold uppercase tracking-[0.18em] text-forest-light">Приватность по умолчанию</p>
+          <h2 class="text-balance font-display text-4xl font-semibold leading-tight tracking-[-0.035em] sm:text-5xl">Ваши данные остаются вашими</h2>
+          <p class="mt-6 max-w-xl text-lg leading-relaxed text-muted">OneBar не читает журнал звонков и SMS. Контакты, история и избранное хранятся локально. Для работы веб-подсказок нужен интернет, но текст запроса не добавляется в локальную историю без явного поиска.</p>
+          <ul class="mt-8 space-y-4">
+            <li class="flex gap-4"><span class="mt-1 grid size-6 shrink-0 place-items-center rounded-full bg-lime text-ink">✓</span><span><strong class="font-bold">Без рекламных SDK.</strong> Никаких баннеров, rewarded-видео или рекламных идентификаторов.</span></li>
+            <li class="flex gap-4"><span class="mt-1 grid size-6 shrink-0 place-items-center rounded-full bg-lime text-ink">✓</span><span><strong class="font-bold">Аналитика AppMetrica — только opt-in.</strong> По умолчанию выключена, отключается в настройках. Не отправляем тексты запросов, имена и номера контактов.</span></li>
+            <li class="flex gap-4"><span class="mt-1 grid size-6 shrink-0 place-items-center rounded-full bg-lime text-ink">✓</span><span><strong class="font-bold">Прозрачный сайт.</strong> Umami работает без cookies и включается только после согласия. Настройки можно изменить в подвале.</span></li>
+          </ul>
+          <a href="./privacy.html" class="mt-9 inline-flex items-center gap-2 border-b border-forest pb-1 text-sm font-bold text-forest transition-colors hover:border-lime hover:text-forest-light">Подробная политика приватности <span aria-hidden="true">→</span></a>
+        </div>
+      </div>
+    </section>
+
+    <section id="screens" class="py-24 sm:py-32">
+      <div class="site-container">
+        <div class="reveal flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p class="mb-4 text-sm font-bold uppercase tracking-[0.18em] text-forest-light">Основные экраны</p>
+            <h2 class="text-balance font-display text-4xl font-semibold leading-tight tracking-[-0.035em] sm:text-5xl">Простой интерфейс без лишнего</h2>
+          </div>
+          <p class="max-w-sm text-sm leading-relaxed text-muted">Светлая и тёмная темы, крупные иконки и понятные действия. Скриншоты сделаны на реальном устройстве.</p>
+        </div>
+        <div class="mt-14 grid gap-6 md:grid-cols-3">
+          <figure class="reveal overflow-hidden rounded-[2rem] border border-line bg-paper p-4">
+            <img src="./assets/screenshots/search.png" alt="Главный экран OneBar с результатами поиска" width="540" height="1200" loading="lazy" class="aspect-[1/2] w-full rounded-[1.4rem] bg-[#e8eee4] object-cover">
+            <figcaption class="flex items-center justify-between px-2 py-4"><span class="font-bold">Поиск</span><span class="text-sm text-muted">Всё в одной строке</span></figcaption>
+          </figure>
+          <figure class="reveal overflow-hidden rounded-[2rem] border border-line bg-paper p-4" style="transition-delay: 80ms">
+            <img src="./assets/screenshots/favorites.png" alt="Экран избранного OneBar" width="540" height="1200" loading="lazy" class="aspect-[1/2] w-full rounded-[1.4rem] bg-[#e8eee4] object-cover">
+            <figcaption class="flex items-center justify-between px-2 py-4"><span class="font-bold">Избранное</span><span class="text-sm text-muted">Контакты размыты</span></figcaption>
+          </figure>
+          <figure class="reveal overflow-hidden rounded-[2rem] border border-line bg-paper p-4" style="transition-delay: 160ms">
+            <img src="./assets/screenshots/settings.png" alt="Настройки OneBar" width="540" height="1200" loading="lazy" class="aspect-[1/2] w-full rounded-[1.4rem] bg-[#e8eee4] object-cover">
+            <figcaption class="flex items-center justify-between px-2 py-4"><span class="font-bold">Настройки</span><span class="text-sm text-muted">Под ваш сценарий</span></figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="bg-lime-soft py-24 sm:py-28">
+      <div class="site-container reveal grid gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+        <div>
+          <p class="mb-4 text-sm font-bold uppercase tracking-[0.18em] text-forest-light">Небольшой честный проект</p>
+          <h2 class="text-balance font-display text-4xl font-semibold leading-tight tracking-[-0.035em] sm:text-5xl">Учебный проект.<br>Открытый код.<br>Без монетизации.</h2>
+          <p class="mt-6 max-w-xl text-lg leading-relaxed text-forest/70">OneBar создаётся как личный Android-проект: чтобы попробовать Compose, поиск, локальные хранилища и продуманный Android UX. Никаких планов продавать приложение или показывать рекламу.</p>
+        </div>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div class="rounded-[1.8rem] border border-forest/12 bg-paper/65 p-6"><p class="font-display text-3xl font-semibold">Kotlin</p><p class="mt-2 text-sm text-forest/60">Jetpack Compose</p></div>
+          <div class="rounded-[1.8rem] border border-forest/12 bg-paper/65 p-6"><p class="font-display text-3xl font-semibold">Local</p><p class="mt-2 text-sm text-forest/60">Данные на устройстве</p></div>
+          <div class="rounded-[1.8rem] border border-forest/12 bg-paper/65 p-6"><p class="font-display text-3xl font-semibold">FOSS</p><p class="mt-2 text-sm text-forest/60">Исходники и MIT</p></div>
+          <div class="rounded-[1.8rem] border border-forest/12 bg-paper/65 p-6"><p class="font-display text-3xl font-semibold">0 ₽</p><p class="mt-2 text-sm text-forest/60">Всегда бесплатно</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="download" class="relative overflow-hidden bg-ink py-24 text-white sm:py-32">
+      <div class="hero-glow absolute inset-0 opacity-80"></div>
+      <div class="site-container relative">
+        <div class="reveal mx-auto max-w-3xl text-center">
+          <p class="mb-4 text-sm font-bold uppercase tracking-[0.18em] text-lime">Установка без Google Play</p>
+          <h2 class="text-balance font-display text-4xl font-semibold leading-tight tracking-[-0.035em] sm:text-6xl">Скачайте. Проверьте. Установите.</h2>
+          <p class="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-white/60">Подписанные APK и контрольные суммы публикуются в GitHub Releases. Там же находятся описание изменений и ссылка на исходный код.</p>
+          <div class="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
+            <a href="https://github.com/croupier/OneBar/releases/latest" target="_blank" rel="noopener noreferrer" data-analytics-event="github_release_click" class="inline-flex items-center justify-center gap-2 rounded-full bg-lime px-7 py-4 font-bold text-ink transition-transform hover:-translate-y-0.5">Открыть GitHub Releases <span aria-hidden="true">↗</span></a>
+            <a href="./install.html" class="inline-flex items-center justify-center rounded-full border border-white/20 px-7 py-4 font-semibold transition-colors hover:bg-white/5">Инструкция по установке</a>
+          </div>
+        </div>
+        <div class="mt-16 grid gap-5 md:grid-cols-3">
+          <article class="reveal rounded-[1.8rem] border border-white/12 bg-white/[0.045] p-7"><span class="font-display text-sm text-lime">01</span><h3 class="mt-6 text-xl font-bold">Скачайте APK</h3><p class="mt-3 leading-relaxed text-white/55">Выберите последний релиз и файл <code class="rounded bg-white/10 px-1.5 py-0.5 text-white/80">OneBar-*.apk</code>. Не устанавливайте сборки из сторонних зеркал.</p></article>
+          <article class="reveal rounded-[1.8rem] border border-white/12 bg-white/[0.045] p-7" style="transition-delay: 80ms"><span class="font-display text-sm text-lime">02</span><h3 class="mt-6 text-xl font-bold">Сверьте SHA-256</h3><p class="mt-3 leading-relaxed text-white/55">В релизе есть файл <code class="rounded bg-white/10 px-1.5 py-0.5 text-white/80">SHA256SUMS</code>. Команды проверки есть в инструкции.</p></article>
+          <article class="reveal rounded-[1.8rem] border border-white/12 bg-white/[0.045] p-7" style="transition-delay: 160ms"><span class="font-display text-sm text-lime">03</span><h3 class="mt-6 text-xl font-bold">Разрешите установку</h3><p class="mt-3 leading-relaxed text-white/55">Android может попросить разрешение для вашего браузера или файлового менеджера. Это нормально для sideload.</p></article>
+        </div>
+        <p class="mt-10 text-center text-sm text-white/40">Если обновляете приложение, сохраняйте тот же ключ подписи. Перед сменой канала установки сделайте резервную копию данных.</p>
+      </div>
+    </section>
+
+    <section id="roadmap" class="py-24 sm:py-32">
+      <div class="site-container">
+        <div class="reveal grid gap-12 lg:grid-cols-2">
+          <div>
+            <p class="mb-4 text-sm font-bold uppercase tracking-[0.18em] text-forest-light">Развитие</p>
+            <h2 class="text-balance font-display text-4xl font-semibold leading-tight tracking-[-0.035em] sm:text-5xl">Уже работает</h2>
+            <ul class="mt-7 space-y-3 text-muted">
+              <li class="flex gap-3"><span class="text-forest-light">✓</span> Поиск по приложениям, контактам и веб-подсказкам</li>
+              <li class="flex gap-3"><span class="text-forest-light">✓</span> История, избранное и умная сортировка</li>
+              <li class="flex gap-3"><span class="text-forest-light">✓</span> Свайп-действия и двойной Назад для выхода</li>
+              <li class="flex gap-3"><span class="text-forest-light">✓</span> Светлая и тёмная темы, русский и английский интерфейсы</li>
+              <li class="flex gap-3"><span class="text-forest-light">✓</span> Настройки клавиатуры, истории и приватности</li>
+            </ul>
+          </div>
+          <div class="rounded-[2rem] border border-line bg-paper p-8 sm:p-10">
+            <h2 class="font-display text-3xl font-semibold tracking-[-0.03em]">Дальше — без спешки</h2>
+            <p class="mt-3 text-sm text-muted">Планы не обещания и могут меняться.</p>
+            <ul class="mt-7 space-y-4 text-muted">
+              <li class="flex gap-3"><span class="mt-2 size-1.5 shrink-0 rounded-full bg-forest-light"></span> Более гибкие настройки лимитов и порядка результатов</li>
+              <li class="flex gap-3"><span class="mt-2 size-1.5 shrink-0 rounded-full bg-forest-light"></span> Адаптация под планшеты, ландшафт и крупный шрифт</li>
+              <li class="flex gap-3"><span class="mt-2 size-1.5 shrink-0 rounded-full bg-forest-light"></span> Постепенное улучшение локализации и доступности</li>
+              <li class="flex gap-3"><span class="mt-2 size-1.5 shrink-0 rounded-full bg-forest-light"></span> Проверка обновлений через GitHub Releases без автоустановки</li>
+              <li class="flex gap-3"><span class="mt-2 size-1.5 shrink-0 rounded-full bg-forest-light"></span> Воспроизводимая сборка и подача в свободные каталоги</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="faq" class="border-t border-line bg-paper py-24 sm:py-32">
+      <div class="site-container grid gap-12 lg:grid-cols-[0.7fr_1.3fr]">
+        <div class="reveal">
+          <p class="mb-4 text-sm font-bold uppercase tracking-[0.18em] text-forest-light">FAQ</p>
+          <h2 class="text-balance font-display text-4xl font-semibold leading-tight tracking-[-0.035em] sm:text-5xl">Коротко о главном</h2>
+          <p class="mt-5 max-w-sm leading-relaxed text-muted">Не нашли ответ? Создайте issue на GitHub — для этого и нужен открытый проект.</p>
+          <a href="https://github.com/croupier/OneBar/issues" target="_blank" rel="noopener noreferrer" class="mt-6 inline-flex items-center gap-2 text-sm font-bold text-forest">Задать вопрос <span aria-hidden="true">↗</span></a>
+        </div>
+        <div class="reveal divide-y divide-line border-y border-line">
+          <details class="group py-6">
+            <summary class="flex list-none items-center justify-between gap-6 text-lg font-bold">Почему приложения нет в Google Play?<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="faq-chevron size-5 shrink-0 text-muted"><path d="m6 9 6 6 6-6"/></svg></summary>
+            <p class="mt-4 max-w-2xl leading-relaxed text-muted">Проект некоммерческий и учебный. Для первой публикации выбраны GitHub Releases и свободные Android-каталоги: это проще, дешевле и лучше соответствует идее открытого исходного кода. Google Play не исключён навсегда, но сейчас не планируется.</p>
+          </details>
+          <details class="group py-6">
+            <summary class="flex list-none items-center justify-between gap-6 text-lg font-bold">OneBar читает мои SMS или звонки?<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="faq-chevron size-5 shrink-0 text-muted"><path d="m6 9 6 6 6-6"/></svg></summary>
+            <p class="mt-4 max-w-2xl leading-relaxed text-muted">Нет. OneBar не запрашивает <code>READ_SMS</code> и <code>READ_CALL_LOG</code>. В истории коммуникаций появляются только действия, которые вы сами открыли через OneBar: например, экран набора номера или новый SMS.</p>
+          </details>
+          <details class="group py-6">
+            <summary class="flex list-none items-center justify-between gap-6 text-lg font-bold">Какие данные попадают в аналитику?<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="faq-chevron size-5 shrink-0 text-muted"><path d="m6 9 6 6 6-6"/></svg></summary>
+            <p class="mt-4 max-w-2xl leading-relaxed text-muted">Только если вы включили её в настройках. AppMetrica получает технические сведения об устройстве, сессии и обезличенные события вроде «открыто приложение» или «выполнен поиск». Тексты запросов, имена, номера и содержимое сообщений не отправляются. События можно посмотреть в документации для разработчика.</p>
+          </details>
+          <details class="group py-6">
+            <summary class="flex list-none items-center justify-between gap-6 text-lg font-bold">Будет ли OneBar работать без интернета?<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="faq-chevron size-5 shrink-0 text-muted"><path d="m6 9 6 6 6-6"/></svg></summary>
+            <p class="mt-4 max-w-2xl leading-relaxed text-muted">Да. Установленные приложения, контакты, история и избранное доступны локально. Веб-подсказки требуют подключения к сети. Сам поиск по контактам и приложениям не зависит от Google Play Services.</p>
+          </details>
+          <details class="group py-6">
+            <summary class="flex list-none items-center justify-between gap-6 text-lg font-bold">Как обновлять приложение?<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="faq-chevron size-5 shrink-0 text-muted"><path d="m6 9 6 6 6-6"/></svg></summary>
+            <p class="mt-4 max-w-2xl leading-relaxed text-muted">Скачайте новый APK из GitHub Releases и установите поверх предыдущего. Если APK подписан тем же ключом, данные сохранятся. После появления во F-Droid или IzzyOnDroid обновления можно будет получать через выбранный каталог.</p>
+          </details>
+          <details class="group py-6">
+            <summary class="flex list-none items-center justify-between gap-6 text-lg font-bold">Можно ли повлиять на развитие?<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="faq-chevron size-5 shrink-0 text-muted"><path d="m6 9 6 6 6-6"/></svg></summary>
+            <p class="mt-4 max-w-2xl leading-relaxed text-muted">Конечно. Сообщайте об ошибках, предлагайте улучшения и отправляйте pull request. Перед большой правкой лучше обсудить её в issue, чтобы не делать работу впустую.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="bg-ink text-white">
+    <div class="site-container py-14">
+      <div class="flex flex-col gap-10 border-b border-white/10 pb-12 md:flex-row md:items-start md:justify-between">
+        <div class="max-w-sm">
+          <a href="./" class="flex items-center gap-3"><img src="./assets/icon-96.png" alt="" width="40" height="40" class="rounded-xl"><span class="font-display text-lg font-semibold">OneBar</span></a>
+          <p class="mt-5 leading-relaxed text-white/50">Небольшой открытый Android-проект для быстрого поиска без рекламы и лишних разрешений.</p>
+        </div>
+        <div class="grid grid-cols-2 gap-x-12 gap-y-4 text-sm sm:grid-cols-3">
+          <div class="space-y-3"><p class="font-bold text-white/85">Проект</p><a class="block text-white/50 hover:text-lime" href="#features">Возможности</a><a class="block text-white/50 hover:text-lime" href="#roadmap">Планы</a><a class="block text-white/50 hover:text-lime" href="#faq">FAQ</a></div>
+          <div class="space-y-3"><p class="font-bold text-white/85">Скачать</p><a class="block text-white/50 hover:text-lime" href="https://github.com/croupier/OneBar/releases/latest" target="_blank" rel="noopener noreferrer">GitHub Releases</a><a class="block text-white/50 hover:text-lime" href="./install.html">Установка APK</a><a class="block text-white/50 hover:text-lime" href="https://github.com/croupier/OneBar/releases" target="_blank" rel="noopener noreferrer">Все версии</a></div>
+          <div class="space-y-3"><p class="font-bold text-white/85">Открытость</p><a class="block text-white/50 hover:text-lime" href="https://github.com/croupier/OneBar" target="_blank" rel="noopener noreferrer">Исходный код</a><a class="block text-white/50 hover:text-lime" href="https://github.com/croupier/OneBar/blob/master/LICENSE" target="_blank" rel="noopener noreferrer">MIT License</a><a class="block text-white/50 hover:text-lime" href="./privacy.html">Приватность</a></div>
+        </div>
+      </div>
+      <div class="flex flex-col gap-4 pt-7 text-xs text-white/40 sm:flex-row sm:items-center sm:justify-between">
+        <p>© <span data-year>2026</span> croupier. OneBar распространяется под MIT.</p>
+        <div class="flex items-center gap-5"><button type="button" data-analytics-settings class="transition-colors hover:text-white">Настройки аналитики</button><a href="https://github.com/croupier/OneBar/issues" target="_blank" rel="noopener noreferrer" class="transition-colors hover:text-white">Поддержка</a></div>
+      </div>
+    </div>
+  </footer>
+
+  <aside data-analytics-banner class="fixed inset-x-4 bottom-4 z-[80] hidden mx-auto max-w-xl rounded-2xl border border-line bg-paper p-5 text-ink shadow-2xl" aria-label="Согласие на веб-аналитику">
+    <p class="text-sm leading-relaxed"><strong class="font-bold">Разрешить анонимную аналитику сайта?</strong> Umami без cookies помогает понять, какие разделы полезны. Отказ не влияет на работу сайта.</p>
+    <div class="mt-4 flex flex-wrap gap-2">
+      <button type="button" data-analytics-accept class="rounded-full bg-forest px-4 py-2 text-sm font-bold text-white">Разрешить</button>
+      <button type="button" data-analytics-decline class="rounded-full border border-line px-4 py-2 text-sm font-bold">Только необходимые</button>
+      <a href="./privacy.html#website" class="self-center px-2 text-sm text-muted underline underline-offset-4">Подробнее</a>
+    </div>
+  </aside>
+</body>
+</html>

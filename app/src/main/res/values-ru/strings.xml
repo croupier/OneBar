@@ -103,6 +103,10 @@
     <string name="settings_history_clear_title">Очистить историю поиска?</string>
     <string name="settings_history_clear_message">Все сохранённые поисковые запросы будут удалены.</string>
     <string name="settings_history_cleared_message">История поиска очищена</string>
+    <string name="settings_privacy">Приватность</string>
+    <string name="settings_analytics">Анонимная аналитика</string>
+    <string name="settings_analytics_unavailable">Аналитика не настроена в этой сборке</string>
+    <string name="settings_analytics_info">По умолчанию выключена. Если включить, AppMetrica получает сведения об устройстве, сессии и обобщённые события: открытие приложения, поиск, звонок или СМС. Тексты запросов, имена, номера телефонов и названия пакетов не отправляются. Рекламные идентификаторы, App Set ID, геолокация, отчёты о сбоях и ANR отключены. Аналитику можно выключить в любой момент.</string>
     <string name="settings_clear">Очистить</string>
     <string name="settings_cancel">Отмена</string>
     <string name="settings_about">О приложении</string>

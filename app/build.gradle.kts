@@ -17,7 +17,17 @@ val keystorePropertiesFile = rootProject.file("keystore.properties")
 val keystoreProperties = Properties().apply {
     if (keystorePropertiesFile.exists()) keystorePropertiesFile.inputStream().use(::load)
 }
-val hasReleaseSigning = !keystoreProperties.getProperty("storeFile").isNullOrBlank()
+val releaseStoreFile = keystoreProperties.getProperty("storeFile") ?: System.getenv("ANDROID_STORE_FILE")
+val hasReleaseSigning = !releaseStoreFile.isNullOrBlank()
+val localProperties = Properties().apply {
+    rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use(::load)
+}
+val appMetricaApiKey = (
+    localProperties.getProperty("APP_METRICA_API_KEY")
+        ?: providers.gradleProperty("APP_METRICA_API_KEY").orNull
+        ?: System.getenv("ORG_GRADLE_PROJECT_APP_METRICA_API_KEY")
+    ).orEmpty().trim()
+fun String.asBuildConfigValue(): String = "\"" + replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
 android {
   namespace = "dev.onebar.app"
@@ -30,15 +40,16 @@ android {
     versionCode = appVersionCode
     versionName = appVersion
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    buildConfigField("String", "APP_METRICA_API_KEY", appMetricaApiKey.asBuildConfigValue())
   }
 
   signingConfigs {
     if (hasReleaseSigning) {
       create("release") {
-        storeFile = file(keystoreProperties.getProperty("storeFile"))
-        storePassword = keystoreProperties.getProperty("storePassword")
-        keyAlias = keystoreProperties.getProperty("keyAlias")
-        keyPassword = keystoreProperties.getProperty("keyPassword")
+        storeFile = rootProject.file(releaseStoreFile!!)
+        storePassword = keystoreProperties.getProperty("storePassword") ?: System.getenv("ANDROID_STORE_PASSWORD")
+        keyAlias = keystoreProperties.getProperty("keyAlias") ?: System.getenv("ANDROID_KEY_ALIAS")
+        keyPassword = keystoreProperties.getProperty("keyPassword") ?: System.getenv("ANDROID_KEY_PASSWORD")
       }
     }
   }
@@ -59,8 +70,8 @@ android {
   }
   buildFeatures {
     compose = true
+    buildConfig = true
     aidl = false
-    buildConfig = false
     shaders = false
   }
 
@@ -98,6 +109,31 @@ dependencies {
   implementation(libs.androidx.compose.ui.tooling.preview)
   implementation(libs.androidx.compose.material3)
   implementation(libs.androidx.datastore.preferences)
+  implementation(libs.appmetrica.sdk)
+
+  // Keep the core transport without ads, billing, location, advertising IDs or screenshots.
+  configurations.configureEach {
+    listOf(
+      "analytics-ad-revenue",
+      "analytics-ad-revenue-admob-v23",
+      "analytics-ad-revenue-applovin-v12",
+      "analytics-ad-revenue-applovin-v12-auto",
+      "analytics-ad-revenue-fyber-v3",
+      "analytics-ad-revenue-ironsource-v7",
+      "analytics-ad-revenue-ironsource-v9",
+      "analytics-ad-revenue-other",
+      "analytics-billing",
+      "analytics-certificates",
+      "analytics-identifiers",
+      "analytics-location",
+      "analytics-ndk-crashes",
+      "analytics-product-flow",
+      "analytics-remote-permissions",
+      "analytics-reporter-extension",
+      "analytics-screenshot",
+    ).forEach { module -> exclude(group = "io.appmetrica.analytics", module = module) }
+    exclude(group = "com.google.android.gms")
+  }
 
   debugImplementation(libs.androidx.compose.ui.tooling)
   androidTestImplementation(libs.androidx.compose.ui.test.junit4)

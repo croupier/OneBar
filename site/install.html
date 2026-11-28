@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0c1712">
+  <title>Установка APK — OneBar</title>
+  <meta name="description" content="Как скачать, проверить и установить OneBar из GitHub Releases без Google Play. Android 8.0+, проверка SHA-256 и решение частых проблем.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://croupier.github.io/OneBar/install.html">
+  <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./assets/styles.css">
+  <script src="./assets/analytics.js" defer></script>
+  <script src="./assets/site.js" defer></script>
+</head>
+<body>
+  <a href="#main" class="fixed left-4 top-4 z-[100] -translate-y-24 rounded-full bg-lime px-5 py-3 text-sm font-bold text-ink transition-transform focus:translate-y-0">Перейти к содержанию</a>
+  <header class="border-b border-line bg-paper">
+    <div class="site-container flex h-18 items-center justify-between"><a href="./" class="flex items-center gap-3"><img src="./assets/icon-96.png" alt="" width="40" height="40" class="rounded-xl"><span class="font-display text-lg font-semibold">OneBar</span></a><a href="./" class="text-sm font-bold text-forest">← На главную</a></div>
+  </header>
+  <main id="main" class="py-16 sm:py-24">
+    <article class="site-container max-w-4xl">
+      <p class="text-sm font-bold uppercase tracking-[0.18em] text-forest-light">Без Google Play</p>
+      <h1 class="mt-4 font-display text-4xl font-semibold tracking-[-0.035em] sm:text-5xl">Установка OneBar</h1>
+      <p class="mt-5 max-w-2xl text-lg leading-relaxed text-muted">Проверенный APK, контрольная сумма и понятные шаги. Сайт не содержит кнопки самообновления: новую версию вы всегда скачиваете сами.</p>
+
+      <div class="mt-10 flex flex-col gap-3 sm:flex-row">
+        <a href="https://github.com/croupier/OneBar/releases/latest" target="_blank" rel="noopener noreferrer" data-analytics-event="github_release_click" class="inline-flex items-center justify-center gap-2 rounded-full bg-forest px-7 py-4 font-bold text-white">Открыть последний релиз <span aria-hidden="true">↗</span></a>
+        <a href="https://github.com/croupier/OneBar/releases" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center rounded-full border border-line bg-paper px-7 py-4 font-bold">Все релизы</a>
+      </div>
+
+      <div class="mt-12 grid gap-4 sm:grid-cols-3">
+        <div class="rounded-2xl border border-line bg-paper p-5"><p class="text-sm text-muted">Минимальная версия</p><p class="mt-1 font-display text-xl font-semibold">Android 8.0</p></div>
+        <div class="rounded-2xl border border-line bg-paper p-5"><p class="text-sm text-muted">Формат</p><p class="mt-1 font-display text-xl font-semibold">Универсальный APK</p></div>
+        <div class="rounded-2xl border border-line bg-paper p-5"><p class="text-sm text-muted">Лицензия</p><p class="mt-1 font-display text-xl font-semibold">MIT</p></div>
+      </div>
+
+      <section class="mt-14">
+        <h2 class="font-display text-2xl font-semibold">1. Скачайте файлы релиза</h2>
+        <p class="mt-4 leading-relaxed text-muted">В GitHub Releases выберите последнюю неотмеченную как pre-release версию. Скачайте <code class="rounded bg-cream px-1.5 py-0.5 text-ink">OneBar-&lt;версия&gt;.apk</code> и <code class="rounded bg-cream px-1.5 py-0.5 text-ink">SHA256SUMS</code>. Не используйте APK из случайных зеркал и сообщений.</p>
+      </section>
+
+      <section class="mt-12">
+        <h2 class="font-display text-2xl font-semibold">2. Проверьте SHA-256</h2>
+        <p class="mt-4 leading-relaxed text-muted">Откройте терминал в папке с загруженными файлами и сравните хеш с содержимым SHA256SUMS.</p>
+        <div class="mt-5 space-y-3">
+          <div class="rounded-2xl bg-ink p-5 text-sm text-white/80"><p class="mb-2 font-bold text-lime">Windows PowerShell</p><code>Get-FileHash .\OneBar-0.15.0.apk -Algorithm SHA256</code></div>
+          <div class="rounded-2xl bg-ink p-5 text-sm text-white/80"><p class="mb-2 font-bold text-lime">macOS / Linux</p><code>shasum -a 256 OneBar-0.15.0.apk</code></div>
+        </div>
+        <p class="mt-3 text-sm text-muted">Замените 0.15.0 на версию скачанного релиза. Совпадение хеша подтверждает, что файл не изменился после публикации.</p>
+      </section>
+
+      <section class="mt-12">
+        <h2 class="font-display text-2xl font-semibold">3. Установите APK</h2>
+        <ol class="mt-4 list-decimal space-y-3 pl-6 leading-relaxed text-muted">
+          <li>Откройте APK в файловом менеджере или браузере.</li>
+          <li>Если Android покажет предупреждение, разрешите установку из этого источника для выбранного приложения. Название пункта зависит от прошивки.</li>
+          <li>Подтвердите установку и откройте OneBar.</li>
+          <li>Выберите язык. Доступ к контактам можно не выдавать — поиск по приложениям и веб-подсказки продолжат работать.</li>
+        </ol>
+        <div class="mt-6 rounded-2xl border border-amber-300 bg-amber-50 p-5 text-sm leading-relaxed text-amber-950"><strong class="font-bold">Совет по безопасности.</strong> После установки разрешение «Устанавливать неизвестные приложения» можно отключить. OneBar не запрашивает его сам.</div>
+      </section>
+
+      <section class="mt-12">
+        <h2 class="font-display text-2xl font-semibold">Обновления и подпись</h2>
+        <p class="mt-4 leading-relaxed text-muted">Обновляйте APK из GitHub Releases поверх текущей версии. Для сохранения данных новая сборка должна быть подписана тем же ключом. Если вы установите версию из F-Droid, а затем захотите перейти на GitHub (или наоборот), Android может потребовать удаление и повторную установку из-за другой подписи. Перед этим экспортируйте или запишите важные локальные данные.</p>
+      </section>
+
+      <section class="mt-12">
+        <h2 class="font-display text-2xl font-semibold">Если что-то не работает</h2>
+        <div class="mt-5 divide-y divide-line border-y border-line">
+          <details class="py-5"><summary class="flex list-none items-center justify-between gap-4 font-bold">Android блокирует установку<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="faq-chevron size-5 shrink-0"><path d="m6 9 6 6 6-6"/></svg></summary><p class="mt-3 leading-relaxed text-muted">Разрешите установку из выбранного браузера/файлового менеджера в системных настройках. На корпоративном или защищённом устройстве политика может запрещать sideload — тогда установите сборку через разрешённый канал.</p></details>
+          <details class="py-5"><summary class="flex list-none items-center justify-between gap-4 font-bold">«Приложение не установлено»<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="faq-chevron size-5 shrink-0"><path d="m6 9 6 6 6-6"/></svg></summary><p class="mt-3 leading-relaxed text-muted">Проверьте версию Android, свободное место и SHA-256. Если уже установлена копия с другим ключом подписи, сохраните нужные данные, удалите её и установите APK заново.</p></details>
+          <details class="py-5"><summary class="flex list-none items-center justify-between gap-4 font-bold">Нет контактов<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="faq-chevron size-5 shrink-0"><path d="m6 9 6 6 6-6"/></svg></summary><p class="mt-3 leading-relaxed text-muted">Выдайте OneBar доступ к контактам в системных настройках. На некоторых прошивках контакты хранятся только в локальном аккаунте или SIM и не доступны через стандартный провайдер.</p></details>
+          <details class="py-5"><summary class="flex list-none items-center justify-between gap-4 font-bold">Нет веб-подсказок<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="faq-chevron size-5 shrink-0"><path d="m6 9 6 6 6-6"/></svg></summary><p class="mt-3 leading-relaxed text-muted">Проверьте интернет и настройку «Веб-подсказки». Запрос должен содержать минимум три символа. Локальный поиск от этого не зависит.</p></details>
+          <details class="py-5"><summary class="flex list-none items-center justify-between gap-4 font-bold">Аналитика недоступна<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="faq-chevron size-5 shrink-0"><path d="m6 9 6 6 6-6"/></svg></summary><p class="mt-3 leading-relaxed text-muted">В сборке не задан API-ключ AppMetrica. Это нормально для исходной или F-Droid-сборки: приложение полностью работает без аналитики.</p></details>
+        </div>
+      </section>
+
+      <section class="mt-12 rounded-[1.8rem] bg-lime-soft p-7 sm:p-9">
+        <h2 class="font-display text-2xl font-semibold">Свободные каталоги</h2>
+        <p class="mt-3 leading-relaxed text-forest/70">GitHub Releases — основной канал первой публикации. Материалы для F-Droid и IzzyOnDroid готовятся в репозитории, но до фактической подачи и одобрения ссылки на эти каталоги не публикуются.</p>
+      </section>
+    </article>
+  </main>
+  <footer class="border-t border-line bg-paper py-8"><div class="site-container flex flex-col gap-3 text-sm text-muted sm:flex-row sm:items-center sm:justify-between"><p>© <span data-year>2026</span> croupier · MIT</p><a href="./" class="font-bold text-forest">Вернуться на главную</a></div></footer>
+  <aside data-analytics-banner class="fixed inset-x-4 bottom-4 z-[80] hidden mx-auto max-w-xl rounded-2xl border border-line bg-paper p-5 text-ink shadow-2xl" aria-label="Согласие на веб-аналитику">
+    <p class="text-sm leading-relaxed"><strong class="font-bold">Разрешить анонимную аналитику сайта?</strong> Umami без cookies помогает понять, какие разделы полезны. Отказ не влияет на работу сайта.</p>
+    <div class="mt-4 flex flex-wrap gap-2"><button type="button" data-analytics-accept class="rounded-full bg-forest px-4 py-2 text-sm font-bold text-white">Разрешить</button><button type="button" data-analytics-decline class="rounded-full border border-line px-4 py-2 text-sm font-bold">Только необходимые</button><a href="./privacy.html#website" class="self-center px-2 text-sm text-muted underline underline-offset-4">Подробнее</a></div>
+  </aside>
+</body>
+</html>

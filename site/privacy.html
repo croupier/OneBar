@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0c1712">
+  <title>Приватность — OneBar</title>
+  <meta name="description" content="Какие данные OneBar хранит локально, что отправляет в сеть и как работает добровольная аналитика AppMetrica и Umami.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://croupier.github.io/OneBar/privacy.html">
+  <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./assets/styles.css">
+  <script src="./assets/analytics.js" defer></script>
+  <script src="./assets/site.js" defer></script>
+</head>
+<body>
+  <a href="#main" class="fixed left-4 top-4 z-[100] -translate-y-24 rounded-full bg-lime px-5 py-3 text-sm font-bold text-ink transition-transform focus:translate-y-0">Перейти к содержанию</a>
+  <header class="border-b border-line bg-paper">
+    <div class="site-container flex h-18 items-center justify-between">
+      <a href="./" class="flex items-center gap-3"><img src="./assets/icon-96.png" alt="" width="40" height="40" class="rounded-xl"><span class="font-display text-lg font-semibold">OneBar</span></a>
+      <a href="./" class="text-sm font-bold text-forest">← На главную</a>
+    </div>
+  </header>
+  <main id="main" class="py-16 sm:py-24">
+    <article class="site-container max-w-4xl">
+      <p class="text-sm font-bold uppercase tracking-[0.18em] text-forest-light">Документ</p>
+      <h1 class="mt-4 font-display text-4xl font-semibold tracking-[-0.035em] sm:text-5xl">Приватность</h1>
+      <p class="mt-5 text-sm text-muted">Редакция от 28 ноября 2026 года · приложение OneBar и сайт проекта</p>
+
+      <div class="mt-10 rounded-[1.8rem] border border-line bg-lime-soft p-6 sm:p-8">
+        <p class="text-lg leading-relaxed"><strong class="font-bold">Коротко:</strong> контакты, история и избранное остаются на устройстве. OneBar не читает SMS и журнал звонков. Веб-подсказки отправляют введённый текст в Google только при включённой опции. AppMetrica и Umami включаются отдельно и по умолчанию выключены.</p>
+      </div>
+
+      <section class="mt-12">
+        <h2 class="font-display text-2xl font-semibold">1. Кто обрабатывает данные</h2>
+        <p class="mt-4 leading-relaxed text-muted">OneBar — некоммерческий учебный проект croupier. Приложение работает без аккаунта и без собственного сервера. Автор получает данные только через добровольно включённую аналитику или сообщение, отправленное пользователем через обратную связь.</p>
+      </section>
+
+      <section class="mt-12">
+        <h2 class="font-display text-2xl font-semibold">2. Локальные данные</h2>
+        <ul class="mt-4 space-y-3 leading-relaxed text-muted">
+          <li><strong class="text-ink">Приложения.</strong> OneBar запрашивает список установленных приложений через Android PackageManager. Названия пакетов используются для поиска, истории запусков и избранного.</li>
+          <li><strong class="text-ink">Контакты.</strong> После разрешения READ_CONTACTS приложение читает контактные данные для поиска. OneBar не загружает их на собственный сервер.</li>
+          <li><strong class="text-ink">История.</strong> Локально сохраняются недавно открытые приложения, действия СМС/звонков, связанные с контактами идентификаторы, имена, номера и явно отправленные поисковые запросы.</li>
+          <li><strong class="text-ink">Избранное и настройки.</strong> Хранятся на устройстве. Очистка истории удаляет поисковые запросы; избранное и настройки меняются отдельно.</li>
+        </ul>
+        <p class="mt-4 leading-relaxed text-muted">Системный backup/перенос контактов, истории, избранного и настроек зависит от Android и устройства. Согласие на аналитику исключено из backup, чтобы при переносе оно снова требовалось явно. Удаление данных приложения или сброс устройства удаляет локальную информацию.</p>
+      </section>
+
+      <section class="mt-12">
+        <h2 class="font-display text-2xl font-semibold">3. Разрешения Android</h2>
+        <div class="mt-5 overflow-x-auto rounded-2xl border border-line">
+          <table class="w-full min-w-[36rem] text-left text-sm">
+            <thead class="bg-cream"><tr><th class="p-4">Разрешение</th><th class="p-4">Зачем</th></tr></thead>
+            <tbody class="divide-y divide-line text-muted">
+              <tr><td class="p-4 font-mono text-xs text-ink">INTERNET</td><td class="p-4">Веб-подсказки, веб-поиск и включённая аналитика.</td></tr>
+              <tr><td class="p-4 font-mono text-xs text-ink">READ_CONTACTS</td><td class="p-4">Поиск по контактам и открытие карточки контакта.</td></tr>
+              <tr><td class="p-4 font-mono text-xs text-ink">QUERY_ALL_PACKAGES</td><td class="p-4">Полный список установленных приложений для поиска.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="mt-4 leading-relaxed text-muted"><code class="rounded bg-cream px-1.5 py-0.5 text-ink">READ_SMS</code>, <code class="rounded bg-cream px-1.5 py-0.5 text-ink">READ_CALL_LOG</code>, доступ к геолокации, камере, микрофону и рекламным идентификаторам не запрашиваются.</p>
+      </section>
+
+      <section class="mt-12">
+        <h2 class="font-display text-2xl font-semibold">4. Сетевые сервисы приложения</h2>
+        <h3 class="mt-7 text-lg font-bold">Google completion</h3>
+        <p class="mt-3 leading-relaxed text-muted">При включённых веб-подсказках текст поисковой строки и язык интерфейса отправляются в Google completion по HTTPS после короткой задержки. Это отдельная настройка, её можно выключить: локальный поиск по приложениям и контактам продолжит работать. Нажатие «Яндекс» или «Google» открывает соответствующий поиск в браузере; к нему применяются правила выбранного сервиса.</p>
+        <h3 class="mt-7 text-lg font-bold">AppMetrica — только по согласию</h3>
+        <p class="mt-3 leading-relaxed text-muted">В релизной сборке с настроенным API-ключом AppMetrica может собирать технические сведения об устройстве и ОС, сессии и обобщённые события: открытие OneBar, отправка поиска, запуск приложения, звонок/СМС, избранное и выбор поисковой системы. SDK инициализируется с отправкой, выключенной по умолчанию, до явного включения в «Настройки → Приватность». SDK создаёт собственный `appmetrica_device_id` для объединения сессий; OneBar не задаёт пользовательский профиль или рекламный ID.</p>
+        <p class="mt-3 leading-relaxed text-muted">OneBar не передаёт тексты запросов, имена, номера, содержание сообщений, названия пакетов и пользовательские идентификаторы. Рекламные ID, App Set ID, геолокация, автоматические crash- и ANR-отчёты отключены. GMS исключён; MIT-адаптер App Set ID остаётся только для совместимости SDK и использует штатный fallback без идентификатора; Уже переданные обезличенные данные нельзя отозвать, но новые события прекращают отправляться сразу после выключения.</p>
+        <p class="mt-3 leading-relaxed text-muted">Сервис предоставляет YANDEX LLC. По документации AppMetrica обезличенные данные обрабатываются на серверах в ЕС и Российской Федерации. Подробности: <a class="font-bold text-forest underline underline-offset-4" href="https://appmetrica.yandex.com/docs/en/data-security/notification" target="_blank" rel="noopener noreferrer">уведомление AppMetrica</a> и <a class="font-bold text-forest underline underline-offset-4" href="https://yandex.com/legal/metrica_termsofuse/" target="_blank" rel="noopener noreferrer">условия использования</a>.</p>
+      </section>
+
+      <section id="website" class="mt-12 scroll-mt-24">
+        <h2 class="font-display text-2xl font-semibold">5. Аналитика сайта</h2>
+        <p class="mt-4 leading-relaxed text-muted">Сайт использует Umami только после нажатия «Разрешить» в отдельном уведомлении. До согласия скрипт аналитики не загружается. Umami работает без cookies и, по заявлению сервиса, не собирает персональные данные и не отслеживает пользователя между сайтами.</p>
+        <p class="mt-3 leading-relaxed text-muted">После согласия могут обрабатываться страница, referrer, приблизительные технические данные браузера/устройства и обезличенные события вроде перехода к скачиванию. Текст демонстрационного поиска не передаётся — только количество найденных результатов. Бесплатный Umami Hobby предусматривает до 100 000 событий в месяц и хранение 6 месяцев; серверы находятся в США и ЕС. Отказ или отзыв согласия доступны в уведомлении и подвале сайта.</p>
+        <p class="mt-3 leading-relaxed text-muted">Если владелец проекта не настроил Umami website ID, аналитика сайта не работает и уведомление не показывается.</p>
+      </section>
+
+      <section class="mt-12">
+        <h2 class="font-display text-2xl font-semibold">6. GitHub и обратная связь</h2>
+        <p class="mt-4 leading-relaxed text-muted">GitHub Pages и GitHub Releases принимают стандартные технические данные запросов, включая IP-адрес, по правилам GitHub. APK скачивается непосредственно с GitHub. Обратная связь отправляется только по действию пользователя в его почтовое приложение; к письму добавляются версия OneBar, производитель, модель и версия Android, которые можно удалить перед отправкой.</p>
+      </section>
+
+      <section class="mt-12">
+        <h2 class="font-display text-2xl font-semibold">7. Ваш выбор</h2>
+        <ul class="mt-4 list-disc space-y-3 pl-6 leading-relaxed text-muted">
+          <li>Отключить веб-подсказки и аналитику в настройках приложения.</li>
+          <li>Отозвать доступ к контактам в системных настройках Android.</li>
+          <li>Очистить поисковую историю или удалить избранное в приложении.</li>
+          <li>Отклонить аналитику сайта или отозвать согласие через «Настройки аналитики» в подвале.</li>
+          <li>Удалить приложение, чтобы удалить его локальные данные.</li>
+        </ul>
+      </section>
+
+      <section class="mt-12">
+        <h2 class="font-display text-2xl font-semibold">8. Дети и изменения</h2>
+        <p class="mt-4 leading-relaxed text-muted">OneBar не ориентирован специально на детей. Проект не продаёт данные и не показывает рекламу. Если политика или набор сетевых сервисов изменятся, дата редакции и описание будут обновлены до публикации соответствующей версии.</p>
+      </section>
+
+      <section class="mt-12 rounded-[1.8rem] bg-ink p-7 text-white sm:p-9">
+        <h2 class="font-display text-2xl font-semibold">Вопрос о приватности</h2>
+        <p class="mt-3 leading-relaxed text-white/60">Напишите на <a class="font-bold text-lime" href="mailto:onebar@3406.ru">onebar@3406.ru</a> или создайте issue в репозитории. Не прикладывайте персональные данные без необходимости.</p>
+      </section>
+    </article>
+  </main>
+  <footer class="border-t border-line bg-paper py-8">
+    <div class="site-container flex flex-col gap-3 text-sm text-muted sm:flex-row sm:items-center sm:justify-between"><p>© <span data-year>2026</span> croupier · MIT</p><a href="./" class="font-bold text-forest">Вернуться на главную</a></div>
+  </footer>
+  <aside data-analytics-banner class="fixed inset-x-4 bottom-4 z-[80] hidden mx-auto max-w-xl rounded-2xl border border-line bg-paper p-5 text-ink shadow-2xl" aria-label="Согласие на веб-аналитику">
+    <p class="text-sm leading-relaxed"><strong class="font-bold">Разрешить анонимную аналитику сайта?</strong> Umami без cookies помогает понять, какие разделы полезны. Отказ не влияет на работу сайта.</p>
+    <div class="mt-4 flex flex-wrap gap-2"><button type="button" data-analytics-accept class="rounded-full bg-forest px-4 py-2 text-sm font-bold text-white">Разрешить</button><button type="button" data-analytics-decline class="rounded-full border border-line px-4 py-2 text-sm font-bold">Только необходимые</button><a href="./privacy.html#website" class="self-center px-2 text-sm text-muted underline underline-offset-4">Подробнее</a></div>
+  </aside>
+</body>
+</html>

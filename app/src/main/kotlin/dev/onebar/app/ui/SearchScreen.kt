@@ -70,6 +70,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.onebar.app.R
 import dev.onebar.app.OneBarApplication
+import dev.onebar.app.data.AnalyticsSink
 import dev.onebar.app.data.CommunicationKind
 import dev.onebar.app.data.ContactEntry
 import dev.onebar.app.data.DefaultAppRepository
@@ -99,6 +100,10 @@ fun SearchScreen(
                 (context.applicationContext as? OneBarApplication)?.searchPreferencesStore
                     ?: SearchPreferencesStore(context.applicationContext)
                 ).options,
+            analytics = (
+                (context.applicationContext as? OneBarApplication)?.usageAnalytics
+                    ?: AnalyticsSink.None
+                ),
         )
     },
     keyboardStartup: KeyboardStartup = KeyboardStartup.IMMEDIATE,
@@ -370,6 +375,7 @@ fun SearchScreen(
                                 keyboard?.show()
                             },
                             onSearch = { engine, text ->
+                                viewModel.onWebSearch(engine)
                                 SearchActions.webSearch(context, engine, text)
                             },
                         )

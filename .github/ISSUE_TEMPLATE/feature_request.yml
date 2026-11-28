@@ -1,0 +1,33 @@
+name: Feature request
+description: Предложить улучшение OneBar
+title: "[Feature] "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Какую проблему это решает?
+      description: Опишите сценарий, а не только желаемую кнопку.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Предлагаемое решение
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Альтернативы
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Приватность и совместимость
+      options:
+        - label: Идея не требует новых чувствительных разрешений.
+          required: false
+        - label: Идея не отправляет контакты, запросы или другие персональные данные в аналитику.
+          required: false
+        - label: Я проверил(а), что похожей issue ещё нет.
+          required: true

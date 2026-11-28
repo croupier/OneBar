@@ -10,6 +10,7 @@ import dev.onebar.app.data.DefaultContactRepository
 import dev.onebar.app.data.DefaultHistoryStore
 import dev.onebar.app.data.LanguageOption
 import dev.onebar.app.data.SearchPreferencesStore
+import dev.onebar.app.data.UsageAnalytics
 import dev.onebar.app.data.toLocales
 import dev.onebar.app.ui.theme.toNightMode
 import kotlinx.coroutines.CoroutineScope
@@ -21,6 +22,7 @@ class OneBarApplication : Application() {
 
     val appearanceStore by lazy { AppearanceStore(this) }
     val searchPreferencesStore by lazy { SearchPreferencesStore(this) }
+    val usageAnalytics by lazy { UsageAnalytics(this) }
     val debugHistorySeeder by lazy {
         DebugHistorySeeder(
             this,
@@ -50,6 +52,7 @@ class OneBarApplication : Application() {
             }
         }
         AppCompatDelegate.setDefaultNightMode(appearanceStore.theme.value.toNightMode())
+        usageAnalytics.initialize()
         if (debuggable) applicationScope.launch { debugHistorySeeder.seedIfNeeded() }
     }
 
