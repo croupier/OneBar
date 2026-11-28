@@ -96,7 +96,6 @@
     linear-gradient(rgba(201, 245, 106, 0.075) 1px, transparent 1px),
     linear-gradient(90deg, rgba(201, 245, 106, 0.075) 1px, transparent 1px);
   background-size: 52px 52px;
-  mask-image: linear-gradient(to bottom, black 15%, transparent 92%);
 }
 
 .hero-glow {
