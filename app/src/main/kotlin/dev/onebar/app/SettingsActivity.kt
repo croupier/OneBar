@@ -102,16 +102,19 @@ internal fun feedbackIntent(context: Context, message: String): Intent {
         Build.VERSION.SDK_INT,
     )
     val body = buildString {
-        appendLine(context.getString(R.string.settings_feedback_notice))
-        appendLine()
         if (message.isNotBlank()) {
             appendLine(message.trim())
             appendLine()
         }
+        appendLine(context.getString(R.string.settings_feedback_notice))
+        appendLine()
         append(debug)
     }
     val email = context.getString(R.string.settings_email)
-    return Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:$email")).apply {
+    // Часть почтовых клиентов игнорирует extras у SENDTO; selector оставляет выбор только среди почты.
+    return Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        selector = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:$email"))
         putExtra(Intent.EXTRA_EMAIL, arrayOf(email))
         putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.settings_feedback_subject))
         putExtra(Intent.EXTRA_TEXT, body)
