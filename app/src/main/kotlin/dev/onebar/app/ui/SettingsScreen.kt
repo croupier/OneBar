@@ -69,6 +69,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import dev.onebar.app.R
+import dev.onebar.app.data.KeyboardStartup
 import dev.onebar.app.data.LanguageOption
 import dev.onebar.app.data.ThemeOption
 import kotlinx.coroutines.launch
@@ -125,8 +126,10 @@ fun SettingsScreen(
     initialLanguageSelection: Boolean = false,
     language: LanguageOption = LanguageOption.SYSTEM,
     theme: ThemeOption = ThemeOption.SYSTEM,
+    keyboardStartup: KeyboardStartup = KeyboardStartup.IMMEDIATE,
     onLanguageChange: (LanguageOption) -> Unit = {},
     onThemeChange: (ThemeOption) -> Unit = {},
+    onKeyboardStartupChange: (KeyboardStartup) -> Unit = {},
     saveHistory: Boolean = true,
     onSaveHistory: suspend (Boolean) -> Unit = {},
     onClearHistory: suspend () -> Unit = {},
@@ -148,8 +151,10 @@ fun SettingsScreen(
                 onBack = onBack,
                 language = language,
                 theme = theme,
+                keyboardStartup = keyboardStartup,
                 onLanguageChange = onLanguageChange,
                 onThemeChange = onThemeChange,
+                onKeyboardStartupChange = onKeyboardStartupChange,
                 saveHistory = saveHistory,
                 onSaveHistory = onSaveHistory,
                 onClearHistory = onClearHistory,
@@ -164,8 +169,10 @@ private fun SettingsScreenContent(
     onBack: () -> Unit,
     language: LanguageOption,
     theme: ThemeOption,
+    keyboardStartup: KeyboardStartup,
     onLanguageChange: (LanguageOption) -> Unit,
     onThemeChange: (ThemeOption) -> Unit,
+    onKeyboardStartupChange: (KeyboardStartup) -> Unit,
     saveHistory: Boolean,
     onSaveHistory: suspend (Boolean) -> Unit,
     onClearHistory: suspend () -> Unit,
@@ -177,6 +184,7 @@ private fun SettingsScreenContent(
     var savedSaveHistory by rememberSaveable { mutableStateOf(saveHistory) }
     var showLanguageDialog by rememberSaveable { mutableStateOf(false) }
     var showThemeDialog by rememberSaveable { mutableStateOf(false) }
+    var showKeyboardStartupDialog by rememberSaveable { mutableStateOf(false) }
     var showClearHistoryDialog by rememberSaveable { mutableStateOf(false) }
     var showUnsavedChangesDialog by rememberSaveable { mutableStateOf(false) }
     var infoTopic by rememberSaveable { mutableStateOf<InfoTopic?>(null) }
@@ -214,7 +222,7 @@ private fun SettingsScreenContent(
     }
 
     val hasUnsavedChanges = searchOptions != savedSearchOptions || editedSaveHistory != savedSaveHistory
-    val backHandlerEnabled = !showLanguageDialog && !showThemeDialog &&
+    val backHandlerEnabled = !showLanguageDialog && !showThemeDialog && !showKeyboardStartupDialog &&
         !showClearHistoryDialog && !showUnsavedChangesDialog && infoTopic == null
     val requestBack = {
         if (hasUnsavedChanges) showUnsavedChangesDialog = true else onBack()
@@ -266,6 +274,12 @@ private fun SettingsScreenContent(
                             label = stringResource(R.string.settings_theme),
                             value = theme.label(),
                             onClick = { showThemeDialog = true },
+                        )
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        ChoiceRow(
+                            label = stringResource(R.string.settings_keyboard_startup),
+                            value = keyboardStartup.label(),
+                            onClick = { showKeyboardStartupDialog = true },
                         )
                     }
                 }
@@ -345,6 +359,21 @@ private fun SettingsScreenContent(
                 showThemeDialog = false
             },
             onDismiss = { showThemeDialog = false },
+        )
+    }
+    if (showKeyboardStartupDialog) {
+        ChoiceDialog(
+            title = stringResource(R.string.settings_keyboard),
+            options = listOf(
+                stringResource(R.string.settings_keyboard_startup_immediate),
+                stringResource(R.string.settings_keyboard_startup_on_focus),
+            ),
+            selected = keyboardStartup.ordinal,
+            onSelect = {
+                onKeyboardStartupChange(KeyboardStartup.entries[it])
+                showKeyboardStartupDialog = false
+            },
+            onDismiss = { showKeyboardStartupDialog = false },
         )
     }
     if (showClearHistoryDialog) {
@@ -869,6 +898,14 @@ private fun ThemeOption.label(): String = stringResource(
         ThemeOption.SYSTEM -> R.string.settings_theme_system
         ThemeOption.LIGHT -> R.string.settings_theme_light
         ThemeOption.DARK -> R.string.settings_theme_dark
+    }
+)
+
+@Composable
+private fun KeyboardStartup.label(): String = stringResource(
+    when (this) {
+        KeyboardStartup.IMMEDIATE -> R.string.settings_keyboard_startup_immediate
+        KeyboardStartup.ON_FOCUS -> R.string.settings_keyboard_startup_on_focus
     }
 )
 

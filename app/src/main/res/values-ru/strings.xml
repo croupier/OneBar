@@ -11,6 +11,7 @@
     <string name="clear">Очистить</string>
     <string name="close">Закрыть</string>
     <string name="favorites">Избранное</string>
+    <string name="double_back_exit">дважды Назад для выхода</string>
 
     <!-- Sections -->
     <string name="caption_sms">СМС</string>
@@ -62,6 +63,10 @@
     <string name="settings_theme_system">Системная</string>
     <string name="settings_theme_light">Светлая</string>
     <string name="settings_theme_dark">Тёмная</string>
+    <string name="settings_keyboard_startup">Клавиатура при старте</string>
+    <string name="settings_keyboard">Клавиатура</string>
+    <string name="settings_keyboard_startup_immediate">Показывать сразу</string>
+    <string name="settings_keyboard_startup_on_focus">При фокусе на поиске</string>
     <string name="settings_search">Поиск</string>
     <string name="settings_search_favorites">Сначала избранное</string>
     <string name="settings_search_prefix">Совпадение с начала названия</string>

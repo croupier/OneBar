@@ -3,6 +3,7 @@ package dev.onebar.app.ui
 import android.Manifest
 import android.content.Context
 import android.content.Intent
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -31,6 +33,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -38,12 +42,15 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -70,8 +77,12 @@ import dev.onebar.app.data.DefaultContactRepository
 import dev.onebar.app.data.DefaultFavoritesStore
 import dev.onebar.app.data.DefaultHistoryStore
 import dev.onebar.app.data.DefaultSuggestRepository
+import dev.onebar.app.data.KeyboardStartup
 import dev.onebar.app.data.LaunchableApp
 import dev.onebar.app.data.MessengerRepository
+import kotlinx.coroutines.launch
+
+private const val BACK_CONFIRM_WINDOW_MS = 2_000L
 
 @Composable
 fun SearchScreen(
@@ -85,7 +96,10 @@ fun SearchScreen(
             favoritesStore = DefaultFavoritesStore(context.applicationContext),
         )
     },
+    keyboardStartup: KeyboardStartup = KeyboardStartup.IMMEDIATE,
+    settingsReturnCount: Int = 0,
     onOpenSettings: () -> Unit = {},
+    onExit: () -> Unit = {},
     onCallEntry: (ContactEntry) -> Unit = { SearchActions.callEntry(context, it) },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -98,6 +112,29 @@ fun SearchScreen(
     val keyboard = LocalSoftwareKeyboardController.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var fieldValue by remember { mutableStateOf(TextFieldValue(state.query)) }
+    var wasFavoritesMode by remember { mutableStateOf(state.favoritesMode) }
+    var lastBackPressAt by rememberSaveable { mutableStateOf(0L) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val doubleBackMessage = stringResource(R.string.double_back_exit)
+
+    BackHandler(enabled = menuEntry == null && menuApp == null && !state.favoritesHint) {
+        if (state.favoritesMode) {
+            lastBackPressAt = 0L
+            viewModel.onToggleFavoritesMode()
+        } else {
+            val now = System.currentTimeMillis()
+            if (lastBackPressAt != 0L && now - lastBackPressAt <= BACK_CONFIRM_WINDOW_MS) {
+                onExit()
+            } else {
+                lastBackPressAt = now
+                scope.launch {
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    snackbarHostState.showSnackbar(message = doubleBackMessage)
+                }
+            }
+        }
+    }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -121,8 +158,17 @@ fun SearchScreen(
     ) { granted -> viewModel.onContactsPermissionResult(granted) }
 
     LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
-        keyboard?.show()
+        if (keyboardStartup == KeyboardStartup.IMMEDIATE) {
+            focusRequester.requestFocus()
+            keyboard?.show()
+        }
+    }
+
+    LaunchedEffect(settingsReturnCount) {
+        if (settingsReturnCount > 0 && keyboardStartup == KeyboardStartup.IMMEDIATE && !state.favoritesMode) {
+            focusRequester.requestFocus()
+            keyboard?.show()
+        }
     }
 
     // В избранное входим без клавиатуры: тап по звезде не должен оставлять открытый IME.
@@ -130,7 +176,11 @@ fun SearchScreen(
         if (state.favoritesMode) {
             focusManager.clearFocus()
             keyboard?.hide()
+        } else if (wasFavoritesMode && keyboardStartup == KeyboardStartup.IMMEDIATE) {
+            focusRequester.requestFocus()
+            keyboard?.show()
         }
+        wasFavoritesMode = state.favoritesMode
     }
 
     val openApp: (LaunchableApp) -> Unit = { app ->
@@ -159,6 +209,7 @@ fun SearchScreen(
                 viewModel.onQueryChange(input.text)
             },
             onToggleFavorites = viewModel::onToggleFavoritesMode,
+            onFieldFocus = { keyboard?.show() },
             onFieldTap = {
                 focusRequester.requestFocus()
                 keyboard?.show()
@@ -281,6 +332,13 @@ fun SearchScreen(
                 }
             }
         }
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(if (snackbarHostState.currentSnackbarData != null) Modifier.navigationBarsPadding() else Modifier)
+                .padding(horizontal = 12.dp, vertical = 4.dp),
+        )
     }
 
     val menuTarget = menuEntry
@@ -360,6 +418,7 @@ private fun SearchBar(
     onOpenSettings: () -> Unit,
     onValueChange: (TextFieldValue) -> Unit,
     onToggleFavorites: () -> Unit,
+    onFieldFocus: () -> Unit,
     onFieldTap: () -> Unit,
     onImeSearch: () -> Unit,
     onClear: () -> Unit,
@@ -382,7 +441,8 @@ private fun SearchBar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(end = if (value.text.isNotBlank()) 48.dp else 0.dp)
-                    .focusRequester(focusRequester),
+                    .focusRequester(focusRequester)
+                    .onFocusChanged { if (it.isFocused) onFieldFocus() },
                 singleLine = true,
                 textStyle = MaterialTheme.typography.headlineSmall.copy(color = MaterialTheme.colorScheme.onBackground),
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
