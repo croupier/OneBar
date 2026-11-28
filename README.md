@@ -47,7 +47,7 @@ OneBar — небольшой некоммерческий Android-проект 
   </tr>
 </table>
 
-Полная презентация: [croupier.github.io/OneBar](https://oneba.ru/).
+Полная презентация: [oneba.ru](https://oneba.ru/).
 
 ## Установка
 
