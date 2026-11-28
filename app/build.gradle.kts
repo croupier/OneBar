@@ -11,7 +11,7 @@ import java.util.Properties
 //   Итерации одной задачи версию повторно не поднимают. versionCode — не semver: +1 на
 //   каждый раздаваемый билд.
 val appVersion = "0.15.2"
-val appVersionCode = 33
+val appVersionCode = 34
 
 val keystorePropertiesFile = rootProject.file("keystore.properties")
 val keystoreProperties = Properties().apply {
