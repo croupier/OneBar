@@ -1,8 +1,11 @@
 package dev.onebar.app.data
 
 import android.annotation.SuppressLint
+import android.content.ContentResolver
 import android.content.Context
 import android.content.pm.PackageManager
+import android.database.Cursor
+import android.net.Uri
 import android.provider.ContactsContract.CommonDataKinds.Email
 import android.provider.ContactsContract.CommonDataKinds.Nickname
 import android.provider.ContactsContract.CommonDataKinds.Organization
@@ -24,6 +27,7 @@ interface ContactRepository {
         limit: Int,
         favorites: Set<String> = emptySet(),
         favoritesOnly: Boolean = false,
+        options: SearchOptions = SearchOptions(),
     ): List<ContactEntry>
 
     fun byLookupKeys(keys: List<String>): List<ContactEntry>
@@ -44,6 +48,7 @@ internal fun rankContacts(
     limit: Int,
     favorites: Set<String> = emptySet(),
     favoritesOnly: Boolean = false,
+    options: SearchOptions = SearchOptions(),
 ): List<ContactEntry> {
     if (query.isBlank()) {
         return all.asSequence()
@@ -51,25 +56,47 @@ internal fun rankContacts(
             .take(limit)
             .toList()
     }
-    val needles = buildNeedles(query)
+    val needles = buildNeedles(query, options)
     // Номера участвуют в сравнении только для настоящего номера: «12» нашло бы половину
     // телефонной книги, а набирать её ради этого никто не станет.
-    val withNumbers = phoneForms(query).isNotEmpty()
+    val withNumbers = options.phone && phoneForms(query).isNotEmpty()
     val scored = ArrayList<Pair<Rank, ContactEntry>>(all.size)
     for (entry in all) {
         val favorite = entry.lookupKey in favorites
         if (favoritesOnly && !favorite) continue
-        val rank = rankOf(needles, contactFields(entry, withNumbers), favorite) ?: continue
+        val rank = rankOf(needles, contactFields(entry, withNumbers, options), favorite, options) ?: continue
         scored += rank to entry
     }
     return scored.sortedBy { it.first }.map { it.second }.take(limit)
 }
 
-private fun contactFields(entry: ContactEntry, withNumbers: Boolean): List<List<String>> = listOf(
-    listOf(entry.name.lowercase()) + if (withNumbers) entry.searchableNumbers else emptyList(),
-    listOf(entry.organization, entry.nickname, entry.note, entry.address, entry.email.orEmpty())
-        .map { it.lowercase() },
-)
+private fun contactFields(
+    entry: ContactEntry,
+    withNumbers: Boolean,
+    options: SearchOptions,
+): List<List<String>> = buildList {
+    add(listOf(entry.name.lowercase()) + if (withNumbers) entry.searchableNumbers else emptyList())
+    if (options.extraFields) {
+        add(
+            listOf(entry.organization, entry.nickname, entry.note, entry.address, entry.email.orEmpty())
+                .map { it.lowercase() },
+        )
+    }
+}
+
+private fun ContentResolver.safeQuery(
+    uri: Uri,
+    projection: Array<out String>?,
+    selection: String?,
+    selectionArgs: Array<String>?,
+    sortOrder: String?,
+): Cursor? = try {
+    query(uri, projection, selection, selectionArgs, sortOrder)
+} catch (_: SecurityException) {
+    null
+} catch (_: RuntimeException) {
+    null
+}
 
 // Скобки обязательны: иначе OR в следующей LIKE-маске отменит фильтр перед всей группой.
 internal fun likeClause(patterns: List<String>, column: String): String =
@@ -100,6 +127,7 @@ class DefaultContactRepository(context: Context) : ContactRepository {
         limit: Int,
         favorites: Set<String>,
         favoritesOnly: Boolean,
+        options: SearchOptions,
     ): List<ContactEntry> {
         if (!hasPermission() || limit <= 0 || (favoritesOnly && favorites.isEmpty())) return emptyList()
         val trimmed = query.trim()
@@ -111,25 +139,25 @@ class DefaultContactRepository(context: Context) : ContactRepository {
         // LIKE у провайдера — только грубый фильтр: регистр он складывает по ASCII, а разницу
         // е/ё глушим маской «любой символ». Точность и порядок решает ранжировщик в памяти,
         // поэтому кандидатов берём с запасом, иначе лимит отрезал бы лучшие совпадения.
-        val patterns = likePatterns(trimmed).map { "%$it%" }
+        val patterns = likePatterns(trimmed, options).map { if (options.contains) "%$it%" else "$it%" }
         val cap = candidateLimit(limit)
         val byName = baseRows(
             "$HAS_PHONE_ONLY AND ${likeClause(patterns, Contacts.DISPLAY_NAME)}",
             patterns.toTypedArray(),
             cap,
         )
-        val candidates = withPhoneNumbers(byName, trimmed, cap)
+        val candidates = withPhoneNumbers(byName, trimmed, cap, options)
 
-        val ranked = rankContacts(candidates, trimmed, limit, favorites, favoritesOnly)
+        val ranked = rankContacts(candidates, trimmed, limit, favorites, favoritesOnly, options)
         // Избранное может совпасть только с доп. полем, поэтому этот проход нужен и тогда,
         // когда имя или номер уже заполнили лимит. Иначе такой контакт вообще не попал бы в выдачу.
-        val extra = if (ranked.size < limit || favorites.isNotEmpty()) {
+        val extra = if (options.extraFields && (ranked.size < limit || favorites.isNotEmpty())) {
             fieldRows(patterns, ranked.map { it.contactId }.toSet(), cap)
         } else {
             emptyList()
         }
         val combined = (candidates + extra).distinctBy { it.contactId }
-        return withNumbers(rankContacts(combined, trimmed, limit, favorites, favoritesOnly))
+        return withNumbers(rankContacts(combined, trimmed, limit, favorites, favoritesOnly, options))
     }
 
     private val contactRowOrder = compareByDescending<ContactRow> { it.starred }
@@ -145,7 +173,7 @@ class DefaultContactRepository(context: Context) : ContactRepository {
         sortOrder: String = STARRED_FIRST_SORT,
     ): List<ContactRow> {
         val found = ArrayList<ContactRow>(cap)
-        context.contentResolver.query(
+        context.contentResolver.safeQuery(
             Contacts.CONTENT_URI,
             arrayOf(
                 Contacts._ID,
@@ -189,12 +217,17 @@ class DefaultContactRepository(context: Context) : ContactRepository {
      * берём, когда он есть: там «8» уже превращена в «+7».
      */
     @SuppressLint("Range")
-    private fun withPhoneNumbers(rows: List<ContactRow>, query: String, cap: Int): List<ContactEntry> {
-        val patterns = phoneLikePatterns(query)
+    private fun withPhoneNumbers(
+        rows: List<ContactRow>,
+        query: String,
+        cap: Int,
+        options: SearchOptions,
+    ): List<ContactEntry> {
+        val patterns = phoneLikePatterns(query, options)
         if (patterns.isEmpty()) return rows.map(::entryOf)
         val selection = "${likeClause(patterns, Phone.NUMBER)} OR ${likeClause(patterns, Phone.NORMALIZED_NUMBER)}"
         val numbers = HashMap<Long, MutableList<String>>(cap)
-        context.contentResolver.query(
+        context.contentResolver.safeQuery(
             Phone.CONTENT_URI,
             arrayOf(Phone.CONTACT_ID, Phone.NORMALIZED_NUMBER, Phone.NUMBER),
             selection,
@@ -244,7 +277,7 @@ class DefaultContactRepository(context: Context) : ContactRepository {
             "(${Data.MIMETYPE} = ? AND ${likeClause(patterns, Data.DATA2)})"
         val args = (mimes + patterns + Organization.CONTENT_ITEM_TYPE + patterns).toTypedArray()
         val values = HashMap<Long, MutableMap<String, MutableList<String>>>(cap)
-        context.contentResolver.query(
+        context.contentResolver.safeQuery(
             Data.CONTENT_URI,
             arrayOf(Data.CONTACT_ID, Data.MIMETYPE, Data.DATA1, Data.DATA2),
             selection,
@@ -305,7 +338,7 @@ class DefaultContactRepository(context: Context) : ContactRepository {
     @SuppressLint("Range")
     override fun details(contactId: Long): ContactEntry? {
         if (!hasPermission()) return null
-        val base = context.contentResolver.query(
+        val base = context.contentResolver.safeQuery(
             Contacts.CONTENT_URI,
             arrayOf(
                 Contacts.DISPLAY_NAME,
@@ -345,7 +378,7 @@ class DefaultContactRepository(context: Context) : ContactRepository {
         if (ids.isEmpty()) return emptyMap()
         val found = HashMap<Long, PhoneChoice>(ids.size)
         ids.chunked(SQLITE_BATCH_SIZE).forEach { chunk ->
-            context.contentResolver.query(
+            context.contentResolver.safeQuery(
                 Phone.CONTENT_URI,
                 arrayOf(
                     Phone.CONTACT_ID,
@@ -396,7 +429,7 @@ class DefaultContactRepository(context: Context) : ContactRepository {
         if (ids.isEmpty()) return emptyMap()
         val best = HashMap<Long, Pair<Int, String>>(ids.size)
         ids.chunked(SQLITE_BATCH_SIZE).forEach { chunk ->
-            context.contentResolver.query(
+            context.contentResolver.safeQuery(
                 Email.CONTENT_URI,
                 arrayOf(Email.CONTACT_ID, Email.ADDRESS, Email.IS_SUPER_PRIMARY, Email.IS_PRIMARY, Email.TYPE),
                 "${Email.CONTACT_ID} IN (${chunk.placeholders()})",
@@ -432,7 +465,7 @@ class DefaultContactRepository(context: Context) : ContactRepository {
         ids.chunked(SQLITE_BATCH_SIZE).forEach { chunk ->
             val selection = "${Data.CONTACT_ID} IN (${chunk.placeholders()}) AND ${Data.MIMETYPE} IN (${mimes.placeholders()})"
             val args = (chunk.map { it.toString() } + mimes).toTypedArray()
-            context.contentResolver.query(
+            context.contentResolver.safeQuery(
                 Data.CONTENT_URI,
                 arrayOf(Data._ID, Data.CONTACT_ID, Data.MIMETYPE),
                 selection,

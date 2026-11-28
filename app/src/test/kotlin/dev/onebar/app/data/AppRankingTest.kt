@@ -83,4 +83,23 @@ class AppRankingTest {
         )
         assertEquals(listOf("com.d"), rankApps(list, "нот", 10).map { it.packageName })
     }
+
+    @Test
+    fun `отключённое_вхождение_оставляет_только_начало_названия`() {
+        val found = rankApps(apps, "map", 10, options = SearchOptions(contains = false))
+        assertEquals(listOf("Maps"), found.map { it.label })
+    }
+
+    @Test
+    fun `отключённый_приоритет_начала_не_исключает_совпадения_внутри`() {
+        val found = rankApps(apps, "map", 10, options = SearchOptions(prefix = false))
+        assertEquals(setOf("Maps", "appmaps"), found.map { it.label }.toSet())
+    }
+
+    @Test
+    fun `отключённые_дополнительные_поля_не_ищут_по_пакету`() {
+        val list = listOf(app("com.example.maps", "Launcher"))
+        assertTrue(rankApps(list, "maps", 10).isNotEmpty())
+        assertTrue(rankApps(list, "maps", 10, options = SearchOptions(extraFields = false)).isEmpty())
+    }
 }

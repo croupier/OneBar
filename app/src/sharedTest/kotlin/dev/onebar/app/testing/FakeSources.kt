@@ -8,6 +8,7 @@ import dev.onebar.app.data.ContactRepository
 import dev.onebar.app.data.FavoritesStore
 import dev.onebar.app.data.HistoryStore
 import dev.onebar.app.data.LaunchableApp
+import dev.onebar.app.data.SearchOptions
 import dev.onebar.app.data.SuggestRepository
 import dev.onebar.app.data.rankApps
 import dev.onebar.app.data.rankContacts
@@ -70,10 +71,16 @@ class FakeApps(
     var invalidations: Int = 0
         private set
 
-    override fun matching(query: String, limit: Int, favorites: Set<String>, favoritesOnly: Boolean): List<LaunchableApp> {
+    override fun matching(
+        query: String,
+        limit: Int,
+        favorites: Set<String>,
+        favoritesOnly: Boolean,
+        options: SearchOptions,
+    ): List<LaunchableApp> {
         onMatch(query)
         matched += query
-        return rankApps(known, query, limit, favorites, favoritesOnly)
+        return rankApps(known, query, limit, favorites, favoritesOnly, options)
     }
 
     override fun byPackages(packages: List<String>): List<LaunchableApp> =
@@ -99,11 +106,12 @@ class FakeContacts(
         limit: Int,
         favorites: Set<String>,
         favoritesOnly: Boolean,
+        options: SearchOptions,
     ): List<ContactEntry> {
         if (!granted) return emptyList()
         onSearch(query)
         searched += query
-        return rankContacts(known, query, limit, favorites, favoritesOnly)
+        return rankContacts(known, query, limit, favorites, favoritesOnly, options)
     }
 
     override fun byLookupKeys(keys: List<String>): List<ContactEntry> =
@@ -115,7 +123,7 @@ class FakeContacts(
 class FakeSuggestions(private val replies: Map<String, List<String>> = emptyMap()) : SuggestRepository {
     val asked: MutableList<String> = mutableListOf()
 
-    override suspend fun suggest(query: String): List<String> {
+    override suspend fun suggest(query: String, language: String): List<String> {
         asked += query
         return replies[query].orEmpty()
     }

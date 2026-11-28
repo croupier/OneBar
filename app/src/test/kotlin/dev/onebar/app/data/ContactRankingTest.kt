@@ -15,6 +15,26 @@ class ContactRankingTest {
     )
 
     @Test
+    fun `отключённые_номера_не_находят_контакт_по_телефону`() {
+        val list = listOf(contact(1, "Иван", numbers = listOf("79991234567")))
+        assertTrue(rankContacts(list, "+7 999 123-45-67", 10).isNotEmpty())
+        assertTrue(rankContacts(list, "+7 999 123-45-67", 10, options = SearchOptions(phone = false)).isEmpty())
+    }
+
+    @Test
+    fun `отключённые_дополнительные_поля_не_ищут_по_почте`() {
+        val list = listOf(contact(1, "Боб", email = "bob@onebar.dev"))
+        assertTrue(rankContacts(list, "onebar", 10).isNotEmpty())
+        assertTrue(rankContacts(list, "onebar", 10, options = SearchOptions(extraFields = false)).isEmpty())
+    }
+
+    @Test
+    fun `отключённый_транслит_не_находит_латинское_написание`() {
+        assertEquals(listOf("Иванов"), rankContacts(rows, "ivanov", 10).map { it.name })
+        assertTrue(rankContacts(rows, "ivanov", 10, options = SearchOptions(translit = false)).isEmpty())
+    }
+
+    @Test
     fun `регистр названия не важен с обеих сторон`() {
         assertEquals(listOf("ann"), rankContacts(rows, "ANN", 10).map { it.name })
         assertEquals(listOf("Фекла", "Фёкла"), rankContacts(rows, "фек", 10).map { it.name })

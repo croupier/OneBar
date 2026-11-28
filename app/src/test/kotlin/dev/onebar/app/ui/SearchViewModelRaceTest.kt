@@ -3,6 +3,7 @@ package dev.onebar.app.ui
 import androidx.lifecycle.viewModelScope
 import dev.onebar.app.data.AppRepository
 import dev.onebar.app.data.LaunchableApp
+import dev.onebar.app.data.SearchOptions
 import dev.onebar.app.data.rankApps
 import dev.onebar.app.testing.FakeApps
 import dev.onebar.app.testing.FakeContacts
@@ -146,13 +147,14 @@ class SearchViewModelRaceTest {
             limit: Int,
             favorites: Set<String>,
             favoritesOnly: Boolean,
+            options: SearchOptions,
         ): List<LaunchableApp> {
             if (query == "map" && favorites.isEmpty() && blockNext.compareAndSet(true, false)) {
                 staleStarted.countDown()
                 check(releaseStale.await(5, TimeUnit.SECONDS)) { "поиск приложений не был освобождён" }
             }
             if (query == "map" && favorites.isNotEmpty()) freshFinished.countDown()
-            return rankApps(known, query, limit, favorites, favoritesOnly)
+            return rankApps(known, query, limit, favorites, favoritesOnly, options)
         }
 
         override fun byPackages(packages: List<String>): List<LaunchableApp> =
@@ -166,8 +168,13 @@ class SearchViewModelRaceTest {
         val refreshStarted = CountDownLatch(1)
         val releaseRefresh = CountDownLatch(1)
 
-        override fun matching(query: String, limit: Int, favorites: Set<String>, favoritesOnly: Boolean) =
-            rankApps(known, query, limit, favorites, favoritesOnly)
+        override fun matching(
+            query: String,
+            limit: Int,
+            favorites: Set<String>,
+            favoritesOnly: Boolean,
+            options: SearchOptions,
+        ) = rankApps(known, query, limit, favorites, favoritesOnly, options)
 
         override fun byPackages(packages: List<String>): List<LaunchableApp> {
             val refreshed = if (blockNext.compareAndSet(true, false)) {

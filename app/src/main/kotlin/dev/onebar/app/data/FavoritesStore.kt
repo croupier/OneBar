@@ -1,13 +1,16 @@
 package dev.onebar.app.data
 
 import android.content.Context
+import androidx.datastore.core.CorruptionException
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import org.json.JSONArray
 import java.io.File
@@ -18,7 +21,7 @@ private val Context.favoritesDataStore by preferencesDataStore(name = "favorites
 internal fun favoritesStoreForFile(file: File): FavoritesStore =
     DefaultFavoritesStore(PreferenceDataStoreFactory.create(produceFile = { file }))
 
-/** Избранное OneBar: порядок добавления и есть порядок показа, поэтому списки, а не множества. */
+/** Избранное OneBar: порядок добавления служит устойчивым tie-break после сортировки по частоте. */
 interface FavoritesStore {
     val apps: Flow<List<String>>
 
@@ -30,18 +33,22 @@ interface FavoritesStore {
 }
 
 /**
- * Порядок добавления и есть порядок показа. lookupKey контакта может содержать запятую,
+ * Порядок добавления сохраняем для tie-break. lookupKey контакта может содержать запятую,
  * его пишем JSON-массивом; имена пакетов запятых не содержат — там разделитель безопасен.
  */
 class DefaultFavoritesStore internal constructor(private val store: DataStore<Preferences>) : FavoritesStore {
 
     constructor(context: Context) : this(context.favoritesDataStore)
 
-    override val apps: Flow<List<String>> = store.data.map { prefs ->
+    private val data = store.data.catch { error ->
+        if (error is CorruptionException) emit(emptyPreferences()) else throw error
+    }
+
+    override val apps: Flow<List<String>> = data.map { prefs ->
         prefs[KEY_APPS]?.split(SEPARATOR)?.filter { it.isNotBlank() } ?: emptyList()
     }
 
-    override val contacts: Flow<List<String>> = store.data.map { prefs ->
+    override val contacts: Flow<List<String>> = data.map { prefs ->
         readKeys(prefs)
     }
 

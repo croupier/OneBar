@@ -1,14 +1,17 @@
 package dev.onebar.app.data
 
 import android.content.Context
+import androidx.datastore.core.CorruptionException
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import org.json.JSONArray
 import org.json.JSONObject
@@ -57,23 +60,27 @@ class DefaultHistoryStore internal constructor(private val store: DataStore<Pref
 
     constructor(context: Context) : this(context.historyDataStore)
 
-    override val recentApps: Flow<List<String>> = store.data.map { prefs ->
+    private val data = store.data.catch { error ->
+        if (error is CorruptionException) emit(emptyPreferences()) else throw error
+    }
+
+    override val recentApps: Flow<List<String>> = data.map { prefs ->
         prefs[KEY_RECENT_APPS]?.split(SEPARATOR)?.filter { it.isNotBlank() }?.distinct() ?: emptyList()
     }
 
-    override val appLaunchCounts: Flow<Map<String, Int>> = store.data.map { prefs ->
+    override val appLaunchCounts: Flow<Map<String, Int>> = data.map { prefs ->
         readAppLaunchCounts(prefs)
     }
 
-    override val communications: Flow<List<CommunicationEntry>> = store.data.map { prefs ->
+    override val communications: Flow<List<CommunicationEntry>> = data.map { prefs ->
         readCommunications(prefs)
     }
 
-    override val queries: Flow<List<String>> = store.data.map { prefs ->
+    override val queries: Flow<List<String>> = data.map { prefs ->
         if (prefs[KEY_SAVE_HISTORY] == false) emptyList() else readQueries(prefs)
     }
 
-    override val saveHistory: Flow<Boolean> = store.data.map { prefs ->
+    override val saveHistory: Flow<Boolean> = data.map { prefs ->
         prefs[KEY_SAVE_HISTORY] ?: true
     }
 

@@ -14,6 +14,7 @@ interface AppRepository {
         limit: Int,
         favorites: Set<String> = emptySet(),
         favoritesOnly: Boolean = false,
+        options: SearchOptions = SearchOptions(),
     ): List<LaunchableApp>
 
     fun byPackages(packages: List<String>): List<LaunchableApp>
@@ -32,6 +33,7 @@ internal fun rankApps(
     limit: Int,
     favorites: Set<String> = emptySet(),
     favoritesOnly: Boolean = false,
+    options: SearchOptions = SearchOptions(),
 ): List<LaunchableApp> {
     if (query.isBlank()) {
         return all.asSequence()
@@ -39,22 +41,24 @@ internal fun rankApps(
             .take(limit)
             .toList()
     }
-    val needles = buildNeedles(query)
+    val needles = buildNeedles(query, options)
     val scored = ArrayList<Pair<Rank, LaunchableApp>>(all.size)
     for (app in all) {
         val favorite = app.packageName in favorites
         if (favoritesOnly && !favorite) continue
-        val rank = rankOf(needles, appFields(app), favorite) ?: continue
+        val rank = rankOf(needles, appFields(app, options), favorite, options) ?: continue
         scored += rank to app
     }
     return scored.sortedBy { it.first }.map { it.second }.take(limit)
 }
 
 /** Название — первое поле; пакет и описание ищем только когда название молчит. */
-private fun appFields(app: LaunchableApp): List<List<String>> = listOf(
-    listOf(app.label.lowercase()),
-    listOf(app.packageName.lowercase(), app.description.lowercase()),
-)
+private fun appFields(app: LaunchableApp, options: SearchOptions): List<List<String>> = buildList {
+    add(listOf(app.label.lowercase()))
+    if (options.extraFields) {
+        add(listOf(app.packageName.lowercase(), app.description.lowercase()))
+    }
+}
 
 class DefaultAppRepository(private val pm: PackageManager) : AppRepository {
 
@@ -62,8 +66,13 @@ class DefaultAppRepository(private val pm: PackageManager) : AppRepository {
     private var cache: List<LaunchableApp> = emptyList()
     private var cachedAt: Long = 0L
 
-    override fun matching(query: String, limit: Int, favorites: Set<String>, favoritesOnly: Boolean): List<LaunchableApp> =
-        rankApps(all(), query, limit, favorites, favoritesOnly)
+    override fun matching(
+        query: String,
+        limit: Int,
+        favorites: Set<String>,
+        favoritesOnly: Boolean,
+        options: SearchOptions,
+    ): List<LaunchableApp> = rankApps(all(), query, limit, favorites, favoritesOnly, options)
 
     override fun byPackages(packages: List<String>): List<LaunchableApp> {
         val byPackage = all().associateBy { it.packageName }

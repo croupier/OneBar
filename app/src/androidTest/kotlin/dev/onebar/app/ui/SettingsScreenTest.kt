@@ -34,6 +34,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import dev.onebar.app.R
 import dev.onebar.app.data.KeyboardStartup
 import dev.onebar.app.data.LanguageOption
+import dev.onebar.app.data.SearchOptions
 import dev.onebar.app.data.ThemeOption
 import dev.onebar.app.ui.theme.OneBarTheme
 import org.junit.Assert.assertEquals
@@ -77,8 +78,8 @@ class SettingsScreenTest {
         onLanguageChange: (LanguageOption) -> Unit = {},
         onThemeChange: (ThemeOption) -> Unit = {},
         onKeyboardStartupChange: (KeyboardStartup) -> Unit = {},
-        historyFavoritesFirst: Boolean = true,
-        onHistoryFavoritesFirstChange: (Boolean) -> Unit = {},
+        initialSearchOptions: SearchOptions = SearchOptions(),
+        onSearchOptionsChange: (SearchOptions) -> Unit = {},
         saveHistory: Boolean = true,
         onSaveHistory: suspend (Boolean) -> Unit = {},
         onClearHistory: suspend () -> Unit = {},
@@ -108,8 +109,8 @@ class SettingsScreenTest {
                             selectedKeyboardStartup = it
                             onKeyboardStartupChange(it)
                         },
-                        historyFavoritesFirst = historyFavoritesFirst,
-                        onHistoryFavoritesFirstChange = onHistoryFavoritesFirstChange,
+                        initialSearchOptions = initialSearchOptions,
+                        onSearchOptionsChange = onSearchOptionsChange,
                         saveHistory = saveHistory,
                         onSaveHistory = onSaveHistory,
                         onClearHistory = onClearHistory,
@@ -199,20 +200,28 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun `приоритет_истории_и_избранного_сохраняется`() {
-        val saved = mutableListOf<Boolean>()
-        show(onHistoryFavoritesFirstChange = { saved += it })
-        val label = str(R.string.settings_search_favorites)
+    fun `настройки_поиска_сохраняются_целиком`() {
+        val saved = mutableListOf<SearchOptions>()
+        show(onSearchOptionsChange = { saved += it })
+        val favorites = str(R.string.settings_search_favorites)
+        val translit = str(R.string.settings_search_translit)
+        val webSuggestions = str(R.string.settings_search_web_suggestions)
 
-        scrollTo(label)
-        ui.onNodeWithText(label).assertIsOn().performClick()
-        ui.onNodeWithText(label).assertIsOff()
+        scrollTo(favorites)
+        ui.onNodeWithText(favorites).assertIsOn().performClick()
+        scrollTo(translit)
+        ui.onNodeWithText(translit).assertIsOn().performClick()
+        scrollTo(webSuggestions)
+        ui.onNodeWithText(webSuggestions).assertIsOn().performClick()
         assertTrue(saved.isEmpty())
 
         scrollTo(str(R.string.settings_save))
         ui.onNodeWithText(str(R.string.settings_save)).performClick()
 
-        assertEquals(listOf(false), saved)
+        assertEquals(
+            listOf(SearchOptions(historyFavoritesFirst = false, translit = false, webSuggestions = false)),
+            saved,
+        )
         ui.waitUntilAtLeastOneExists(hasText(str(R.string.settings_saved_message)), 5_000L)
     }
 

@@ -76,6 +76,8 @@
     <string name="settings_search_translit">Transliteration</string>
     <string name="settings_search_extra">Additional fields</string>
     <string name="settings_search_extra_summary">Organization, nickname, address, email, app description and package</string>
+    <string name="settings_search_web_suggestions">Web suggestions</string>
+    <string name="settings_search_web_suggestions_summary">Send entered text to Google for suggestions</string>
     <string name="settings_info">About: %1$s</string>
     <string name="settings_search_favorites_info">Matching internal history comes first from newest to oldest, followed by favorites by launch frequency; duplicates are removed.</string>
     <string name="settings_search_prefix_info">Matches at the beginning of a name rank higher than matches inside a name.</string>
@@ -84,6 +86,7 @@
     <string name="settings_search_yo_info">Treats the Russian letters е and ё as equivalent during search.</string>
     <string name="settings_search_translit_info">Finds names typed in Latin letters using transliteration.</string>
     <string name="settings_search_extra_info">Also searches organization, nickname, address, email, app description and package name.</string>
+    <string name="settings_search_web_suggestions_info">When web suggestions are enabled, text from the search field is sent to Google completion over HTTPS. Local history and app/contact search keep working without network access.</string>
     <string name="settings_history_save_info">Keeps submitted search queries so they can be reused from the search field.</string>
     <string name="settings_unsaved_title">Save changes?</string>
     <string name="settings_unsaved_message">You have unsaved changes in the search and history settings.</string>

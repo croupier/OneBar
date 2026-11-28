@@ -38,7 +38,7 @@ class SettingsActivity : AppCompatActivity() {
         setContent {
             val theme by appearanceStore.theme.collectAsStateWithLifecycle()
             val keyboardStartup by appearanceStore.keyboardStartup.collectAsStateWithLifecycle()
-            val historyFavoritesFirst by searchPreferences.historyFavoritesFirst.collectAsStateWithLifecycle()
+            val searchOptions by searchPreferences.options.collectAsStateWithLifecycle()
             OneBarTheme(theme = theme) {
                 val saveHistory by history.saveHistory.collectAsStateWithLifecycle(initialValue = true)
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -64,8 +64,8 @@ class SettingsActivity : AppCompatActivity() {
                             AppCompatDelegate.setDefaultNightMode(it.toNightMode())
                         },
                         onKeyboardStartupChange = appearanceStore::setKeyboardStartup,
-                        historyFavoritesFirst = historyFavoritesFirst,
-                        onHistoryFavoritesFirstChange = searchPreferences::setHistoryFavoritesFirst,
+                        initialSearchOptions = searchOptions,
+                        onSearchOptionsChange = searchPreferences::setOptions,
                         saveHistory = saveHistory,
                         onSaveHistory = { enabled -> history.setSaveHistory(enabled) },
                         onClearHistory = { history.clearQueries() },

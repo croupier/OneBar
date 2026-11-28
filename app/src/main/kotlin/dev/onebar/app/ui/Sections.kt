@@ -11,17 +11,19 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -54,7 +56,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -134,48 +135,51 @@ internal fun ContactsSection(
     }
 }
 
-/** Плиток в ряду: столько ширины экрана влезает с зазором. */
-fun appsColumns(width: Dp): Int =
-    ((width - 16.dp + 4.dp) / (AppItemWidth + 4.dp)).toInt().coerceAtLeast(1)
+private const val APP_GRID_COLUMNS = 4
 
-/**
- * Приложения вертикальным списком горизонтальных рядов: без клавиатуры видно несколько
- * рядов, лишние ряды доступны вертикальным свайпом, а каждый ряд — горизонтальным.
- */
+/** Приложения вертикальным списком строго по четыре плитки в ряду. */
 @Composable
 fun AppsGridSection(
     apps: List<LaunchableApp>,
-    columns: Int,
     favoritePackages: Set<String>,
     onOpen: (LaunchableApp) -> Unit,
     onMenu: (LaunchableApp) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (apps.isEmpty()) return
-    val rowColumns = columns + 2
-    val appRows = apps.chunked(rowColumns)
-    LazyColumn(
-        modifier = modifier
-            .fillMaxWidth()
-            .testTag("apps-grid"),
-        verticalArrangement = Arrangement.spacedBy(AppsRowGap),
-        contentPadding = PaddingValues(vertical = 6.dp),
-    ) {
-        items(appRows, key = { it.first().packageName }) { rowApps ->
-            LazyRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(AppItemHeight)
-                    .testTag("apps-row-${rowApps.first().packageName}"),
-                horizontalArrangement = Arrangement.spacedBy(AppsRowGap),
-            ) {
-                items(rowApps, key = { it.packageName }) { app ->
-                    AppItem(
-                        app = app,
-                        favorite = app.packageName in favoritePackages,
-                        onClick = { onOpen(app) },
-                        onLongClick = { onMenu(app) },
-                    )
+    val appRows = apps.chunked(APP_GRID_COLUMNS)
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        val gap = (
+            (maxWidth - AppRowStart - AppRowEndInset - AppItemWidth * APP_GRID_COLUMNS) /
+                (APP_GRID_COLUMNS - 1)
+            ).coerceAtLeast(0.dp)
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("apps-grid"),
+            verticalArrangement = Arrangement.spacedBy(AppsRowGap),
+            contentPadding = PaddingValues(start = AppRowStart, top = 6.dp, end = 0.dp, bottom = 6.dp),
+        ) {
+            items(appRows, key = { it.first().packageName }) { rowApps ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(AppItemHeight)
+                        .testTag("apps-row-${rowApps.first().packageName}"),
+                    horizontalArrangement = Arrangement.spacedBy(gap),
+                ) {
+                    rowApps.forEach { app ->
+                        AppItem(
+                            app = app,
+                            favorite = app.packageName in favoritePackages,
+                            onClick = { onOpen(app) },
+                            onLongClick = { onMenu(app) },
+                            modifier = Modifier.testTag("grid-app-slot-${app.packageName}"),
+                        )
+                    }
+                    repeat(APP_GRID_COLUMNS - rowApps.size) {
+                        Spacer(Modifier.width(AppItemWidth))
+                    }
                 }
             }
         }
@@ -224,7 +228,7 @@ private fun ContactRow(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp)
+                .padding(horizontal = ContactCardPadding)
                 .height(CONTACT_ROW_HEIGHT)
                 .clip(RoundedCornerShape(CONTACT_CARD_RADIUS))
                 .background(contactCardColor()),
@@ -232,16 +236,21 @@ private fun ContactRow(
             Row(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(start = 12.dp, end = 2.dp)
+                    .padding(start = ContactContentStart, end = ContactContentEnd)
                     .combinedClickable(onClick = onOpen, onLongClick = onMenu),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Box {
+                Box(
+                    modifier = Modifier.offset(
+                        x = ContactAvatarStart - ContactCardPadding - ContactContentStart,
+                    ),
+                ) {
                     ContactAvatar(
                         contactId = row.entry.contactId,
                         name = row.entry.name,
                         photoUri = row.entry.photoUri,
+                        modifier = Modifier.testTag("contact-avatar-${row.entry.contactId}"),
                     )
                     if (favorite) {
                         Icon(

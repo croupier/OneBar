@@ -6,6 +6,9 @@ import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -22,8 +25,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -94,10 +95,10 @@ fun SearchScreen(
             suggestions = DefaultSuggestRepository(),
             history = DefaultHistoryStore(context.applicationContext),
             favoritesStore = DefaultFavoritesStore(context.applicationContext),
-            historyFavoritesFirst = (
+            searchOptions = (
                 (context.applicationContext as? OneBarApplication)?.searchPreferencesStore
                     ?: SearchPreferencesStore(context.applicationContext)
-                ).historyFavoritesFirst,
+                ).options,
         )
     },
     keyboardStartup: KeyboardStartup = KeyboardStartup.IMMEDIATE,
@@ -204,6 +205,7 @@ fun SearchScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
+            .navigationBarsPadding()
             .imePadding(),
     ) {
         SearchBar(
@@ -238,7 +240,6 @@ fun SearchScreen(
         )
 
         BoxWithConstraints(modifier = Modifier.fillMaxWidth().weight(1f)) {
-            val appColumns = appsColumns(maxWidth)
             val hasApps = state.apps.isNotEmpty()
             val hasSuggestions = state.suggestions.isNotEmpty()
             val hasContacts = !favoritesBlank && (!state.contactsGranted || state.contacts.isNotEmpty())
@@ -253,51 +254,66 @@ fun SearchScreen(
                 0.dp
             }
             val localHeight = maxHeight - webHeight
-            val listHeight = localHeight / 2
+            val singleAppsHeight = SectionDividerHeight + AppsRowHeight
+            val targetAppsHeight = when {
+                !hasContacts -> localHeight
+                rows.appRows == 1 -> minOf(singleAppsHeight, localHeight)
+                else -> localHeight / 2
+            }
+            val targetContactsHeight = when {
+                !hasApps -> localHeight
+                rows.appRows == 1 -> (localHeight - minOf(singleAppsHeight, localHeight)).coerceAtLeast(0.dp)
+                else -> localHeight / 2
+            }
+            val animatedWebHeight by animateDpAsState(webHeight, tween(220), label = "webHeight")
+            val animatedLocalHeight by animateDpAsState(localHeight, tween(220), label = "localHeight")
+            val animatedAppsHeight by animateDpAsState(targetAppsHeight, tween(220), label = "appsHeight")
+            val animatedContactsHeight by animateDpAsState(targetContactsHeight, tween(220), label = "contactsHeight")
             Column(modifier = Modifier.fillMaxSize()) {
                 if (hasApps) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(if (hasContacts) listHeight else localHeight)
+                            .height(animatedAppsHeight)
                             .testTag("apps-section"),
                     ) {
                         SectionDivider(stringResource(R.string.apps_title))
-                        if (rows.appRows > 1) {
-                            AppsGridSection(
-                                apps = state.apps,
-                                columns = appColumns,
-                                favoritePackages = state.favApps.toSet(),
-                                onOpen = openApp,
-                                onMenu = viewModel::onAppMenuOpen,
-                                modifier = Modifier.weight(1f),
-                            )
-                        } else {
-                            LazyRow(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            ) {
-                                items(state.apps, key = { it.packageName }) { app ->
-                                    AppItem(
-                                        app = app,
-                                        favorite = !state.favoritesMode && app.packageName in state.favApps,
-                                        onClick = { openApp(app) },
-                                        onLongClick = { viewModel.onAppMenuOpen(app) },
-                                    )
-                                }
+                        Crossfade(
+                            targetState = rows.appRows > 1,
+                            animationSpec = tween(180),
+                            label = "appsLayout",
+                            modifier = Modifier.weight(1f),
+                        ) { multipleRows ->
+                            if (multipleRows) {
+                                AppsGridSection(
+                                    apps = state.apps,
+                                    favoritePackages = state.favApps.toSet(),
+                                    onOpen = openApp,
+                                    onMenu = viewModel::onAppMenuOpen,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            } else {
+                                AppAutoStrip(
+                                    apps = state.apps,
+                                    favoritePackages = if (state.favoritesMode) emptySet()
+                                    else state.favApps.toSet(),
+                                    onOpen = openApp,
+                                    onMenu = viewModel::onAppMenuOpen,
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                                )
                             }
                         }
                     }
                 }
 
                 if (favoritesBlank) {
-                    FavoritesEmptyHint(modifier = Modifier.height(localHeight))
+                    FavoritesEmptyHint(modifier = Modifier.height(animatedLocalHeight))
                 } else {
                     if (hasContacts) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(if (hasApps) listHeight else localHeight)
+                                .height(animatedContactsHeight)
                                 .testTag("contacts-section"),
                         ) {
                             SectionDivider(stringResource(R.string.contacts_title))
@@ -331,7 +347,7 @@ fun SearchScreen(
                             NothingFoundRow(inFavorites = state.favoritesMode)
                         } else {
                             Box(
-                                modifier = Modifier.height(localHeight),
+                                modifier = Modifier.height(animatedLocalHeight),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 NothingFoundRow(inFavorites = state.favoritesMode)
@@ -341,7 +357,7 @@ fun SearchScreen(
                 }
 
                 if (hasSuggestions) {
-                    Column(modifier = Modifier.height(webHeight).testTag("web-section")) {
+                    Column(modifier = Modifier.height(animatedWebHeight).testTag("web-section")) {
                         SectionDivider(stringResource(R.string.web_search_title))
                         WebSuggestionsSection(
                             state = state,
@@ -365,7 +381,6 @@ fun SearchScreen(
             hostState = snackbarHostState,
             modifier = Modifier
                 .fillMaxWidth()
-                .then(if (snackbarHostState.currentSnackbarData != null) Modifier.navigationBarsPadding() else Modifier)
                 .padding(horizontal = 12.dp, vertical = 4.dp),
         )
     }

@@ -28,22 +28,42 @@ class SearchPreferencesStoreTest {
     }
 
     @Test
-    fun `приоритет_истории_включён_по_умолчанию`() {
+    fun `все_опции_включены_по_умолчанию`() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val preferences = context.getSharedPreferences(preferencesName, Context.MODE_PRIVATE)
 
-        assertTrue(SearchPreferencesStore(preferences).historyFavoritesFirst.value)
+        assertEquals(SearchOptions(), SearchPreferencesStore(preferences).options.value)
     }
 
     @Test
-    fun `выключенный_приоритет_переживает_пересоздание`() {
+    fun `изменённые_опции_переживают_пересоздание`() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val preferences = context.getSharedPreferences(preferencesName, Context.MODE_PRIVATE)
-        SearchPreferencesStore(preferences).setHistoryFavoritesFirst(false)
+        val changed = SearchOptions(
+            historyFavoritesFirst = false,
+            prefix = false,
+            contains = true,
+            phone = false,
+            yo = false,
+            translit = false,
+            extraFields = false,
+            webSuggestions = false,
+        )
+        SearchPreferencesStore(preferences).setOptions(changed)
 
         val reopened = SearchPreferencesStore(preferences)
-        assertFalse(reopened.historyFavoritesFirst.value)
-        reopened.setHistoryFavoritesFirst(true)
-        assertEquals(true, reopened.historyFavoritesFirst.value)
+        assertEquals(changed, reopened.options.value)
+        reopened.setOptions(SearchOptions())
+        assertEquals(SearchOptions(), reopened.options.value)
+    }
+
+    @Test
+    fun `старый_ключ_приоритета_истории_читается`() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val preferences = context.getSharedPreferences(preferencesName, Context.MODE_PRIVATE)
+        preferences.edit().putBoolean("history_favorites_first", false).commit()
+
+        assertFalse(SearchPreferencesStore(preferences).options.value.historyFavoritesFirst)
+        assertTrue(SearchPreferencesStore(preferences).options.value.prefix)
     }
 }

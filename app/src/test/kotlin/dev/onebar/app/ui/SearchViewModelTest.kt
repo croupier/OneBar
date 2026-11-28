@@ -1,6 +1,7 @@
 package dev.onebar.app.ui
 
 import dev.onebar.app.data.CommunicationKind
+import dev.onebar.app.data.SearchOptions
 import dev.onebar.app.testing.FakeApps
 import dev.onebar.app.testing.FakeContacts
 import dev.onebar.app.testing.FakeFavorites
@@ -39,12 +40,47 @@ class SearchViewModelTest {
         suggestions: FakeSuggestions = FakeSuggestions(),
         history: FakeHistory = FakeHistory(),
         favorites: FakeFavorites = FakeFavorites(),
-        historyFavoritesFirst: StateFlow<Boolean> = MutableStateFlow(true),
+        searchOptions: StateFlow<SearchOptions> = MutableStateFlow(SearchOptions()),
     ) = SearchViewModel(
         apps, contacts, suggestions, history, favorites,
         io = main.dispatcher,
-        historyFavoritesFirst = historyFavoritesFirst,
+        searchOptions = searchOptions,
     )
+
+    @Test
+    fun `изменение_опций_поиска_пересчитывает_результат`() = runTest(main.dispatcher) {
+        val options = MutableStateFlow(SearchOptions(contains = false))
+        val vm = viewModel(
+            apps = FakeApps(known = listOf(app("com.a", "Maps"), app("com.b", "appmaps"))),
+            searchOptions = options,
+        )
+        vm.onQueryChange("map")
+        advanceUntilIdle()
+        assertEquals(listOf("Maps"), vm.state.value.apps.map { it.label })
+
+        options.value = SearchOptions(contains = true)
+        advanceUntilIdle()
+        assertEquals(listOf("Maps", "appmaps"), vm.state.value.apps.map { it.label })
+    }
+
+    @Test
+    fun `короткий_запрос_и_opt_out_не_отправляются_в_веб_подсказки`() = runTest(main.dispatcher) {
+        val suggestions = FakeSuggestions(replies = mapOf("map" to listOf("maps")))
+        val options = MutableStateFlow(SearchOptions(webSuggestions = false))
+        val vm = viewModel(suggestions = suggestions, searchOptions = options)
+        vm.onQueryChange("map")
+        advanceUntilIdle()
+        assertTrue(suggestions.asked.isEmpty())
+
+        options.value = SearchOptions(webSuggestions = true)
+        vm.onQueryChange("ma")
+        advanceUntilIdle()
+        assertTrue(suggestions.asked.isEmpty())
+
+        vm.onQueryChange("map")
+        advanceUntilIdle()
+        assertEquals(listOf("map"), suggestions.asked)
+    }
 
     @Test
     fun `пустой запрос показывает недавние приложения в порядке журнала`() = runTest(main.dispatcher) {
@@ -146,7 +182,7 @@ class SearchViewModelTest {
             ),
             history = FakeHistory(recentApps = listOf("com.history")),
             favorites = FakeFavorites(apps = listOf("com.favorite")),
-            historyFavoritesFirst = MutableStateFlow(false),
+            searchOptions = MutableStateFlow(SearchOptions(historyFavoritesFirst = false)),
         )
         advanceUntilIdle()
 
