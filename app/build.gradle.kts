@@ -10,7 +10,7 @@ import java.util.Properties
 //   ломка публичного API → MAJOR; до фиксации API держим 0.x, 1.0.0 — первый релизный билд.
 //   Итерации одной задачи версию повторно не поднимают. versionCode — не semver: +1 на
 //   каждый раздаваемый билд.
-val appVersion = "0.15.1"
+val appVersion = "0.15.2"
 val appVersionCode = 33
 
 val keystorePropertiesFile = rootProject.file("keystore.properties")

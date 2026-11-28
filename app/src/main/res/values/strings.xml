@@ -86,7 +86,7 @@
     <string name="settings_info">About: %1$s</string>
     <string name="settings_search_favorites_info">Matching internal history comes first from newest to oldest, followed by favorites by launch frequency; duplicates are removed.</string>
     <string name="settings_search_prefix_info">Matches at the beginning of a name rank higher than matches inside a name.</string>
-    <string name="settings_search_contains_info">Also finds matches inside a name, not only at its beginning.</string>
+    <string name="settings_search_contains_info">Also finds matches inside a name, not only at its beginning. If both options are off, a match anywhere in the name is used.</string>
     <string name="settings_search_phone_info">Allows searching contacts by phone number.</string>
     <string name="settings_search_yo_info">Treats the Russian letters е and ё as equivalent during search.</string>
     <string name="settings_search_translit_info">Finds names typed in Latin letters using transliteration.</string>

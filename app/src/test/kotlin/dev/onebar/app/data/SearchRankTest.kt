@@ -1,6 +1,8 @@
 package dev.onebar.app.data
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -26,6 +28,34 @@ class SearchRankTest {
     @Test
     fun `пустой запрос не даёт вариантов`() {
         assertTrue(buildNeedles("   ").isEmpty())
+    }
+
+    @Test
+    fun `выключенные опции начала и вхождения не выключают поиск`() {
+        val options = SearchOptions(prefix = false, contains = false)
+        val needles = buildNeedles("маг", options)
+
+        assertNotNull(rankOf(needles, listOf(listOf("магнит")), false, options))
+        assertEquals(POSITION_INSIDE, rankOf(needles, listOf(listOf("магнит")), false, options)?.position)
+        assertNotNull(rankOf(needles, listOf(listOf("сумма магнитофона")), false, options))
+        assertNull(rankOf(needles, listOf(listOf("кастрюля")), false, options))
+    }
+
+    @Test
+    fun `только_совпадение_сначала_не_находит_середину`() {
+        val options = SearchOptions(prefix = true, contains = false)
+        val needles = buildNeedles("маг", options)
+
+        assertEquals(POSITION_START, rankOf(needles, listOf(listOf("магнит")), false, options)?.position)
+        assertNull(rankOf(needles, listOf(listOf("сумма магнитофона")), false, options))
+    }
+
+    @Test
+    fun `совпадение_сначала_идёт_перед_вхождением`() {
+        val needles = buildNeedles("маг")
+
+        assertEquals(POSITION_START, rankOf(needles, listOf(listOf("магнит")), false)?.position)
+        assertEquals(POSITION_INSIDE, rankOf(needles, listOf(listOf("сумма магнитофона")), false)?.position)
     }
 
     @Test

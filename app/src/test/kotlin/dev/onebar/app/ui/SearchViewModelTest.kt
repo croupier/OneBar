@@ -64,6 +64,23 @@ class SearchViewModelTest {
     }
 
     @Test
+    fun `выключенные_опции_начала_и_вхождения_не_обнуляют_результат`() = runTest(main.dispatcher) {
+        val vm = viewModel(
+            apps = FakeApps(known = listOf(app("com.a", "Maps"), app("com.b", "roadmaps"), app("com.c", "Notes"))),
+            contacts = FakeContacts(known = listOf(contact(1, "Магнитола"), contact(2, "Семён"))),
+            searchOptions = MutableStateFlow(SearchOptions(prefix = false, contains = false)),
+        )
+
+        vm.onQueryChange("map")
+        advanceUntilIdle()
+        assertEquals(listOf("Maps", "roadmaps"), vm.state.value.apps.map { it.label })
+
+        vm.onQueryChange("магн")
+        advanceUntilIdle()
+        assertEquals(listOf("Магнитола"), vm.state.value.contacts.map { it.entry.name })
+    }
+
+    @Test
     fun `короткий_запрос_и_opt_out_не_отправляются_в_веб_подсказки`() = runTest(main.dispatcher) {
         val suggestions = FakeSuggestions(replies = mapOf("map" to listOf("maps")))
         val options = MutableStateFlow(SearchOptions(webSuggestions = false))

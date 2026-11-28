@@ -86,7 +86,7 @@
     <string name="settings_info">Подробнее: %1$s</string>
     <string name="settings_search_favorites_info">Совпадения из внутренней истории идут первыми от новых к старым, затем избранное по частоте запуска; дубли не повторяются.</string>
     <string name="settings_search_prefix_info">Совпадения в начале названия стоят выше совпадений внутри названия.</string>
-    <string name="settings_search_contains_info">Находит совпадения внутри названия, а не только в его начале.</string>
+    <string name="settings_search_contains_info">Находит совпадения внутри названия, а не только в его начале. Если выключены обе опции, совпадение ищем в любом месте названия.</string>
     <string name="settings_search_phone_info">Позволяет искать контакты по номеру телефона.</string>
     <string name="settings_search_yo_info">Считает русские буквы е и ё равнозначными при поиске.</string>
     <string name="settings_search_translit_info">Находит названия, набранные латинскими буквами, с помощью транслитерации.</string>
@@ -103,7 +103,7 @@
     <string name="settings_defaults_message">Восстановлены значения по умолчанию</string>
     <string name="settings_no_changes_message">Нет изменений</string>
     <string name="settings_history">История поиска</string>
-    <string name="settings_history_save">Сохранять историю</string>
+    <string name="settings_history_save">Сохранять историю поиска</string>
     <string name="settings_history_clear">Очистить историю</string>
     <string name="settings_history_clear_title">Очистить историю поиска?</string>
     <string name="settings_history_clear_message">Все сохранённые поисковые запросы будут удалены.</string>

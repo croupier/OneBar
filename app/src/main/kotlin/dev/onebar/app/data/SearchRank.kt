@@ -1,4 +1,4 @@
-package dev.onebar.app.data
+﻿package dev.onebar.app.data
 
 /**
  * Варианты запроса и общий ключ ранжирования.
@@ -153,6 +153,8 @@ internal fun rankOf(
     options: SearchOptions = SearchOptions(),
 ): Rank? {
     var best: Rank? = null
+    // Выключенные обе опции не означают «ничего не искать»: совпадение тогда ищем в любом месте.
+    val matchInside = options.contains || !options.prefix
     for (groupIndex in fieldsByGroup.indices) {
         for (variant in needles.indices) {
             val needle = needles[variant].text
@@ -162,8 +164,8 @@ internal fun rankOf(
                 val contains = field.contains(needle)
                 val position = when {
                     starts && options.prefix -> POSITION_START
-                    contains && options.contains -> POSITION_INSIDE
-                    starts && options.contains -> POSITION_INSIDE
+                    contains && matchInside -> POSITION_INSIDE
+                    starts && matchInside -> POSITION_INSIDE
                     else -> continue
                 }
                 val candidate = Rank(if (favorite) 0 else 1, groupIndex, variant, position)
@@ -206,8 +208,8 @@ private fun casings(pattern: String): List<String> {
     return listOf(lower, lower.uppercase(), lower.replaceFirstChar { it.uppercaseChar() })
 }
 
-private const val POSITION_START = 0
-private const val POSITION_INSIDE = 1
+internal const val POSITION_START = 0
+internal const val POSITION_INSIDE = 1
 private const val MAX_NEEDLES = 24
 private const val MIN_PHONE_DIGITS = 4
 
