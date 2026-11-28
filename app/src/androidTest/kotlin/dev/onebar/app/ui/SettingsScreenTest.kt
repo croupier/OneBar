@@ -32,6 +32,7 @@ import androidx.test.espresso.Espresso.pressBack
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.onebar.app.R
+import dev.onebar.app.data.KeyboardStartup
 import dev.onebar.app.data.LanguageOption
 import dev.onebar.app.data.ThemeOption
 import dev.onebar.app.ui.theme.OneBarTheme
@@ -72,8 +73,10 @@ class SettingsScreenTest {
         initialLanguageSelection: Boolean = false,
         language: LanguageOption = LanguageOption.SYSTEM,
         theme: ThemeOption = ThemeOption.SYSTEM,
+        keyboardStartup: KeyboardStartup = KeyboardStartup.IMMEDIATE,
         onLanguageChange: (LanguageOption) -> Unit = {},
         onThemeChange: (ThemeOption) -> Unit = {},
+        onKeyboardStartupChange: (KeyboardStartup) -> Unit = {},
         saveHistory: Boolean = true,
         onSaveHistory: suspend (Boolean) -> Unit = {},
         onClearHistory: suspend () -> Unit = {},
@@ -82,6 +85,7 @@ class SettingsScreenTest {
         ui.setContent {
             var selectedLanguage by remember { mutableStateOf(language) }
             var selectedTheme by remember { mutableStateOf(theme) }
+            var selectedKeyboardStartup by remember { mutableStateOf(keyboardStartup) }
             OneBarTheme(theme = selectedTheme) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     SettingsScreen(
@@ -89,6 +93,7 @@ class SettingsScreenTest {
                         initialLanguageSelection = initialLanguageSelection,
                         language = selectedLanguage,
                         theme = selectedTheme,
+                        keyboardStartup = selectedKeyboardStartup,
                         onLanguageChange = {
                             selectedLanguage = it
                             onLanguageChange(it)
@@ -96,6 +101,10 @@ class SettingsScreenTest {
                         onThemeChange = {
                             selectedTheme = it
                             onThemeChange(it)
+                        },
+                        onKeyboardStartupChange = {
+                            selectedKeyboardStartup = it
+                            onKeyboardStartupChange(it)
                         },
                         saveHistory = saveHistory,
                         onSaveHistory = onSaveHistory,
@@ -114,6 +123,7 @@ class SettingsScreenTest {
         ui.onNodeWithText(str(R.string.settings_title)).assertExists()
         ui.onNodeWithText(str(R.string.settings_language)).assertExists()
         ui.onNodeWithText(str(R.string.settings_theme)).assertExists()
+        ui.onNodeWithText(str(R.string.settings_keyboard_startup)).assertExists()
         scrollTo(str(R.string.settings_search))
         ui.onNodeWithText(str(R.string.settings_search)).assertExists()
         scrollTo(str(R.string.settings_history))
@@ -169,6 +179,19 @@ class SettingsScreenTest {
         ui.onNodeWithText(str(R.string.settings_cancel)).assertDoesNotExist()
         ui.onNodeWithText(str(R.string.settings_theme_dark)).assertExists()
         assertEquals(ThemeOption.DARK, selected)
+    }
+
+    @Test
+    fun `выбор_режима_клавиатуры_обновляет_интерфейс_и_передаёт_выбор`() {
+        var selected: KeyboardStartup? = null
+        show(onKeyboardStartupChange = { selected = it })
+
+        ui.onNode(hasText(str(R.string.settings_keyboard_startup)) and hasClickAction()).performClick()
+        ui.onNodeWithText(str(R.string.settings_keyboard_startup_on_focus)).performClick()
+
+        ui.onNodeWithText(str(R.string.settings_cancel)).assertDoesNotExist()
+        ui.onNodeWithText(str(R.string.settings_keyboard_startup_on_focus)).assertExists()
+        assertEquals(KeyboardStartup.ON_FOCUS, selected)
     }
 
     @Test

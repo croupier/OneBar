@@ -2,6 +2,8 @@ package dev.onebar.app.ui
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -33,10 +35,12 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.unit.dp
+import androidx.test.espresso.Espresso.pressBack
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.onebar.app.R
 import dev.onebar.app.data.CommunicationKind
+import dev.onebar.app.data.KeyboardStartup
 import dev.onebar.app.testing.FakeApps
 import dev.onebar.app.testing.FakeContacts
 import dev.onebar.app.testing.FakeFavorites
@@ -110,12 +114,136 @@ class SearchScreenTest {
         suggestions: FakeSuggestions = FakeSuggestions(),
         history: FakeHistory = FakeHistory(),
         favorites: FakeFavorites = FakeFavorites(),
+        keyboardStartup: KeyboardStartup = KeyboardStartup.IMMEDIATE,
+        settingsReturnCount: MutableState<Int>? = null,
         onOpenSettings: () -> Unit = {},
+        onExit: () -> Unit = {},
     ) {
         val viewModel = SearchViewModel(apps, contacts, suggestions, history, favorites)
         ui.setContent {
-            SearchScreen(viewModel = viewModel, onOpenSettings = onOpenSettings, onCallEntry = {})
+            SearchScreen(
+                viewModel = viewModel,
+                keyboardStartup = keyboardStartup,
+                settingsReturnCount = settingsReturnCount?.value ?: 0,
+                onOpenSettings = onOpenSettings,
+                onExit = onExit,
+                onCallEntry = {},
+            )
         }
+    }
+
+    @Test
+    fun `режим_показа_сразу_передаёт_фокус_полю_при_старте`() {
+        show()
+
+        ui.onNode(hasSetTextAction()).assertIsFocused()
+    }
+
+    @Test
+    fun `режим_фокуса_не_захватывает_поле_до_тапа`() {
+        show(keyboardStartup = KeyboardStartup.ON_FOCUS)
+        val field = ui.onNode(hasSetTextAction())
+
+        field.assertIsNotFocused()
+        field.performClick()
+        field.assertIsFocused()
+    }
+
+    @Test
+    fun `возврат_из_настроек_в_режиме_сразу_возвращает_фокус`() {
+        val settingsReturns = mutableStateOf(0)
+        show(settingsReturnCount = settingsReturns)
+        val field = ui.onNode(hasSetTextAction())
+
+        field.performImeAction()
+        field.assertIsNotFocused()
+        ui.runOnUiThread { settingsReturns.value++ }
+
+        field.assertIsFocused()
+    }
+
+    @Test
+    fun `возврат_из_настроек_в_режиме_фокуса_не_захватывает_поле`() {
+        val settingsReturns = mutableStateOf(0)
+        show(keyboardStartup = KeyboardStartup.ON_FOCUS, settingsReturnCount = settingsReturns)
+        val field = ui.onNode(hasSetTextAction())
+
+        ui.runOnUiThread { settingsReturns.value++ }
+
+        field.assertIsNotFocused()
+    }
+
+    @Test
+    fun `выход_из_избранного_в_режиме_сразу_возвращает_фокус`() {
+        show(
+            apps = FakeApps(known = listOf(app("com.a", "Maps"))),
+            history = FakeHistory(recentApps = listOf("com.a")),
+            favorites = FakeFavorites(apps = listOf("com.a")),
+        )
+        ui.waitUntilAtLeastOneExists(hasText("Maps"), TIMEOUT)
+        val field = ui.onNode(hasSetTextAction())
+        val favoritesToggle = ui.onNodeWithContentDescription(str(R.string.favorites))
+
+        favoritesToggle.performClick()
+        field.assertIsNotFocused()
+        favoritesToggle.performClick()
+
+        field.assertIsFocused()
+    }
+
+    @Test
+    fun `выход_из_избранного_в_режиме_фокуса_оставляет_поле_без_фокуса`() {
+        show(
+            apps = FakeApps(known = listOf(app("com.a", "Maps"))),
+            history = FakeHistory(recentApps = listOf("com.a")),
+            favorites = FakeFavorites(apps = listOf("com.a")),
+            keyboardStartup = KeyboardStartup.ON_FOCUS,
+        )
+        ui.waitUntilAtLeastOneExists(hasText("Maps"), TIMEOUT)
+        val field = ui.onNode(hasSetTextAction())
+        val favoritesToggle = ui.onNodeWithContentDescription(str(R.string.favorites))
+
+        favoritesToggle.performClick()
+        favoritesToggle.performClick()
+
+        field.assertIsNotFocused()
+        field.performClick()
+        field.assertIsFocused()
+    }
+
+    @Test
+    fun `назад_из_избранного_возвращает_на_главный_экран`() {
+        var exited = false
+        show(
+            apps = FakeApps(known = listOf(app("com.a", "Maps"))),
+            history = FakeHistory(recentApps = listOf("com.a")),
+            favorites = FakeFavorites(apps = listOf("com.a")),
+            onExit = { exited = true },
+        )
+        ui.waitUntilAtLeastOneExists(hasText("Maps"), TIMEOUT)
+        val field = ui.onNode(hasSetTextAction())
+
+        ui.onNodeWithContentDescription(str(R.string.favorites)).performClick()
+        pressBack()
+
+        assertFalse(exited)
+        field.assertIsFocused()
+    }
+
+    @Test
+    fun `два_назад_подряд_завершают_приложение`() {
+        var exitCount = 0
+        show(onExit = { exitCount++ })
+        val field = ui.onNode(hasSetTextAction())
+        field.performImeAction()
+
+        pressBack()
+        ui.waitUntilAtLeastOneExists(hasText(str(R.string.double_back_exit)), TIMEOUT)
+        assertEquals(0, exitCount)
+
+        pressBack()
+
+        assertEquals(1, exitCount)
     }
 
     @Test

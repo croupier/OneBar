@@ -18,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.onebar.app.data.DefaultHistoryStore
+import dev.onebar.app.data.KeyboardStartup
 import dev.onebar.app.data.LanguageOption
 import dev.onebar.app.data.toLocales
 import dev.onebar.app.ui.SettingsScreen
@@ -35,6 +36,7 @@ class SettingsActivity : AppCompatActivity() {
             appearanceStore.requiresLanguageSelection
         setContent {
             val theme by appearanceStore.theme.collectAsStateWithLifecycle()
+            val keyboardStartup by appearanceStore.keyboardStartup.collectAsStateWithLifecycle()
             OneBarTheme(theme = theme) {
                 val saveHistory by history.saveHistory.collectAsStateWithLifecycle(initialValue = true)
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -43,6 +45,7 @@ class SettingsActivity : AppCompatActivity() {
                         initialLanguageSelection = firstRunLanguage,
                         language = currentLanguage(),
                         theme = theme,
+                        keyboardStartup = keyboardStartup,
                         onLanguageChange = {
                             appearanceStore.completeLanguageSelection()
                             AppCompatDelegate.setApplicationLocales(it.toLocales())
@@ -58,6 +61,7 @@ class SettingsActivity : AppCompatActivity() {
                             appearanceStore.setTheme(it)
                             AppCompatDelegate.setDefaultNightMode(it.toNightMode())
                         },
+                        onKeyboardStartupChange = appearanceStore::setKeyboardStartup,
                         saveHistory = saveHistory,
                         onSaveHistory = { enabled -> history.setSaveHistory(enabled) },
                         onClearHistory = { history.clearQueries() },

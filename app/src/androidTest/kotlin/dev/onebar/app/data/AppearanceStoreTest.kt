@@ -55,6 +55,21 @@ class AppearanceStoreTest {
     }
 
     @Test
+    fun `без_выбора_клавиатура_показывается_сразу`() {
+        assertEquals(KeyboardStartup.IMMEDIATE, AppearanceStore(preferences).keyboardStartup.value)
+    }
+
+    @Test
+    fun `выбранный_режим_клавиатуры_сохраняется_и_виден_новому_хранилищу`() {
+        val store = AppearanceStore(preferences)
+
+        store.setKeyboardStartup(KeyboardStartup.ON_FOCUS)
+
+        assertEquals(KeyboardStartup.ON_FOCUS, store.keyboardStartup.value)
+        assertEquals(KeyboardStartup.ON_FOCUS, AppearanceStore(preferences).keyboardStartup.value)
+    }
+
+    @Test
     fun `системный_русский_выбирается_без_обязательного_выбора`() {
         val store = AppearanceStore(preferences)
 

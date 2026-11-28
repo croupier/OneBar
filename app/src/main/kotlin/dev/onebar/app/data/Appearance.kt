@@ -20,6 +20,11 @@ enum class ThemeOption {
     DARK,
 }
 
+enum class KeyboardStartup {
+    IMMEDIATE,
+    ON_FOCUS,
+}
+
 class AppearanceStore internal constructor(private val preferences: SharedPreferences) {
 
     constructor(context: Context) : this(
@@ -28,6 +33,9 @@ class AppearanceStore internal constructor(private val preferences: SharedPrefer
 
     private val _theme = MutableStateFlow(readTheme())
     val theme: StateFlow<ThemeOption> = _theme.asStateFlow()
+
+    private val _keyboardStartup = MutableStateFlow(readKeyboardStartup())
+    val keyboardStartup: StateFlow<KeyboardStartup> = _keyboardStartup.asStateFlow()
 
     val requiresLanguageSelection: Boolean
         get() = readLanguageSetup() != LanguageSetup.COMPLETE
@@ -61,9 +69,19 @@ class AppearanceStore internal constructor(private val preferences: SharedPrefer
         _theme.value = theme
     }
 
+    fun setKeyboardStartup(option: KeyboardStartup) {
+        preferences.edit().putString(KEY_KEYBOARD_STARTUP, option.name).apply()
+        _keyboardStartup.value = option
+    }
+
     private fun readTheme(): ThemeOption {
         val stored = preferences.getString(KEY_THEME, null)
         return ThemeOption.entries.firstOrNull { it.name == stored } ?: ThemeOption.SYSTEM
+    }
+
+    private fun readKeyboardStartup(): KeyboardStartup {
+        val stored = preferences.getString(KEY_KEYBOARD_STARTUP, null)
+        return KeyboardStartup.entries.firstOrNull { it.name == stored } ?: KeyboardStartup.IMMEDIATE
     }
 
     private fun readLanguageSetup(): LanguageSetup {
@@ -84,6 +102,7 @@ class AppearanceStore internal constructor(private val preferences: SharedPrefer
     private companion object {
         const val PREFERENCES_NAME = "appearance"
         const val KEY_THEME = "theme"
+        const val KEY_KEYBOARD_STARTUP = "keyboard_startup"
         const val KEY_LANGUAGE_SETUP = "language_setup"
     }
 }

@@ -11,6 +11,7 @@
     <string name="clear">Clear</string>
     <string name="close">Close</string>
     <string name="favorites">Favorites</string>
+    <string name="double_back_exit">Press Back twice to exit</string>
 
     <!-- Sections -->
     <string name="caption_sms">SMS</string>
@@ -62,6 +63,10 @@
     <string name="settings_theme_system">System default</string>
     <string name="settings_theme_light">Light</string>
     <string name="settings_theme_dark">Dark</string>
+    <string name="settings_keyboard_startup">Keyboard at startup</string>
+    <string name="settings_keyboard">Keyboard</string>
+    <string name="settings_keyboard_startup_immediate">Show immediately</string>
+    <string name="settings_keyboard_startup_on_focus">When search is focused</string>
     <string name="settings_search">Search</string>
     <string name="settings_search_favorites">Favorites first</string>
     <string name="settings_search_prefix">Match at the start of a name</string>
